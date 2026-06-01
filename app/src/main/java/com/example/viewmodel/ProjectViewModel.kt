@@ -163,6 +163,107 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun addTitleBlock(text: String) {
+        val projectId = _selectedProjectId.value ?: return
+        val currentDraft = _draftBlocks.value.toMutableList()
+        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
+        val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
+        
+        val newBlock = ContentBlockEntity(
+            id = nextId,
+            projectId = projectId,
+            type = BlockType.TITLE,
+            content = text,
+            sequence = nextSequence
+        )
+        currentDraft.add(newBlock)
+        _draftBlocks.value = currentDraft
+    }
+
+    fun addFooterBlock(text: String) {
+        val projectId = _selectedProjectId.value ?: return
+        val currentDraft = _draftBlocks.value.toMutableList()
+        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
+        val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
+        
+        val newBlock = ContentBlockEntity(
+            id = nextId,
+            projectId = projectId,
+            type = BlockType.FOOTER,
+            content = text,
+            sequence = nextSequence
+        )
+        currentDraft.add(newBlock)
+        _draftBlocks.value = currentDraft
+    }
+
+    fun addTableBlock(initialRowsAndCols: String = "Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2") {
+        val projectId = _selectedProjectId.value ?: return
+        val currentDraft = _draftBlocks.value.toMutableList()
+        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
+        val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
+        
+        val newBlock = ContentBlockEntity(
+            id = nextId,
+            projectId = projectId,
+            type = BlockType.TABLE,
+            content = initialRowsAndCols,
+            sequence = nextSequence
+        )
+        currentDraft.add(newBlock)
+        _draftBlocks.value = currentDraft
+    }
+
+    fun addChecklistBlock(initialItems: String = "false|Elemento checklist 1\nfalse|Elemento checklist 2") {
+        val projectId = _selectedProjectId.value ?: return
+        val currentDraft = _draftBlocks.value.toMutableList()
+        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
+        val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
+        
+        val newBlock = ContentBlockEntity(
+            id = nextId,
+            projectId = projectId,
+            type = BlockType.CHECKLIST,
+            content = initialItems,
+            sequence = nextSequence
+        )
+        currentDraft.add(newBlock)
+        _draftBlocks.value = currentDraft
+    }
+
+    fun moveBlockUp(block: ContentBlockEntity) {
+        val currentDraft = _draftBlocks.value.toMutableList()
+        val index = currentDraft.indexOfFirst { it.id == block.id }
+        if (index > 0) {
+            val temp = currentDraft[index]
+            currentDraft[index] = currentDraft[index - 1]
+            currentDraft[index - 1] = temp
+            _draftBlocks.value = currentDraft
+        }
+    }
+
+    fun moveBlockDown(block: ContentBlockEntity) {
+        val currentDraft = _draftBlocks.value.toMutableList()
+        val index = currentDraft.indexOfFirst { it.id == block.id }
+        if (index >= 0 && index < currentDraft.size - 1) {
+            val temp = currentDraft[index]
+            currentDraft[index] = currentDraft[index + 1]
+            currentDraft[index + 1] = temp
+            _draftBlocks.value = currentDraft
+        }
+    }
+
+    fun toggleBlockWidth(block: ContentBlockEntity) {
+        val currentDraft = _draftBlocks.value.map {
+            if (it.id == block.id) {
+                it.copy(isHalfWidth = !it.isHalfWidth)
+            } else {
+                it
+            }
+        }
+        _draftBlocks.value = currentDraft
+    }
+
     fun updateBlockText(block: ContentBlockEntity, newText: String) {
         val currentDraft = _draftBlocks.value.map {
             if (it.id == block.id) {
@@ -201,7 +302,8 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                         projectId = updatedBlock.projectId,
                         type = updatedBlock.type,
                         content = updatedBlock.content,
-                        sequence = updatedBlock.sequence
+                        sequence = updatedBlock.sequence,
+                        isHalfWidth = updatedBlock.isHalfWidth
                     )
                     repository.insertBlock(newBlock)
                 } else {

@@ -16,11 +16,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -127,7 +126,14 @@ fun ProjectApp(
                             onDeleteBlock = { block -> viewModel.deleteBlock(block) },
                             onImageSelected = { stream -> viewModel.addImageBlock(stream) },
                             onAddSignatureClick = { showSignatureDialog = true },
-                            onExportPdf = { viewModel.exportPdf() }
+                            onExportPdf = { viewModel.exportPdf() },
+                            onMoveBlockUp = { block -> viewModel.moveBlockUp(block) },
+                            onMoveBlockDown = { block -> viewModel.moveBlockDown(block) },
+                            onToggleBlockWidth = { block -> viewModel.toggleBlockWidth(block) },
+                            onAddTitleBlock = { text -> viewModel.addTitleBlock(text) },
+                            onAddFooterBlock = { text -> viewModel.addFooterBlock(text) },
+                            onAddTableBlock = { text -> viewModel.addTableBlock(text) },
+                            onAddChecklistBlock = { text -> viewModel.addChecklistBlock(text) }
                         )
                     } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -436,7 +442,14 @@ fun ProjectEditorScreen(
     onDeleteBlock: (ContentBlockEntity) -> Unit,
     onImageSelected: (InputStream) -> Unit,
     onAddSignatureClick: () -> Unit,
-    onExportPdf: () -> Unit
+    onExportPdf: () -> Unit,
+    onMoveBlockUp: (ContentBlockEntity) -> Unit,
+    onMoveBlockDown: (ContentBlockEntity) -> Unit,
+    onToggleBlockWidth: (ContentBlockEntity) -> Unit,
+    onAddTitleBlock: (String) -> Unit,
+    onAddFooterBlock: (String) -> Unit,
+    onAddTableBlock: (String) -> Unit,
+    onAddChecklistBlock: (String) -> Unit
 ) {
     val context = LocalContext.current
     var textInputToInsert by remember { mutableStateOf("") }
@@ -715,52 +728,87 @@ fun ProjectEditorScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
+                        LazyRow(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            ToolbarButton(
-                                icon = Icons.Default.CameraAlt,
-                                label = "Cámara",
-                                onClick = {
-                                    val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
-                                        context,
-                                        android.Manifest.permission.CAMERA
-                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            item {
+                                ToolbarButton(
+                                    icon = Icons.Default.CameraAlt,
+                                    label = "Cámara",
+                                    onClick = {
+                                        val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                                            context,
+                                            android.Manifest.permission.CAMERA
+                                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
-                                    if (hasPermission) {
-                                        try {
-                                            val tempFile = File(context.cacheDir, "temp_camera_${System.currentTimeMillis()}.jpg")
-                                            if (tempFile.exists()) tempFile.delete()
-                                            tempFile.createNewFile()
-                                            
-                                            val authority = "${context.packageName}.fileprovider"
-                                            tempCameraUri = FileProvider.getUriForFile(context, authority, tempFile)
-                                            
-                                            tempCameraUri?.let { uri ->
-                                                takePictureLauncher.launch(uri)
+                                        if (hasPermission) {
+                                            try {
+                                                val tempFile = File(context.cacheDir, "temp_camera_${System.currentTimeMillis()}.jpg")
+                                                if (tempFile.exists()) tempFile.delete()
+                                                tempFile.createNewFile()
+                                                
+                                                val authority = "${context.packageName}.fileprovider"
+                                                tempCameraUri = FileProvider.getUriForFile(context, authority, tempFile)
+                                                
+                                                tempCameraUri?.let { uri ->
+                                                    takePictureLauncher.launch(uri)
+                                                }
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                                Toast.makeText(context, "No se pudo iniciar la cámara", Toast.LENGTH_SHORT).show()
                                             }
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                            Toast.makeText(context, "No se pudo iniciar la cámara", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                                         }
-                                    } else {
-                                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                                     }
-                                }
-                            )
-
-                            ToolbarButton(
-                                icon = Icons.Default.PhotoLibrary,
-                                label = "Galería",
-                                onClick = { pickImageLauncher.launch("image/*") }
-                            )
-
-                            ToolbarButton(
-                                icon = Icons.Default.Gesture,
-                                label = "Firma",
-                                onClick = onAddSignatureClick
-                            )
+                                )
+                            }
+                            item {
+                                ToolbarButton(
+                                    icon = Icons.Default.PhotoLibrary,
+                                    label = "Galería",
+                                    onClick = { pickImageLauncher.launch("image/*") }
+                                )
+                            }
+                            item {
+                                ToolbarButton(
+                                    icon = Icons.Default.Gesture,
+                                    label = "Firma",
+                                    onClick = onAddSignatureClick
+                                )
+                            }
+                            item {
+                                ToolbarButton(
+                                    icon = Icons.Default.Subject,
+                                    label = "Título",
+                                    onClick = { onAddTitleBlock("Nuevo Título de Sección") }
+                                )
+                            }
+                            item {
+                                ToolbarButton(
+                                    icon = Icons.Default.Info,
+                                    label = "Footer",
+                                    onClick = { onAddFooterBlock("Pie de página y observaciones finales.") }
+                                )
+                            }
+                            item {
+                                ToolbarButton(
+                                    icon = Icons.Default.List,
+                                    label = "Tabla",
+                                    onClick = { onAddTableBlock("Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2") }
+                                )
+                            }
+                            item {
+                                ToolbarButton(
+                                    icon = Icons.Default.CheckBox,
+                                    label = "Checklist",
+                                    onClick = { onAddChecklistBlock("false|Elemento checklist 1\nfalse|Elemento checklist 2") }
+                                )
+                            }
                         }
 
                         // Export Pill button exactly matching HTML visual contrast
@@ -771,19 +819,19 @@ fun ProjectEditorScreen(
                                 contentColor = Color.White
                             ),
                             shape = RoundedCornerShape(24.dp), // Pill
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-                            modifier = Modifier.padding(end = 4.dp)
+                            modifier = Modifier.widthIn(min = 90.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PictureAsPdf,
                                 contentDescription = "Exportar PDF",
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Exportar PDF",
-                                fontSize = 12.sp,
+                                text = "PDF",
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -800,6 +848,69 @@ fun ProjectEditorScreen(
         ) {
             val sortedBlocks = remember(blocks) {
                 blocks.sortedBy { it.sequence }
+            }
+
+            val groupedRows = remember(sortedBlocks) {
+                val result = mutableListOf<List<ContentBlockEntity>>()
+                var i = 0
+                while (i < sortedBlocks.size) {
+                    val block = sortedBlocks[i]
+                    if (block.isHalfWidth) {
+                        val nextBlock = sortedBlocks.getOrNull(i + 1)
+                        if (nextBlock != null && nextBlock.isHalfWidth) {
+                            result.add(listOf(block, nextBlock))
+                            i += 2
+                        } else {
+                            result.add(listOf(block))
+                            i += 1
+                        }
+                    } else {
+                        result.add(listOf(block))
+                        i += 1
+                    }
+                }
+                result
+            }
+
+            @Composable
+            fun RenderSingleBlock(block: ContentBlockEntity) {
+                BlockItemView(
+                    block = block,
+                    isEditing = focusedBlockIdToEdit == block.id,
+                    editValue = runningDraftEditVal,
+                    onEditValueChange = { runningDraftEditVal = it },
+                    onStartEdit = {
+                        focusedBlockIdToEdit = block.id
+                        if (block.type == BlockType.SIGNATURE) {
+                            val parts = block.content.split("|")
+                            val label = parts.getOrNull(1) ?: "Firma de Validación"
+                            val subtitle = parts.getOrNull(2) ?: "Firma Autorizada"
+                            runningDraftEditVal = "$label|$subtitle"
+                        } else {
+                            runningDraftEditVal = block.content
+                        }
+                    },
+                    onCancelEdit = { focusedBlockIdToEdit = null },
+                    onSaveEdit = {
+                        if (block.type == BlockType.SIGNATURE) {
+                            val parts = block.content.split("|")
+                            val filePath = parts[0]
+                            val editParts = runningDraftEditVal.split("|")
+                            val labelText = editParts.getOrNull(0)?.trim() ?: "Firma de Validación"
+                            val subtitleText = editParts.getOrNull(1)?.trim() ?: "Firma Autorizada"
+                            val newContent = "$filePath|$labelText|$subtitleText"
+                            onSaveTextBlockEdit(block, newContent)
+                        } else {
+                            onSaveTextBlockEdit(block, runningDraftEditVal.trim())
+                        }
+                        focusedBlockIdToEdit = null
+                    },
+                    onDelete = { onDeleteBlock(block) },
+                    onMoveUp = { onMoveBlockUp(block) },
+                    onMoveDown = { onMoveBlockDown(block) },
+                    onToggleWidth = { onToggleBlockWidth(block) },
+                    onSaveDirectEdit = { newContent -> onSaveTextBlockEdit(block, newContent) }
+                )
             }
 
             if (sortedBlocks.isEmpty()) {
@@ -837,40 +948,35 @@ fun ProjectEditorScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(sortedBlocks, key = { it.id }) { block ->
-                        BlockItemView(
-                            block = block,
-                            isEditing = focusedBlockIdToEdit == block.id,
-                            editValue = runningDraftEditVal,
-                            onEditValueChange = { runningDraftEditVal = it },
-                            onStartEdit = {
-                                focusedBlockIdToEdit = block.id
-                                if (block.type == BlockType.SIGNATURE) {
-                                    val parts = block.content.split("|")
-                                    val label = parts.getOrNull(1) ?: "Firma de Validación"
-                                    val subtitle = parts.getOrNull(2) ?: "Firma Autorizada"
-                                    runningDraftEditVal = "$label|$subtitle"
-                                } else {
-                                    runningDraftEditVal = block.content
+                    items(groupedRows, key = { row -> row.map { it.id }.joinToString("-") }) { rowBlocks ->
+                        if (rowBlocks.size == 2) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Box(modifier = Modifier.weight(1.5f)) {
+                                    RenderSingleBlock(rowBlocks[0])
                                 }
-                            },
-                            onCancelEdit = { focusedBlockIdToEdit = null },
-                            onSaveEdit = {
-                                if (block.type == BlockType.SIGNATURE) {
-                                    val parts = block.content.split("|")
-                                    val filePath = parts[0]
-                                    val editParts = runningDraftEditVal.split("|")
-                                    val labelText = editParts.getOrNull(0)?.trim() ?: "Firma de Validación"
-                                    val subtitleText = editParts.getOrNull(1)?.trim() ?: "Firma Autorizada"
-                                    val newContent = "$filePath|$labelText|$subtitleText"
-                                    onSaveTextBlockEdit(block, newContent)
-                                } else {
-                                    onSaveTextBlockEdit(block, runningDraftEditVal.trim())
+                                Box(modifier = Modifier.weight(1.5f)) {
+                                    RenderSingleBlock(rowBlocks[1])
                                 }
-                                focusedBlockIdToEdit = null
-                            },
-                            onDelete = { onDeleteBlock(block) }
-                        )
+                            }
+                        } else {
+                            val block = rowBlocks[0]
+                            if (block.isHalfWidth) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Box(modifier = Modifier.fillMaxWidth(0.5f).padding(end = 8.dp)) {
+                                        RenderSingleBlock(block)
+                                    }
+                                }
+                            } else {
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    RenderSingleBlock(block)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -921,7 +1027,11 @@ fun BlockItemView(
     onStartEdit: () -> Unit,
     onCancelEdit: () -> Unit,
     onSaveEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onToggleWidth: () -> Unit,
+    onSaveDirectEdit: ((String) -> Unit)? = null
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -939,7 +1049,7 @@ fun BlockItemView(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header: Block Type Badge & Delete button
+            // Header: Block Type Badge & Action Controls row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -953,6 +1063,10 @@ fun BlockItemView(
                         BlockType.TEXT -> Triple(Icons.Default.Notes, "OBSERVACIONES", MaterialTheme.colorScheme.primary)
                         BlockType.IMAGE -> Triple(Icons.Default.Photo, "REGISTRO FOTOGRÁFICO", MaterialTheme.colorScheme.secondary)
                         BlockType.SIGNATURE -> Triple(Icons.Default.Draw, "FIRMA DE VALIDACIÓN", MaterialTheme.colorScheme.tertiary)
+                        BlockType.TITLE -> Triple(Icons.Default.Subject, "TÍTULO DE SECCIÓN", MaterialTheme.colorScheme.primary)
+                        BlockType.FOOTER -> Triple(Icons.Default.Info, "NOTAS AL PIE", MaterialTheme.colorScheme.outline)
+                        BlockType.TABLE -> Triple(Icons.Default.List, "TABLA DE DATOS", MaterialTheme.colorScheme.primary)
+                        BlockType.CHECKLIST -> Triple(Icons.Default.CheckBox, "CHECKLIST / TAREAS", MaterialTheme.colorScheme.secondary)
                     }
                     Icon(
                         imageVector = icon,
@@ -969,16 +1083,54 @@ fun BlockItemView(
                     )
                 }
 
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(24.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Borrar bloque",
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    IconButton(
+                        onClick = onMoveUp,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Subir bloque",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onMoveDown,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Bajar bloque",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onToggleWidth,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (block.isHalfWidth) Icons.Default.SwapHoriz else Icons.Default.Fullscreen,
+                            contentDescription = "Alternar ancho",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Borrar bloque",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
@@ -1021,6 +1173,239 @@ fun BlockItemView(
                                 .clickable { onStartEdit() }
                                 .padding(vertical = 4.dp)
                         )
+                    }
+                }
+                BlockType.TITLE -> {
+                    if (isEditing) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                value = editValue,
+                                onValueChange = onEditValueChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Texto del Título") },
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = onCancelEdit) { Text("Cancelar") }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = onSaveEdit) { Text("Guardar") }
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = block.content,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onStartEdit() }
+                                .padding(vertical = 4.dp)
+                        )
+                    }
+                }
+                BlockType.FOOTER -> {
+                    if (isEditing) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                value = editValue,
+                                onValueChange = onEditValueChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Texto del Pie de Página") },
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = onCancelEdit) { Text("Cancelar") }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = onSaveEdit) { Text("Guardar") }
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = block.content,
+                            fontSize = 12.sp,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onStartEdit() }
+                                .padding(vertical = 4.dp)
+                        )
+                    }
+                }
+                BlockType.TABLE -> {
+                    if (isEditing) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Edita las celdas de la tabla (Soporta múltiples columnas y filas)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = editValue,
+                                onValueChange = onEditValueChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("Cabecera A|Cabecera B\nCelda 1|Celda 2") },
+                                label = { Text("Contenido de la Tabla (Separado por '|')") },
+                                maxLines = 8,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "💡 Formato: Escribe cada fila en una nueva línea y separa las columnas con el carácter '|'. Ejemplo:\nItem|Estado\nInspección|Completado",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.outline,
+                                lineHeight = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = onCancelEdit) { Text("Cancelar") }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = onSaveEdit) { Text("Guardar") }
+                            }
+                        }
+                    } else {
+                        val rows = block.content.split("\n").filter { it.isNotBlank() }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onStartEdit() }
+                        ) {
+                            rows.forEachIndexed { rowIndex, rowText ->
+                                val cells = rowText.split("|")
+                                val isHeader = rowIndex == 0
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(if (isHeader) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.White)
+                                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    cells.forEach { cellText ->
+                                        Text(
+                                            text = cellText.trim(),
+                                            fontWeight = if (isHeader) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.weight(1f),
+                                            color = if (isHeader) MaterialTheme.colorScheme.onPrimaryContainer else BrandGreySupport
+                                        )
+                                    }
+                                }
+                                if (rowIndex < rows.lastIndex) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+                BlockType.CHECKLIST -> {
+                    if (isEditing) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Edita el Checklist (Soporta múltiples tareas y estados)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = editValue,
+                                onValueChange = onEditValueChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("false|Nueva tarea\ntrue|Tarea completada") },
+                                label = { Text("Elementos del Checklist") },
+                                maxLines = 8,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "💡 Formato: Escribe 'true' para completado y 'false' para pendiente, seguido de '|' y la descripción del elemento.",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.outline,
+                                lineHeight = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = onCancelEdit) { Text("Cancelar") }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = onSaveEdit) { Text("Guardar") }
+                            }
+                        }
+                    } else {
+                        val items = block.content.split("\n").filter { it.isNotBlank() }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items.forEachIndexed { idx, itemLine ->
+                                val checked = itemLine.startsWith("true")
+                                val label = if (itemLine.contains("|")) itemLine.substringAfter("|") else itemLine
+                                
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            val updatedItems = items.toMutableList()
+                                            updatedItems[idx] = "${!checked}|$label"
+                                            val newContent = updatedItems.joinToString("\n")
+                                            onSaveDirectEdit?.invoke(newContent)
+                                        }
+                                        .padding(vertical = 6.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = if (checked) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                                        contentDescription = if (checked) "Completado" else "Pendiente",
+                                        tint = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = label,
+                                        fontSize = 14.sp,
+                                        color = if (checked) MaterialTheme.colorScheme.outline else BrandGreySupport,
+                                        style = if (checked) androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough) else androidx.compose.ui.text.TextStyle.Default,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(
+                                        onClick = onStartEdit,
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Editar texto checklist",
+                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 BlockType.IMAGE -> {

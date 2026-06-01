@@ -5,7 +5,7 @@ import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 enum class BlockType {
-    TEXT, IMAGE, SIGNATURE
+    TEXT, IMAGE, SIGNATURE, TITLE, FOOTER, TABLE, CHECKLIST
 }
 
 @Entity(tableName = "projects")
@@ -32,7 +32,8 @@ data class ContentBlockEntity(
     val projectId: Long,
     val type: BlockType,
     val content: String, // String value for Text OR local filepath for Image / Signature
-    val sequence: Int
+    val sequence: Int,
+    val isHalfWidth: Boolean = false
 )
 
 data class ProjectWithBlocks(
@@ -73,7 +74,7 @@ interface ProjectDao {
     suspend fun deleteBlocksForProject(projectId: Long)
 }
 
-@Database(entities = [ProjectEntity::class, ContentBlockEntity::class], version = 1, exportSchema = false)
+@Database(entities = [ProjectEntity::class, ContentBlockEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
 
@@ -87,7 +88,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "project_manager_db"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }

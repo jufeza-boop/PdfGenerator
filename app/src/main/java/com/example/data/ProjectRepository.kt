@@ -226,123 +226,262 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
             currentY = 60f
         }
 
-        // Output blocks sequentially
-        val sortedBlocks = project.blocks.sortedBy { it.sequence }
-        for (block in sortedBlocks) {
-            when (block.type) {
+        // Output blocks sequentially using elegant parallel row calculations
+        val mainTitlePaint = Paint().apply {
+            color = Color.rgb(31, 41, 55)
+            textSize = 16f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+
+        val footerTextPaint = Paint().apply {
+            color = Color.rgb(107, 114, 128)
+            textSize = 9f
+            isAntiAlias = true
+        }
+
+        val tableHeadPaint = Paint().apply {
+            color = Color.rgb(17, 24, 39)
+            textSize = 11f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+
+        val tableCellPaint = Paint().apply {
+            color = Color.rgb(55, 65, 81)
+            textSize = 10f
+            isAntiAlias = true
+        }
+
+        val tableBgPaint = Paint().apply {
+            color = Color.rgb(243, 244, 246)
+            style = Paint.Style.FILL
+        }
+
+        val checkboxPaint = Paint().apply {
+            color = Color.rgb(37, 99, 235)
+            strokeWidth = 1.5f
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
+
+        val checklistTextPaint = Paint().apply {
+            color = Color.rgb(31, 41, 55)
+            textSize = 11f
+            isAntiAlias = true
+        }
+
+        fun getRequiredHeight(currBlock: ContentBlockEntity, colWidth: Float): Float {
+            return when (currBlock.type) {
+                BlockType.TITLE -> 30f
+                BlockType.FOOTER -> 20f
                 BlockType.TEXT -> {
-                    // Word-wrap text to fit width
-                    val lines = wrapText(block.content, textPaint, usableWidth)
-                    for (line in lines) {
-                        if (currentY + 20f > pageHeight - 60f) {
-                            startNewPage()
-                        }
-                        canvas.drawText(line, marginX, currentY, textPaint)
-                        currentY += 18f
-                    }
-                    currentY += 12f
+                    val lines = wrapText(currBlock.content, textPaint, colWidth)
+                    lines.size * 18f + 12f
                 }
                 BlockType.IMAGE -> {
-                    val file = File(block.content)
+                    val file = File(currBlock.content)
+                    if (file.exists()) {
+                        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeFile(file.absolutePath, options)
+                        val originalWidth = options.outWidth.toFloat()
+                        val originalHeight = options.outHeight.toFloat()
+                        if (originalWidth > 0) {
+                            val scaleRatio = colWidth / originalWidth
+                            originalHeight * scaleRatio + 20f
+                        } else 40f
+                    } else 40f
+                }
+                BlockType.SIGNATURE -> {
+                    val file = File(currBlock.content.split("|")[0])
+                    if (file.exists()) {
+                        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeFile(file.absolutePath, options)
+                        val originalWidth = options.outWidth.toFloat()
+                        val originalHeight = options.outHeight.toFloat()
+                        if (originalWidth > 0) {
+                            val targetWidth = minOf(colWidth, 180f)
+                            val scaleRatio = targetWidth / originalWidth
+                            originalHeight * scaleRatio + 55f
+                        } else 80f
+                    } else 40f
+                }
+                BlockType.TABLE -> {
+                    val rows = currBlock.content.split("\n").filter { it.isNotBlank() }
+                    rows.size * 22f + 15f
+                }
+                BlockType.CHECKLIST -> {
+                    val items = currBlock.content.split("\n").filter { it.isNotBlank() }
+                    items.size * 20f + 15f
+                }
+            }
+        }
+
+        fun drawBlock(currBlock: ContentBlockEntity, x: Float, colWidth: Float, startY: Float): Float {
+            var y = startY
+            when (currBlock.type) {
+                BlockType.TITLE -> {
+                    canvas.drawText(currBlock.content, x, y + 15f, mainTitlePaint)
+                    y += 25f
+                }
+                BlockType.FOOTER -> {
+                    canvas.drawText(currBlock.content, x, y + 10f, footerTextPaint)
+                    y += 18f
+                }
+                BlockType.TEXT -> {
+                    val lines = wrapText(currBlock.content, textPaint, colWidth)
+                    for (line in lines) {
+                        canvas.drawText(line, x, y + 12f, textPaint)
+                        y += 18f
+                    }
+                    y += 10f
+                }
+                BlockType.IMAGE -> {
+                    val file = File(currBlock.content)
                     if (file.exists()) {
                         val originalBitmap = BitmapFactory.decodeFile(file.absolutePath)
                         if (originalBitmap != null) {
-                            // Scale down proportionally
-                            val scaleRatio = usableWidth / originalBitmap.width.toFloat()
+                            val scaleRatio = colWidth / originalBitmap.width.toFloat()
                             val targetHeight = (originalBitmap.height * scaleRatio).toInt()
-                            
-                            // Check vertical size safety
-                            if (currentY + targetHeight + 10f > pageHeight - 60f) {
-                                startNewPage()
-                            }
-
-                            val scaledBitmap = Bitmap.createScaledBitmap(
-                                originalBitmap,
-                                usableWidth.toInt(),
-                                targetHeight,
-                                true
-                            )
-                            canvas.drawBitmap(scaledBitmap, marginX, currentY, null)
-                            
-                            // Draw light grey border frame
-                            canvas.drawRect(
-                                marginX,
-                                currentY,
-                                marginX + usableWidth,
-                                currentY + targetHeight,
-                                borderPaint
-                            )
-                            
-                            currentY += targetHeight + 16f
+                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, colWidth.toInt(), targetHeight, true)
+                            canvas.drawBitmap(scaledBitmap, x, y, null)
+                            canvas.drawRect(x, y, x + colWidth, y + targetHeight, borderPaint)
+                            y += targetHeight + 16f
                         }
                     }
                 }
                 BlockType.SIGNATURE -> {
-                    val parts = block.content.split("|")
+                    val parts = currBlock.content.split("|")
                     val filePath = parts[0]
                     val signatureLabel = parts.getOrNull(1)?.ifBlank { null } ?: "Firma de Validación"
                     val signatureSubtitle = parts.getOrNull(2)?.ifBlank { null } ?: "Firma Autorizada"
-
                     val file = File(filePath)
                     if (file.exists()) {
                         val originalBitmap = BitmapFactory.decodeFile(file.absolutePath)
                         if (originalBitmap != null) {
-                            val targetWidth = 180f
+                            val targetWidth = minOf(colWidth, 180f)
                             val scaleRatio = targetWidth / originalBitmap.width.toFloat()
                             val targetHeight = (originalBitmap.height * scaleRatio).toInt()
-
-                            // Check vertical size safety (needed height: frame, spacing, labels)
-                            val totalRequiredHeight = targetHeight + 50f
-                            if (currentY + totalRequiredHeight > pageHeight - 60f) {
-                                startNewPage()
-                            }
-
-                            val scaledBitmap = Bitmap.createScaledBitmap(
-                                originalBitmap,
-                                targetWidth.toInt(),
-                                targetHeight,
-                                true
-                            )
+                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, targetWidth.toInt(), targetHeight, true)
                             
-                            // Draw background signature frame
                             val bgPaint = Paint().apply {
                                 color = Color.rgb(249, 250, 251)
                                 style = Paint.Style.FILL
                             }
-                            canvas.drawRect(
-                                marginX,
-                                currentY,
-                                marginX + targetWidth,
-                                currentY + targetHeight,
-                                bgPaint
-                            )
-                            canvas.drawRect(
-                                marginX,
-                                currentY,
-                                marginX + targetWidth,
-                                currentY + targetHeight,
-                                borderPaint
-                            )
-
-                            canvas.drawBitmap(scaledBitmap, marginX, currentY, null)
-                            currentY += targetHeight + 12f
-
-                            // Draw customized main label
+                            canvas.drawRect(x, y, x + targetWidth, y + targetHeight, bgPaint)
+                            canvas.drawRect(x, y, x + targetWidth, y + targetHeight, borderPaint)
+                            canvas.drawBitmap(scaledBitmap, x, y, null)
+                            
+                            val textY = y + targetHeight + 14f
                             val boldLabelPaint = Paint().apply {
                                 color = Color.rgb(31, 41, 55)
                                 textSize = 11f
                                 isFakeBoldText = true
                                 isAntiAlias = true
                             }
-                            canvas.drawText(signatureLabel, marginX, currentY, boldLabelPaint)
-                            currentY += 14f
-
-                            // Draw customized subtitle
-                            canvas.drawText(signatureSubtitle, marginX, currentY, labelPaint)
-                            currentY += 28f
+                            canvas.drawText(signatureLabel, x, textY, boldLabelPaint)
+                            canvas.drawText(signatureSubtitle, x, textY + 14f, labelPaint)
+                            y += targetHeight + 35f
                         }
                     }
                 }
+                BlockType.TABLE -> {
+                    val rows = currBlock.content.split("\n").filter { it.isNotBlank() }
+                    if (rows.isNotEmpty()) {
+                        val headerCells = rows[0].split("|")
+                        val numCols = headerCells.count()
+                        val colW = colWidth / numCols.toFloat()
+                        
+                        var cellY = y
+                        rows.forEachIndexed { rowIndex, rowText ->
+                            val cells = rowText.split("|")
+                            val isHeader = rowIndex == 0
+                            
+                            if (isHeader) {
+                                canvas.drawRect(x, cellY, x + colWidth, cellY + 22f, tableBgPaint)
+                            }
+                            canvas.drawRect(x, cellY, x + colWidth, cellY + 22f, borderPaint)
+                            
+                            cells.forEachIndexed { colIndex, cellText ->
+                                if (colIndex < numCols) {
+                                    val cellX = x + colIndex * colW
+                                    if (colIndex > 0) {
+                                        canvas.drawLine(cellX, cellY, cellX, cellY + 22f, borderPaint)
+                                    }
+                                    val tPaint = if (isHeader) tableHeadPaint else tableCellPaint
+                                    canvas.drawText(cellText.trim(), cellX + 6f, cellY + 15f, tPaint)
+                                }
+                            }
+                            cellY += 22f
+                        }
+                        y = cellY + 10f
+                    }
+                }
+                BlockType.CHECKLIST -> {
+                    val items = currBlock.content.split("\n").filter { it.isNotBlank() }
+                    items.forEach { itemLine ->
+                        val checked = itemLine.startsWith("true")
+                        val label = if (itemLine.contains("|")) itemLine.substringAfter("|") else itemLine
+                        
+                        val boxSize = 10f
+                        val boxX = x + 4f
+                        val boxY = y + 4f
+                        
+                        canvas.drawRect(boxX, boxY, boxX + boxSize, boxY + boxSize, checkboxPaint)
+                        if (checked) {
+                            val insidePaint = Paint().apply {
+                                color = Color.rgb(37, 99, 235)
+                                style = Paint.Style.FILL
+                                isAntiAlias = true
+                            }
+                            canvas.drawRect(boxX + 2f, boxY + 2f, boxX + boxSize - 2f, boxY + boxSize - 2f, insidePaint)
+                        }
+                        
+                        canvas.drawText(label, x + 20f, y + 13f, checklistTextPaint)
+                        y += 20f
+                    }
+                    y += 10f
+                }
+            }
+            return y
+        }
+
+        val sortedBlocks = project.blocks.sortedBy { it.sequence }
+        var bIndex = 0
+        while (bIndex < sortedBlocks.size) {
+            val block = sortedBlocks[bIndex]
+            if (block.isHalfWidth) {
+                val nextBlock = sortedBlocks.getOrNull(bIndex + 1)
+                if (nextBlock != null && nextBlock.isHalfWidth) {
+                    val colWidth = usableWidth / 2f - 6f
+                    val h1 = getRequiredHeight(block, colWidth)
+                    val h2 = getRequiredHeight(nextBlock, colWidth)
+                    val maxH = maxOf(h1, h2)
+                    
+                    if (currentY + maxH > pageHeight - 60f) {
+                        startNewPage()
+                    }
+                    
+                    val finishY1 = drawBlock(block, marginX, colWidth, currentY)
+                    val finishY2 = drawBlock(nextBlock, marginX + colWidth + 12f, colWidth, currentY)
+                    currentY = maxOf(finishY1, finishY2)
+                    bIndex += 2
+                } else {
+                    val colWidth = usableWidth / 2f - 6f
+                    val h = getRequiredHeight(block, colWidth)
+                    if (currentY + h > pageHeight - 60f) {
+                        startNewPage()
+                    }
+                    currentY = drawBlock(block, marginX, colWidth, currentY)
+                    bIndex += 1
+                }
+            } else {
+                val h = getRequiredHeight(block, usableWidth)
+                if (currentY + h > pageHeight - 60f) {
+                    startNewPage()
+                }
+                currentY = drawBlock(block, marginX, usableWidth, currentY)
+                bIndex += 1
             }
         }
 
