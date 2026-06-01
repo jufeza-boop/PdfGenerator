@@ -466,6 +466,30 @@ fun ProjectEditorScreen(
         }
     }
 
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try {
+                val tempFile = File(context.cacheDir, "temp_camera_${System.currentTimeMillis()}.jpg")
+                if (tempFile.exists()) tempFile.delete()
+                tempFile.createNewFile()
+                
+                val authority = "${context.packageName}.fileprovider"
+                tempCameraUri = FileProvider.getUriForFile(context, authority, tempFile)
+                
+                tempCameraUri?.let { uri ->
+                    takePictureLauncher.launch(uri)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(context, "No se pudo iniciar la cámara", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Permiso de cámara es necesario para tomar fotos", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Scaffold(
         topBar = {
             Column {
@@ -587,20 +611,29 @@ fun ProjectEditorScreen(
                                 icon = Icons.Default.CameraAlt,
                                 label = "Cámara",
                                 onClick = {
-                                    try {
-                                        val tempFile = File(context.cacheDir, "temp_camera_${System.currentTimeMillis()}.jpg")
-                                        if (tempFile.exists()) tempFile.delete()
-                                        tempFile.createNewFile()
-                                        
-                                        val authority = "${context.packageName}.fileprovider"
-                                        tempCameraUri = FileProvider.getUriForFile(context, authority, tempFile)
-                                        
-                                        tempCameraUri?.let { uri ->
-                                            takePictureLauncher.launch(uri)
+                                    val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context,
+                                        android.Manifest.permission.CAMERA
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+                                    if (hasPermission) {
+                                        try {
+                                            val tempFile = File(context.cacheDir, "temp_camera_${System.currentTimeMillis()}.jpg")
+                                            if (tempFile.exists()) tempFile.delete()
+                                            tempFile.createNewFile()
+                                            
+                                            val authority = "${context.packageName}.fileprovider"
+                                            tempCameraUri = FileProvider.getUriForFile(context, authority, tempFile)
+                                            
+                                            tempCameraUri?.let { uri ->
+                                                takePictureLauncher.launch(uri)
+                                            }
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                            Toast.makeText(context, "No se pudo iniciar la cámara", Toast.LENGTH_SHORT).show()
                                         }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                        Toast.makeText(context, "No se pudo iniciar la cámara", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                                     }
                                 }
                             )
