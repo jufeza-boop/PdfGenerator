@@ -1245,29 +1245,36 @@ fun PdfPreviewScreen(
 
     // Render pages dynamically utilizing background thread dispatcher as recommended
     LaunchedEffect(pdfFile) {
-        try {
-            val renderPages = mutableListOf<Bitmap>()
-            val pfd = android.os.ParcelFileDescriptor.open(pdfFile, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
-            val renderer = android.graphics.pdf.PdfRenderer(pfd)
-            
-            for (i in 0 until renderer.pageCount) {
-                val page = renderer.openPage(i)
-                // Width = 800px, responsive aspect height matching A4 layout
-                val width = 800
-                val height = (width * 1.414).toInt()
-                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                bitmap.eraseColor(android.graphics.Color.WHITE)
+        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val renderPages = mutableListOf<Bitmap>()
+                val pfd = android.os.ParcelFileDescriptor.open(pdfFile, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
+                val renderer = android.graphics.pdf.PdfRenderer(pfd)
                 
-                page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                renderPages.add(bitmap)
-                page.close()
+                for (i in 0 until renderer.pageCount) {
+                    val page = renderer.openPage(i)
+                    // Width = 800px, responsive aspect height matching A4 layout
+                    val width = 800
+                    val height = (width * 1.414).toInt()
+                    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                    bitmap.eraseColor(android.graphics.Color.WHITE)
+                    
+                    page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    renderPages.add(bitmap)
+                    page.close()
+                }
+                renderer.close()
+                pfd.close()
+                Result.success(renderPages)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Result.failure(e)
             }
-            renderer.close()
-            pfd.close()
-            pages = renderPages
-        } catch (e: Exception) {
-            e.printStackTrace()
-            renderError = "Error al abrir o renderizar PDF: \n${e.localizedMessage}"
+        }
+        result.onSuccess {
+            pages = it
+        }.onFailure {
+            renderError = "Error al abrir o renderizar PDF: \n${it.localizedMessage}"
         }
     }
 
