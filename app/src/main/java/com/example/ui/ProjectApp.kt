@@ -137,9 +137,7 @@ fun ProjectApp(
                     generatedPdfFile?.let { pdfFile ->
                         PdfPreviewScreen(
                             pdfFile = pdfFile,
-                            onBack = { viewModel.clearPdfPreviewState() },
-                            onUploadMock = { viewModel.uploadPdfToCloud() },
-                            isUploading = isUploadingCloud
+                            onBack = { viewModel.clearPdfPreviewState() }
                         )
                     }
                 }
@@ -1467,13 +1465,30 @@ fun SignatureDialog(
 @Composable
 fun PdfPreviewScreen(
     pdfFile: File,
-    onBack: () -> Unit,
-    onUploadMock: () -> Unit,
-    isUploading: Boolean
+    onBack: () -> Unit
 ) {
     val context = LocalContext.current
     var pages by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
     var renderError by remember { mutableStateOf<String?>(null) }
+
+    // SAF Create Document launcher to let the user choose standard directories (Downloads, Documents, Drive, etc.)
+    val savePdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    pdfFile.inputStream().use { inputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                Toast.makeText(context, "Reporte PDF guardado con éxito", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(context, "No se pudo guardar: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     // Render pages dynamically utilizing background thread dispatcher as recommended
     LaunchedEffect(pdfFile) {
@@ -1553,10 +1568,6 @@ fun PdfPreviewScreen(
                 .padding(padding)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ) {
-            if (isUploading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-
             if (renderError != null) {
                 Box(
                     modifier = Modifier
@@ -1609,13 +1620,13 @@ fun PdfPreviewScreen(
                                 contentDescription = "Página reporte PDF",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
-                            )
+                              )
                         }
                     }
                 }
             }
 
-            // Sync action panel
+            // Save action panel
             Surface(
                 shadowElevation = 8.dp,
                 tonalElevation = 6.dp,
@@ -1634,25 +1645,18 @@ fun PdfPreviewScreen(
                         .padding(16.dp)
                 ) {
                     Button(
-                        onClick = onUploadMock,
-                        enabled = !isUploading && pages.isNotEmpty(),
+                        onClick = { 
+                            savePdfLauncher.launch("reporte_proyecto_${pdfFile.nameWithoutExtension}.pdf")
+                        },
+                        enabled = pages.isNotEmpty(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        if (isUploading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("Subiendo reporte...")
-                        } else {
-                            Icon(Icons.Default.CloudUpload, contentDescription = null)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("Subir a la Nube (Mock)")
-                        }
+                        Icon(Icons.Default.Save, contentDescription = null)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Guardar PDF en Dispositivo")
                     }
                 }
             }
