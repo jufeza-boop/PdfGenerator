@@ -1,0 +1,96 @@
+package com.example.data
+
+import android.content.Context
+import androidx.room.*
+import kotlinx.coroutines.flow.Flow
+
+enum class BlockType {
+    TEXT, IMAGE, SIGNATURE
+}
+
+@Entity(tableName = "projects")
+data class ProjectEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "content_blocks",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProjectEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["projectId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["projectId"])]
+)
+data class ContentBlockEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val projectId: Long,
+    val type: BlockType,
+    val content: String, // String value for Text OR local filepath for Image / Signature
+    val sequence: Int
+)
+
+data class ProjectWithBlocks(
+    @Embedded val project: ProjectEntity,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "projectId"
+    )
+    val blocks: List<ContentBlockEntity>
+)
+
+@Dao
+interface ProjectDao {
+    @Transaction
+    @Query("SELECT * FROM projects ORDER BY createdAt DESC")
+    fun getAllProjectsFlow(): Flow<List<ProjectWithBlocks>>
+
+    @Transaction
+    @Query("SELECT * FROM projects WHERE id = :id")
+    fun getProjectByIdFlow(id: Long): Flow<ProjectWithBlocks?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProject(project: ProjectEntity): Long
+
+    @Delete
+    suspend fun deleteProject(project: ProjectEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBlock(block: ContentBlockEntity): Long
+
+    @Update
+    suspend fun updateBlock(block: ContentBlockEntity)
+
+    @Delete
+    suspend fun deleteBlock(block: ContentBlockEntity)
+
+    @Query("DELETE FROM content_blocks WHERE projectId = :projectId")
+    suspend fun deleteBlocksForProject(projectId: Long)
+}
+
+@Database(entities = [ProjectEntity::class, ContentBlockEntity::class], version = 1, exportSchema = false)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun projectDao(): ProjectDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "project_manager_db"
+                ).build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
+}

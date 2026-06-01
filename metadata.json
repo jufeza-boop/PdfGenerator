@@ -1,0 +1,6 @@
+{
+  "name": "Project PDF Manager",
+  "description": "A local-first project management app to capture notes, photos, signatures, and generate PDF exports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
