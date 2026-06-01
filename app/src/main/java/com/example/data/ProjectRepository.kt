@@ -343,7 +343,9 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                         if (originalBitmap != null) {
                             val scaleRatio = colWidth / originalBitmap.width.toFloat()
                             val targetHeight = (originalBitmap.height * scaleRatio).toInt()
-                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, colWidth.toInt(), targetHeight, true)
+                            val scaledWidth = maxOf(1, colWidth.toInt())
+                            val scaledHeight = maxOf(1, targetHeight)
+                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, scaledWidth, scaledHeight, true)
                             canvas.drawBitmap(scaledBitmap, x, y, null)
                             canvas.drawRect(x, y, x + colWidth, y + targetHeight, borderPaint)
                             y += targetHeight + 16f
@@ -362,7 +364,9 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                             val targetWidth = minOf(colWidth, 180f)
                             val scaleRatio = targetWidth / originalBitmap.width.toFloat()
                             val targetHeight = (originalBitmap.height * scaleRatio).toInt()
-                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, targetWidth.toInt(), targetHeight, true)
+                            val scaledWidth = maxOf(1, targetWidth.toInt())
+                            val scaledHeight = maxOf(1, targetHeight)
+                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, scaledWidth, scaledHeight, true)
                             
                             val bgPaint = Paint().apply {
                                 color = Color.rgb(249, 250, 251)
