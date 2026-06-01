@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -846,11 +847,28 @@ fun ProjectEditorScreen(
                             onEditValueChange = { runningDraftEditVal = it },
                             onStartEdit = {
                                 focusedBlockIdToEdit = block.id
-                                runningDraftEditVal = block.content
+                                if (block.type == BlockType.SIGNATURE) {
+                                    val parts = block.content.split("|")
+                                    val label = parts.getOrNull(1) ?: "Firma de Validación"
+                                    val subtitle = parts.getOrNull(2) ?: "Firma Autorizada"
+                                    runningDraftEditVal = "$label|$subtitle"
+                                } else {
+                                    runningDraftEditVal = block.content
+                                }
                             },
                             onCancelEdit = { focusedBlockIdToEdit = null },
                             onSaveEdit = {
-                                onSaveTextBlockEdit(block, runningDraftEditVal.trim())
+                                if (block.type == BlockType.SIGNATURE) {
+                                    val parts = block.content.split("|")
+                                    val filePath = parts[0]
+                                    val editParts = runningDraftEditVal.split("|")
+                                    val labelText = editParts.getOrNull(0)?.trim() ?: "Firma de Validación"
+                                    val subtitleText = editParts.getOrNull(1)?.trim() ?: "Firma Autorizada"
+                                    val newContent = "$filePath|$labelText|$subtitleText"
+                                    onSaveTextBlockEdit(block, newContent)
+                                } else {
+                                    onSaveTextBlockEdit(block, runningDraftEditVal.trim())
+                                }
                                 focusedBlockIdToEdit = null
                             },
                             onDelete = { onDeleteBlock(block) }
@@ -1061,7 +1079,11 @@ fun BlockItemView(
                     }
                 }
                 BlockType.SIGNATURE -> {
-                    val file = File(block.content)
+                    val parts = block.content.split("|")
+                    val filePath = parts[0]
+                    val signatureLabel = parts.getOrNull(1)?.ifBlank { null } ?: "Firma de Validación"
+                    val signatureSubtitle = parts.getOrNull(2)?.ifBlank { null } ?: "Firma Autorizada"
+                    val file = File(filePath)
                     if (file.exists()) {
                         Column(
                             modifier = Modifier.fillMaxWidth()
@@ -1083,22 +1105,84 @@ fun BlockItemView(
                                 )
                             }
                             Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Firma de Validación",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = "Firma Autorizada",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
+                            
+                            if (isEditing) {
+                                val editParts = editValue.split("|")
+                                var labelText by remember(editValue) { mutableStateOf(editParts.getOrNull(0) ?: "Firma de Validación") }
+                                var subtitleText by remember(editValue) { mutableStateOf(editParts.getOrNull(1) ?: "Firma Autorizada") }
+                                
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = labelText,
+                                        onValueChange = {
+                                            labelText = it
+                                            onEditValueChange("$labelText|$subtitleText")
+                                        },
+                                        placeholder = { Text("Firma de Validación") },
+                                        label = { Text("Etiqueta principal", fontSize = 11.sp) },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    OutlinedTextField(
+                                        value = subtitleText,
+                                        onValueChange = {
+                                            subtitleText = it
+                                            onEditValueChange("$labelText|$subtitleText")
+                                        },
+                                        placeholder = { Text("Firma Autorizada") },
+                                        label = { Text("Subtítulo aclaratorio", fontSize = 11.sp) },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        TextButton(onClick = onCancelEdit) {
+                                            Text("Cancelar")
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Button(onClick = onSaveEdit) {
+                                            Text("Guardar")
+                                        }
+                                    }
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onStartEdit() }
+                                        .padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = signatureLabel,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = signatureSubtitle,
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Editar etiquetas de firma",
+                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -1191,6 +1275,8 @@ fun SignatureDialog(
 ) {
     val strokes = remember { mutableStateListOf<SketchStroke>() }
     val currentStrokePoints = remember { mutableStateListOf<Offset>() }
+    var canvasWidth by remember { mutableStateOf(0) }
+    var canvasHeight by remember { mutableStateOf(0) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -1235,6 +1321,10 @@ fun SignatureDialog(
                         .height(240.dp)
                         .background(Color.White, RoundedCornerShape(10.dp))
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+                        .onSizeChanged { size ->
+                            canvasWidth = size.width
+                            canvasHeight = size.height
+                        }
                         .pointerInput(Unit) {
                             detectDragGestures(
                                 onDragStart = { offset ->
@@ -1331,9 +1421,9 @@ fun SignatureDialog(
                     Button(
                         onClick = {
                             // Synthesize a beautiful Bitmap from current lines
-                            val width = 600
-                            val height = 400
-                            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                            val w = if (canvasWidth > 0) canvasWidth else 600
+                            val h = if (canvasHeight > 0) canvasHeight else 240
+                            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                             val canvas = android.graphics.Canvas(bitmap)
                             canvas.drawColor(android.graphics.Color.WHITE) // absolute opaque white as required
 
@@ -1346,14 +1436,10 @@ fun SignatureDialog(
                                 isAntiAlias = true
                             }
 
-                            // Scaling factors to translate drawing coordinates if needed (simplified here)
-                            // Draw path vectors to the Bitmap canvas
+                            // Scaling factors are 1:1 since the canvas size matches the layout box in pixels
                             strokes.forEach { stroke ->
                                 val path = android.graphics.Path()
                                 stroke.points.forEachIndexed { idx, point ->
-                                    val scaleX = width / 600f // coordinate mappings
-                                    val scaleY = height / 240f
-                                    // canvas container scale matching
                                     if (idx == 0) {
                                         path.moveTo(point.x, point.y)
                                     } else {

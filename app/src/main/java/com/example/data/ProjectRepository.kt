@@ -138,7 +138,12 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
     suspend fun deleteBlock(block: ContentBlockEntity) = withContext(Dispatchers.IO) {
         // If it's a file block, delete local file
         if (block.type == BlockType.IMAGE || block.type == BlockType.SIGNATURE) {
-            val file = File(block.content)
+            val filePath = if (block.type == BlockType.SIGNATURE) {
+                block.content.split("|")[0]
+            } else {
+                block.content
+            }
+            val file = File(filePath)
             if (file.exists()) {
                 file.delete()
             }
@@ -273,7 +278,12 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                     }
                 }
                 BlockType.SIGNATURE -> {
-                    val file = File(block.content)
+                    val parts = block.content.split("|")
+                    val filePath = parts[0]
+                    val signatureLabel = parts.getOrNull(1)?.ifBlank { null } ?: "Firma de Validación"
+                    val signatureSubtitle = parts.getOrNull(2)?.ifBlank { null } ?: "Firma Autorizada"
+
+                    val file = File(filePath)
                     if (file.exists()) {
                         val originalBitmap = BitmapFactory.decodeFile(file.absolutePath)
                         if (originalBitmap != null) {
@@ -281,7 +291,9 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                             val scaleRatio = targetWidth / originalBitmap.width.toFloat()
                             val targetHeight = (originalBitmap.height * scaleRatio).toInt()
 
-                            if (currentY + targetHeight + 40f > pageHeight - 60f) {
+                            // Check vertical size safety (needed height: frame, spacing, labels)
+                            val totalRequiredHeight = targetHeight + 50f
+                            if (currentY + totalRequiredHeight > pageHeight - 60f) {
                                 startNewPage()
                             }
 
@@ -313,10 +325,21 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                             )
 
                             canvas.drawBitmap(scaledBitmap, marginX, currentY, null)
-                            currentY += targetHeight + 10f
+                            currentY += targetHeight + 12f
 
-                            canvas.drawText("Firma Autorizada", marginX, currentY, labelPaint)
-                            currentY += 24f
+                            // Draw customized main label
+                            val boldLabelPaint = Paint().apply {
+                                color = Color.rgb(31, 41, 55)
+                                textSize = 11f
+                                isFakeBoldText = true
+                                isAntiAlias = true
+                            }
+                            canvas.drawText(signatureLabel, marginX, currentY, boldLabelPaint)
+                            currentY += 14f
+
+                            // Draw customized subtitle
+                            canvas.drawText(signatureSubtitle, marginX, currentY, labelPaint)
+                            currentY += 28f
                         }
                     }
                 }
