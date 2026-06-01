@@ -237,9 +237,13 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         val currentDraft = _draftBlocks.value.toMutableList()
         val index = currentDraft.indexOfFirst { it.id == block.id }
         if (index > 0) {
-            val temp = currentDraft[index]
-            currentDraft[index] = currentDraft[index - 1]
-            currentDraft[index - 1] = temp
+            val elementCurrent = currentDraft[index]
+            val elementPrev = currentDraft[index - 1]
+            
+            // Swap in list and update their sequences
+            currentDraft[index] = elementPrev.copy(sequence = elementCurrent.sequence)
+            currentDraft[index - 1] = elementCurrent.copy(sequence = elementPrev.sequence)
+            
             _draftBlocks.value = currentDraft
         }
     }
@@ -248,9 +252,13 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         val currentDraft = _draftBlocks.value.toMutableList()
         val index = currentDraft.indexOfFirst { it.id == block.id }
         if (index >= 0 && index < currentDraft.size - 1) {
-            val temp = currentDraft[index]
-            currentDraft[index] = currentDraft[index + 1]
-            currentDraft[index + 1] = temp
+            val elementCurrent = currentDraft[index]
+            val elementNext = currentDraft[index + 1]
+            
+            // Swap in list and update their sequences
+            currentDraft[index] = elementNext.copy(sequence = elementCurrent.sequence)
+            currentDraft[index + 1] = elementCurrent.copy(sequence = elementNext.sequence)
+            
             _draftBlocks.value = currentDraft
         }
     }
