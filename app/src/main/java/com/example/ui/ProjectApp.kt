@@ -1019,6 +1019,32 @@ fun ToolbarButton(
 }
 
 @Composable
+fun BlockActionIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    tint: Color,
+    modifier: Modifier = Modifier,
+    iconSize: androidx.compose.ui.unit.Dp = 18.dp
+) {
+    Box(
+        modifier = modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+            .padding(4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(iconSize)
+        )
+    }
+}
+
+@Composable
 fun BlockItemView(
     block: ContentBlockEntity,
     isEditing: Boolean,
@@ -1049,86 +1075,134 @@ fun BlockItemView(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header: Block Type Badge & Action Controls row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val (icon, typeLabel, badgeColor) = when (block.type) {
-                        BlockType.TEXT -> Triple(Icons.Default.Notes, "OBSERVACIONES", MaterialTheme.colorScheme.primary)
-                        BlockType.IMAGE -> Triple(Icons.Default.Photo, "REGISTRO FOTOGRÁFICO", MaterialTheme.colorScheme.secondary)
-                        BlockType.SIGNATURE -> Triple(Icons.Default.Draw, "FIRMA DE VALIDACIÓN", MaterialTheme.colorScheme.tertiary)
-                        BlockType.TITLE -> Triple(Icons.Default.Subject, "TÍTULO DE SECCIÓN", MaterialTheme.colorScheme.primary)
-                        BlockType.FOOTER -> Triple(Icons.Default.Info, "NOTAS AL PIE", MaterialTheme.colorScheme.outline)
-                        BlockType.TABLE -> Triple(Icons.Default.List, "TABLA DE DATOS", MaterialTheme.colorScheme.primary)
-                        BlockType.CHECKLIST -> Triple(Icons.Default.CheckBox, "CHECKLIST / TAREAS", MaterialTheme.colorScheme.secondary)
-                    }
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = badgeColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = typeLabel,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = badgeColor,
-                        letterSpacing = 1.sp
-                    )
-                }
+            // Header: Block Type Badge & Action Controls (Adaptive for Half Width space constraints)
+            val (icon, typeLabel, badgeColor) = when (block.type) {
+                BlockType.TEXT -> Triple(Icons.Default.Notes, "OBSERVACIONES", MaterialTheme.colorScheme.primary)
+                BlockType.IMAGE -> Triple(Icons.Default.Photo, "REGISTRO FOTOGRÁFICO", MaterialTheme.colorScheme.secondary)
+                BlockType.SIGNATURE -> Triple(Icons.Default.Draw, "FIRMA DE VALIDACIÓN", MaterialTheme.colorScheme.tertiary)
+                BlockType.TITLE -> Triple(Icons.Default.Subject, "TÍTULO DE SECCIÓN", MaterialTheme.colorScheme.primary)
+                BlockType.FOOTER -> Triple(Icons.Default.Info, "NOTAS AL PIE", MaterialTheme.colorScheme.outline)
+                BlockType.TABLE -> Triple(Icons.Default.List, "TABLA DE DATOS", MaterialTheme.colorScheme.primary)
+                BlockType.CHECKLIST -> Triple(Icons.Default.CheckBox, "CHECKLIST / TAREAS", MaterialTheme.colorScheme.secondary)
+            }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+            if (block.isHalfWidth) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    IconButton(
-                        onClick = onMoveUp,
-                        modifier = Modifier.size(28.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.KeyboardArrowUp,
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = badgeColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = typeLabel,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = badgeColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        BlockActionIconButton(
+                            icon = Icons.Default.KeyboardArrowUp,
                             contentDescription = "Subir bloque",
+                            onClick = onMoveUp,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                            iconSize = 20.dp
                         )
-                    }
-                    IconButton(
-                        onClick = onMoveDown,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
+                        BlockActionIconButton(
+                            icon = Icons.Default.KeyboardArrowDown,
                             contentDescription = "Bajar bloque",
+                            onClick = onMoveDown,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                            iconSize = 20.dp
                         )
-                    }
-                    IconButton(
-                        onClick = onToggleWidth,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (block.isHalfWidth) Icons.Default.SwapHoriz else Icons.Default.Fullscreen,
+                        BlockActionIconButton(
+                            icon = if (block.isHalfWidth) Icons.Default.SwapHoriz else Icons.Default.Fullscreen,
                             contentDescription = "Alternar ancho",
+                            onClick = onToggleWidth,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            iconSize = 18.dp
+                        )
+                        BlockActionIconButton(
+                            icon = Icons.Default.Close,
+                            contentDescription = "Borrar bloque",
+                            onClick = onDelete,
+                            tint = MaterialTheme.colorScheme.error,
+                            iconSize = 18.dp
                         )
                     }
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(28.dp)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Close,
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = badgeColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = typeLabel,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = badgeColor,
+                            letterSpacing = 1.sp
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        BlockActionIconButton(
+                            icon = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Subir bloque",
+                            onClick = onMoveUp,
+                            tint = MaterialTheme.colorScheme.primary,
+                            iconSize = 20.dp
+                        )
+                        BlockActionIconButton(
+                            icon = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Bajar bloque",
+                            onClick = onMoveDown,
+                            tint = MaterialTheme.colorScheme.primary,
+                            iconSize = 20.dp
+                        )
+                        BlockActionIconButton(
+                            icon = if (block.isHalfWidth) Icons.Default.SwapHoriz else Icons.Default.Fullscreen,
+                            contentDescription = "Alternar ancho",
+                            onClick = onToggleWidth,
+                            tint = MaterialTheme.colorScheme.primary,
+                            iconSize = 18.dp
+                        )
+                        BlockActionIconButton(
+                            icon = Icons.Default.Close,
                             contentDescription = "Borrar bloque",
+                            onClick = onDelete,
                             tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp)
+                            iconSize = 18.dp
                         )
                     }
                 }
