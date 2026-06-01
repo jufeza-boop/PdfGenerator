@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
@@ -67,6 +68,8 @@ fun ProjectApp(
     val allProjects by viewModel.allProjects.collectAsStateWithLifecycle()
     val selectedProjectId by viewModel.selectedProjectId.collectAsStateWithLifecycle()
     val selectedProject by viewModel.selectedProject.collectAsStateWithLifecycle()
+    val draftBlocks by viewModel.draftBlocks.collectAsStateWithLifecycle()
+    val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
     val generatedPdfFile by viewModel.generatedPdfFile.collectAsStateWithLifecycle()
     val isGeneratingPdf by viewModel.isGeneratingPdf.collectAsStateWithLifecycle()
     val isUploadingCloud by viewModel.isUploadingCloud.collectAsStateWithLifecycle()
@@ -112,8 +115,12 @@ fun ProjectApp(
                     selectedProject?.let { project ->
                         ProjectEditorScreen(
                             project = project,
+                            blocks = draftBlocks,
+                            isDirty = isDirty,
                             isGeneratingPdf = isGeneratingPdf,
                             onBack = { viewModel.selectProject(null) },
+                            onSave = { viewModel.saveDraft() },
+                            onUndo = { viewModel.discardChanges() },
                             onAddTextBlock = { text -> viewModel.addTextBlock(text) },
                             onSaveTextBlockEdit = { block, text -> viewModel.updateBlockText(block, text) },
                             onDeleteBlock = { block -> viewModel.deleteBlock(block) },
@@ -419,8 +426,12 @@ fun BadgeCountIcon(imageVector: ImageVector, count: Int) {
 @Composable
 fun ProjectEditorScreen(
     project: ProjectWithBlocks,
+    blocks: List<ContentBlockEntity>,
+    isDirty: Boolean,
     isGeneratingPdf: Boolean,
     onBack: () -> Unit,
+    onSave: () -> Unit,
+    onUndo: () -> Unit,
     onAddTextBlock: (String) -> Unit,
     onSaveTextBlockEdit: (ContentBlockEntity, String) -> Unit,
     onDeleteBlock: (ContentBlockEntity) -> Unit,
@@ -432,6 +443,76 @@ fun ProjectEditorScreen(
     var textInputToInsert by remember { mutableStateOf("") }
     var focusedBlockIdToEdit by remember { mutableStateOf<Long?>(null) }
     var runningDraftEditVal by remember { mutableStateOf("") }
+    var showExitConfirmation by remember { mutableStateOf(false) }
+
+    // Intercept physical or gesture system back triggers
+    BackHandler(enabled = true) {
+        if (isDirty) {
+            showExitConfirmation = true
+        } else {
+            onBack()
+        }
+    }
+
+    // Confirmation dialog overlay
+    if (showExitConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirmation = false },
+            title = {
+                Text(
+                    text = "Cambios sin guardar",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Tienes cambios sin guardar en el editor de bloques de este proyecto. ¿Qué deseas hacer?",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExitConfirmation = false
+                        onSave()
+                        onBack()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("Guardar y salir")
+                }
+            },
+            dismissButton = {
+                Row(
+                    modifier = Modifier.padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = {
+                            showExitConfirmation = false
+                            onUndo()
+                            onBack()
+                        }
+                    ) {
+                        Text(
+                            text = "Descartar",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(
+                        onClick = { showExitConfirmation = false }
+                    ) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
+    }
 
     // Prepare contracts for Pick Image
     val pickImageLauncher = rememberLauncherForActivityResult(
@@ -511,11 +592,43 @@ fun ProjectEditorScreen(
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = onBack) {
+                        IconButton(onClick = {
+                            if (isDirty) {
+                                showExitConfirmation = true
+                            } else {
+                                onBack()
+                            }
+                        }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                         }
                     },
                     actions = {
+                        // Undo (Deshacer) action
+                        IconButton(
+                            onClick = onUndo,
+                            enabled = isDirty
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Undo,
+                                contentDescription = "Deshacer cambios",
+                                tint = if (isDirty) MaterialTheme.colorScheme.primary else BrandGreySupport.copy(alpha = 0.5f)
+                            )
+                        }
+
+                        // Save (Guardar) action
+                        IconButton(
+                            onClick = onSave,
+                            enabled = isDirty
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Save,
+                                contentDescription = "Guardar cambios",
+                                tint = if (isDirty) MaterialTheme.colorScheme.primary else BrandGreySupport.copy(alpha = 0.5f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
                         if (isGeneratingPdf) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(end = 12.dp))
                         } else {
@@ -686,8 +799,8 @@ fun ProjectEditorScreen(
                 .padding(paddingValues)
                 .background(BrandBg)
         ) {
-            val sortedBlocks = remember(project.blocks) {
-                project.blocks.sortedBy { it.sequence }
+            val sortedBlocks = remember(blocks) {
+                blocks.sortedBy { it.sequence }
             }
 
             if (sortedBlocks.isEmpty()) {

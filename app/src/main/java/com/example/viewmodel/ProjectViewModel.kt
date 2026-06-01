@@ -29,6 +29,18 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    // Draft blocks state of currently editing project
+    private val _draftBlocks = MutableStateFlow<List<ContentBlockEntity>>(emptyList())
+    val draftBlocks: StateFlow<List<ContentBlockEntity>> = _draftBlocks.asStateFlow()
+
+    private val _originalBlocks = MutableStateFlow<List<ContentBlockEntity>>(emptyList())
+    val originalBlocks: StateFlow<List<ContentBlockEntity>> = _originalBlocks.asStateFlow()
+
+    // Determine if user made any edits
+    val isDirty: StateFlow<Boolean> = combine(_draftBlocks, _originalBlocks) { draft, original ->
+        draft != original
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     // Export PDF generation process states
     private val _generatedPdfFile = MutableStateFlow<File?>(null)
     val generatedPdfFile: StateFlow<File?> = _generatedPdfFile.asStateFlow()
@@ -57,6 +69,17 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
     fun selectProject(id: Long?) {
         _selectedProjectId.value = id
         _generatedPdfFile.value = null // reset preview when changing project
+        if (id != null) {
+            viewModelScope.launch {
+                val projectWithBlocks = repository.getProjectById(id).filterNotNull().first()
+                val blocks = projectWithBlocks.blocks.sortedBy { it.sequence }
+                _originalBlocks.value = blocks
+                _draftBlocks.value = blocks
+            }
+        } else {
+            _originalBlocks.value = emptyList()
+            _draftBlocks.value = emptyList()
+        }
     }
 
     fun createProject(name: String, onCreated: (Long) -> Unit = {}) {
@@ -77,52 +100,136 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
 
     fun addTextBlock(text: String) {
         val projectId = _selectedProjectId.value ?: return
-        val currentBlocks = selectedProject.value?.blocks ?: emptyList()
-        val nextSequence = (currentBlocks.maxOfOrNull { it.sequence } ?: -1) + 1
+        val currentDraft = _draftBlocks.value.toMutableList()
+        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
+        val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
-        viewModelScope.launch {
-            repository.addTextBlock(projectId, text, nextSequence)
-        }
+        val newBlock = ContentBlockEntity(
+            id = nextId,
+            projectId = projectId,
+            type = BlockType.TEXT,
+            content = text,
+            sequence = nextSequence
+        )
+        currentDraft.add(newBlock)
+        _draftBlocks.value = currentDraft
     }
 
     fun addImageBlock(inputStream: InputStream) {
         val projectId = _selectedProjectId.value ?: return
-        val currentBlocks = selectedProject.value?.blocks ?: emptyList()
-        val nextSequence = (currentBlocks.maxOfOrNull { it.sequence } ?: -1) + 1
-
         viewModelScope.launch {
-            repository.saveImageBlock(projectId, inputStream, nextSequence)
+            try {
+                val filePath = repository.copyImageToLocalFile(projectId, inputStream)
+                val currentDraft = _draftBlocks.value.toMutableList()
+                val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
+                val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
+                
+                val newBlock = ContentBlockEntity(
+                    id = nextId,
+                    projectId = projectId,
+                    type = BlockType.IMAGE,
+                    content = filePath,
+                    sequence = nextSequence
+                )
+                currentDraft.add(newBlock)
+                _draftBlocks.value = currentDraft
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
     fun addSignatureBlock(signatureBitmap: Bitmap) {
         val projectId = _selectedProjectId.value ?: return
-        val currentBlocks = selectedProject.value?.blocks ?: emptyList()
-        val nextSequence = (currentBlocks.maxOfOrNull { it.sequence } ?: -1) + 1
-
         viewModelScope.launch {
-            repository.saveSignatureBlock(projectId, signatureBitmap, nextSequence)
+            try {
+                val filePath = repository.saveSignatureToLocalFile(projectId, signatureBitmap)
+                val currentDraft = _draftBlocks.value.toMutableList()
+                val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
+                val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
+                
+                val newBlock = ContentBlockEntity(
+                    id = nextId,
+                    projectId = projectId,
+                    type = BlockType.SIGNATURE,
+                    content = filePath,
+                    sequence = nextSequence
+                )
+                currentDraft.add(newBlock)
+                _draftBlocks.value = currentDraft
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
     fun updateBlockText(block: ContentBlockEntity, newText: String) {
-        viewModelScope.launch {
-            repository.updateBlockContent(block.id, block.projectId, block.type, newText, block.sequence)
+        val currentDraft = _draftBlocks.value.map {
+            if (it.id == block.id) {
+                it.copy(content = newText)
+            } else {
+                it
+            }
         }
+        _draftBlocks.value = currentDraft
     }
 
     fun deleteBlock(block: ContentBlockEntity) {
+        val currentDraft = _draftBlocks.value.filter { it.id != block.id }
+        _draftBlocks.value = currentDraft
+    }
+
+    fun saveDraft(onSaved: () -> Unit = {}) {
+        val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
-            repository.deleteBlock(block)
+            val draft = _draftBlocks.value
+            val original = _originalBlocks.value
+
+            // 1. Delete blocks removed from the draft
+            val draftIds = draft.map { it.id }.toSet()
+            val deletedBlocks = original.filter { it.id !in draftIds }
+            for (del in deletedBlocks) {
+                repository.deleteBlock(del)
+            }
+
+            // 2. Insert or update the current draft blocks with updated sequence
+            draft.forEachIndexed { idx, block ->
+                val updatedBlock = block.copy(sequence = idx)
+                if (updatedBlock.id <= 0) {
+                    val newBlock = ContentBlockEntity(
+                        id = 0,
+                        projectId = updatedBlock.projectId,
+                        type = updatedBlock.type,
+                        content = updatedBlock.content,
+                        sequence = updatedBlock.sequence
+                    )
+                    repository.insertBlock(newBlock)
+                } else {
+                    repository.updateBlock(updatedBlock)
+                }
+            }
+
+            // 3. Reload saved blocks from DB
+            val freshProject = repository.getProjectById(projectId).filterNotNull().first()
+            val sorted = freshProject.blocks.sortedBy { it.sequence }
+            _originalBlocks.value = sorted
+            _draftBlocks.value = sorted
+            onSaved()
         }
+    }
+
+    fun discardChanges() {
+        _draftBlocks.value = _originalBlocks.value
     }
 
     fun exportPdf() {
         val project = selectedProject.value ?: return
+        val currentDraft = _draftBlocks.value
+        val draftProject = ProjectWithBlocks(project = project.project, blocks = currentDraft)
         viewModelScope.launch {
             _isGeneratingPdf.value = true
             try {
-                val pdfFile = repository.generatePdf(project)
+                val pdfFile = repository.generatePdf(draftProject)
                 _generatedPdfFile.value = pdfFile
             } catch (e: Exception) {
                 e.printStackTrace()

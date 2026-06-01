@@ -70,6 +70,19 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
         projectDao.insertBlock(block)
     }
 
+    suspend fun copyImageToLocalFile(projectId: Long, inputStream: InputStream): String = withContext(Dispatchers.IO) {
+        val destinationDir = File(context.filesDir, "project_${projectId}_images")
+        if (!destinationDir.exists()) destinationDir.mkdirs()
+
+        val filename = "img_${UUID.randomUUID()}.jpg"
+        val destinationFile = File(destinationDir, filename)
+
+        FileOutputStream(destinationFile).use { output ->
+            inputStream.copyTo(output)
+        }
+        destinationFile.absolutePath
+    }
+
     suspend fun saveSignatureBlock(projectId: Long, signatureBitmap: Bitmap, sequence: Int) = withContext(Dispatchers.IO) {
         val destinationDir = File(context.filesDir, "project_${projectId}_signatures")
         if (!destinationDir.exists()) destinationDir.mkdirs()
@@ -88,6 +101,27 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
             sequence = sequence
         )
         projectDao.insertBlock(block)
+    }
+
+    suspend fun saveSignatureToLocalFile(projectId: Long, signatureBitmap: Bitmap): String = withContext(Dispatchers.IO) {
+        val destinationDir = File(context.filesDir, "project_${projectId}_signatures")
+        if (!destinationDir.exists()) destinationDir.mkdirs()
+
+        val filename = "sig_${UUID.randomUUID()}.png"
+        val destinationFile = File(destinationDir, filename)
+
+        FileOutputStream(destinationFile).use { output ->
+            signatureBitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+        }
+        destinationFile.absolutePath
+    }
+
+    suspend fun insertBlock(block: ContentBlockEntity): Long = withContext(Dispatchers.IO) {
+        projectDao.insertBlock(block)
+    }
+
+    suspend fun updateBlock(block: ContentBlockEntity) = withContext(Dispatchers.IO) {
+        projectDao.updateBlock(block)
     }
 
     suspend fun updateBlockContent(id: Long, projectId: Long, type: BlockType, text: String, sequence: Int) = withContext(Dispatchers.IO) {
