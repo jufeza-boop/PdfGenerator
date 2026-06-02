@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -128,8 +129,8 @@ fun ProjectApp(
                             onImageSelected = { stream -> viewModel.addImageBlock(stream) },
                             onAddSignatureClick = { showSignatureDialog = true },
                             onDrawSignatureClick = { block -> activeSignatureBlockForDrawing = block },
-                            onUpdateProjectInfo = { name, label, showLabel, showDate ->
-                                viewModel.updateProjectInfo(name, label, showLabel, showDate)
+                            onUpdateProjectInfo = { name, label, showLabel, showDate, comp, compSub, headerTitle, showHeaderBox ->
+                                viewModel.updateProjectInfo(name, label, showLabel, showDate, comp, compSub, headerTitle, showHeaderBox)
                             },
                             onExportPdf = { viewModel.exportPdf() },
                             onMoveBlockUp = { block -> viewModel.moveBlockUp(block) },
@@ -460,7 +461,7 @@ fun ProjectEditorScreen(
     onImageSelected: (InputStream) -> Unit,
     onAddSignatureClick: () -> Unit,
     onDrawSignatureClick: (ContentBlockEntity) -> Unit,
-    onUpdateProjectInfo: (String, String, Boolean, Boolean) -> Unit,
+    onUpdateProjectInfo: (String, String, Boolean, Boolean, String, String, String, Boolean) -> Unit,
     onExportPdf: () -> Unit,
     onMoveBlockUp: (ContentBlockEntity) -> Unit,
     onMoveBlockDown: (ContentBlockEntity) -> Unit,
@@ -981,7 +982,7 @@ fun ProjectEditorScreen(
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                         Text(
-                                            text = "Edita el título principal, literal del reporte y la fecha",
+                                            text = "Edita el logotipo/empresa de cabecera y el diseño general",
                                             fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -1000,16 +1001,231 @@ fun ProjectEditorScreen(
                                 HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                                 Spacer(modifier = Modifier.height(12.dp))
                                 
+                                // Show/Hide entire box header toggle
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Checkbox(
+                                        checked = project.project.showHeaderBox,
+                                        onCheckedChange = { isChecked ->
+                                            onUpdateProjectInfo(
+                                                project.project.name,
+                                                project.project.reportLabel,
+                                                project.project.showHeaderLabel,
+                                                project.project.showHeaderDate,
+                                                project.project.headerCompany,
+                                                project.project.headerCompanySub,
+                                                project.project.headerTitle,
+                                                isChecked
+                                            )
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Habilitar Cabecera Multicapa (Tabla)",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            text = "Muestra una cabecera profesional con Logo/Empresa, Título y Paginación en todas las hojas",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                }
+
+                                if (project.project.showHeaderBox) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    // Live Beautiful Render Preview of the Box Header Component!
+                                    Text(
+                                        text = "VISTA PREVIA DE CABECERA EN PDF:",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(bottom = 6.dp)
+                                    )
+
+                                    // Component box layout matching exactly the requested PDF look!
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(4.dp))
+                                            .padding(0.dp),
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color.White
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(IntrinsicSize.Min)
+                                        ) {
+                                            // Left Column (Company) - 40% width
+                                            Column(
+                                                modifier = Modifier
+                                                    .weight(0.40f)
+                                                    .padding(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = project.project.headerCompany.ifBlank { "JAVIER MARTÍNEZ PARRA" },
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF9A6640), // copper brown
+                                                    maxLines = 1
+                                                )
+                                                Spacer(modifier = Modifier.height(1.dp))
+                                                Text(
+                                                    text = project.project.headerCompanySub.ifBlank { "ARQUITECTO TÉCNICO..." },
+                                                    fontSize = 5.5.sp,
+                                                    lineHeight = 7.sp,
+                                                    color = Color(0xFF6B7280),
+                                                    maxLines = 3
+                                                )
+                                            }
+
+                                            // Divider 1
+                                            VerticalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.fillMaxHeight())
+
+                                            // Center Column (Title with grey background) - 42% width
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(0.42f)
+                                                    .fillMaxHeight()
+                                                    .background(Color(0xFFF3F4F6))
+                                                    .padding(6.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = project.project.headerTitle.ifBlank { "INFORME DE VISITA A OBRA" }.uppercase(Locale.getDefault()),
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF111827),
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+
+                                            // Divider 2
+                                            VerticalDivider(color = Color(0xFFE5E7EB), modifier = Modifier.fillMaxHeight())
+
+                                            // Right Column (Pagination) - 18% width
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(0.18f)
+                                                    .fillMaxHeight(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "Pág. 1 de 2",
+                                                    fontSize = 8.5.sp,
+                                                    color = Color(0xFF4B5563),
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    // Editable Field: Left Side (Company Name)
+                                    var headerCompValue by remember(project.project.headerCompany) { mutableStateOf(project.project.headerCompany) }
+                                    OutlinedTextField(
+                                        value = headerCompValue,
+                                        onValueChange = {
+                                            headerCompValue = it
+                                            onUpdateProjectInfo(
+                                                project.project.name,
+                                                project.project.reportLabel,
+                                                project.project.showHeaderLabel,
+                                                project.project.showHeaderDate,
+                                                it,
+                                                project.project.headerCompanySub,
+                                                project.project.headerTitle,
+                                                project.project.showHeaderBox
+                                            )
+                                        },
+                                        placeholder = { Text("Nombre o Nombre de Empresa") },
+                                        label = { Text("Firma / Empresa (Cabecera Izq.)", fontSize = 11.sp) },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Editable Field: Left Side Subtitle details
+                                    var headerCompSubValue by remember(project.project.headerCompanySub) { mutableStateOf(project.project.headerCompanySub) }
+                                    OutlinedTextField(
+                                        value = headerCompSubValue,
+                                        onValueChange = {
+                                            headerCompSubValue = it
+                                            onUpdateProjectInfo(
+                                                project.project.name,
+                                                project.project.reportLabel,
+                                                project.project.showHeaderLabel,
+                                                project.project.showHeaderDate,
+                                                project.project.headerCompany,
+                                                it,
+                                                project.project.headerTitle,
+                                                project.project.showHeaderBox
+                                            )
+                                        },
+                                        placeholder = { Text("Ej. Especialidades, título, dirección...") },
+                                        label = { Text("Detalles Corporativos (Subtítulo Izq.)", fontSize = 11.sp) },
+                                        maxLines = 3,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Editable Field: Center column label
+                                    var headerTitleValue by remember(project.project.headerTitle) { mutableStateOf(project.project.headerTitle) }
+                                    OutlinedTextField(
+                                        value = headerTitleValue,
+                                        onValueChange = {
+                                            headerTitleValue = it
+                                            onUpdateProjectInfo(
+                                                project.project.name,
+                                                project.project.reportLabel,
+                                                project.project.showHeaderLabel,
+                                                project.project.showHeaderDate,
+                                                project.project.headerCompany,
+                                                project.project.headerCompanySub,
+                                                it,
+                                                project.project.showHeaderBox
+                                            )
+                                        },
+                                        placeholder = { Text("Ej. INFORME DE VISITA A OBRA") },
+                                        label = { Text("Título en Centro de Cabecera", fontSize = 11.sp) },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+
                                 // Project Name Editable Field
                                 var projName by remember(project.project.name) { mutableStateOf(project.project.name) }
                                 OutlinedTextField(
                                     value = projName,
                                     onValueChange = {
                                         projName = it
-                                        onUpdateProjectInfo(it, project.project.reportLabel, project.project.showHeaderLabel, project.project.showHeaderDate)
+                                        onUpdateProjectInfo(
+                                            it, 
+                                            project.project.reportLabel, 
+                                            project.project.showHeaderLabel, 
+                                            project.project.showHeaderDate,
+                                            project.project.headerCompany,
+                                            project.project.headerCompanySub,
+                                            project.project.headerTitle,
+                                            project.project.showHeaderBox
+                                        )
                                     },
                                     placeholder = { Text("Nombre del Proyecto") },
-                                    label = { Text("Título Principal del Proyecto", fontSize = 11.sp) },
+                                    label = { Text("Título Principal del Proyecto (Cuerpo)", fontSize = 11.sp) },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp)
@@ -1026,7 +1242,16 @@ fun ProjectEditorScreen(
                                     Checkbox(
                                         checked = project.project.showHeaderLabel,
                                         onCheckedChange = { isChecked ->
-                                            onUpdateProjectInfo(project.project.name, project.project.reportLabel, isChecked, project.project.showHeaderDate)
+                                            onUpdateProjectInfo(
+                                                project.project.name, 
+                                                project.project.reportLabel, 
+                                                isChecked, 
+                                                project.project.showHeaderDate,
+                                                project.project.headerCompany,
+                                                project.project.headerCompanySub,
+                                                project.project.headerTitle,
+                                                project.project.showHeaderBox
+                                            )
                                         }
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
@@ -1037,7 +1262,7 @@ fun ProjectEditorScreen(
                                             fontSize = 12.sp
                                         )
                                         Text(
-                                            text = "Categoría o tipo de reporte (Modificable / Ocultable)",
+                                            text = "Categoría o tipo de reporte del cuerpo (Modificable / Ocultable)",
                                             fontSize = 10.sp,
                                             color = MaterialTheme.colorScheme.outline
                                         )
@@ -1050,7 +1275,16 @@ fun ProjectEditorScreen(
                                         value = repLabel,
                                         onValueChange = {
                                             repLabel = it
-                                            onUpdateProjectInfo(project.project.name, it, project.project.showHeaderLabel, project.project.showHeaderDate)
+                                            onUpdateProjectInfo(
+                                                project.project.name, 
+                                                it, 
+                                                project.project.showHeaderLabel, 
+                                                project.project.showHeaderDate,
+                                                project.project.headerCompany,
+                                                project.project.headerCompanySub,
+                                                project.project.headerTitle,
+                                                project.project.showHeaderBox
+                                            )
                                         },
                                         placeholder = { Text("Ej. REPORTE DE PROYECTO") },
                                         singleLine = true,
@@ -1069,7 +1303,16 @@ fun ProjectEditorScreen(
                                     Checkbox(
                                         checked = project.project.showHeaderDate,
                                         onCheckedChange = { isChecked ->
-                                            onUpdateProjectInfo(project.project.name, project.project.reportLabel, project.project.showHeaderLabel, isChecked)
+                                            onUpdateProjectInfo(
+                                                project.project.name, 
+                                                project.project.reportLabel, 
+                                                project.project.showHeaderLabel, 
+                                                isChecked,
+                                                project.project.headerCompany,
+                                                project.project.headerCompanySub,
+                                                project.project.headerTitle,
+                                                project.project.showHeaderBox
+                                            )
                                         }
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))

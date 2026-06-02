@@ -285,14 +285,27 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         _draftBlocks.value = currentDraft
     }
 
-    fun updateProjectInfo(name: String, reportLabel: String, showHeaderLabel: Boolean, showHeaderDate: Boolean) {
+    fun updateProjectInfo(
+        name: String,
+        reportLabel: String,
+        showHeaderLabel: Boolean,
+        showHeaderDate: Boolean,
+        headerCompany: String,
+        headerCompanySub: String,
+        headerTitle: String,
+        showHeaderBox: Boolean
+    ) {
         val project = selectedProject.value?.project ?: return
         viewModelScope.launch {
             val updated = project.copy(
                 name = name,
                 reportLabel = reportLabel,
                 showHeaderLabel = showHeaderLabel,
-                showHeaderDate = showHeaderDate
+                showHeaderDate = showHeaderDate,
+                headerCompany = headerCompany,
+                headerCompanySub = headerCompanySub,
+                headerTitle = headerTitle,
+                showHeaderBox = showHeaderBox
             )
             repository.updateProject(updated)
         }

@@ -26,7 +26,21 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
     fun getProjectById(id: Long): Flow<ProjectWithBlocks?> = projectDao.getProjectByIdFlow(id)
 
     suspend fun createProject(name: String, templateType: String = "NONE"): Long = withContext(Dispatchers.IO) {
-        val newProj = ProjectEntity(name = name)
+        val newProj = when (templateType) {
+            "ACTA_VISITA" -> ProjectEntity(
+                name = name,
+                headerCompany = "JAVIER MARTÍNEZ PARRA",
+                headerCompanySub = "ARQUITECTO TÉCNICO-INGENIERO DE EDIFICACIÓN\nESPECIALISTA EN C.S.S. EN OBRAS DE CONSTRUCCIÓN",
+                headerTitle = "INFORME DE VISITA A OBRA"
+            )
+            "CONTROL_CALIDAD" -> ProjectEntity(
+                name = name,
+                headerCompany = "LABORATORIO DE CONTROL S.L.",
+                headerCompanySub = "CONTROL DE CALIDAD DE EDIFICACIÓN\nREGISTRO DE ENSAYOS DE HORMIGÓN ESTRUCTURAL",
+                headerTitle = "CONTROL DE RECEPCIÓN DE HORMIGÓN"
+            )
+            else -> ProjectEntity(name = name)
+        }
         val projectId = projectDao.insertProject(newProj)
         
         when (templateType) {
@@ -198,6 +212,86 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
         projectDao.deleteBlock(block)
     }
 
+    private fun drawCompanyHeader(canvas: Canvas, pageNum: Int, totalPages: Int, proj: ProjectEntity) {
+        if (!proj.showHeaderBox) return
+        
+        // Draw the main border box
+        val startX = 40f
+        val endX = 555f
+        val topY = 35f
+        val bottomY = 85f
+        
+        val boxPaint = Paint().apply {
+            color = Color.rgb(229, 231, 235) // Light gray border
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f
+            isAntiAlias = true
+        }
+        
+        val fillPaint = Paint().apply {
+            color = Color.rgb(243, 244, 246) // Center gray column background
+            style = Paint.Style.FILL
+        }
+        
+        // Draw Center Column Filled Background
+        canvas.drawRect(240f, topY, 465f, bottomY, fillPaint)
+        
+        // Draw Outer bounding box
+        canvas.drawRect(startX, topY, endX, bottomY, boxPaint)
+        
+        // Draw vertical divider lines
+        canvas.drawLine(240f, topY, 240f, bottomY, boxPaint)
+        canvas.drawLine(465f, topY, 465f, bottomY, boxPaint)
+        
+        // Left Column: Company/Director text (headerCompany, headerCompanySub)
+        val compTitlePaint = Paint().apply {
+            color = Color.rgb(154, 102, 64) // Elegant brown copper tone
+            textSize = 10f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+        
+        val compSubPaint = Paint().apply {
+            color = Color.rgb(107, 114, 128)
+            textSize = 5.5f
+            isAntiAlias = true
+        }
+        
+        val compTitle = proj.headerCompany.ifBlank { "JAVIER MARTÍNEZ PARRA" }
+        canvas.drawText(compTitle, startX + 10f, topY + 16f, compTitlePaint)
+        
+        val subLines = proj.headerCompanySub.split("\n")
+        var subY = topY + 26f
+        for (line in subLines) {
+            if (line.isNotBlank()) {
+                canvas.drawText(line.trim(), startX + 10f, subY, compSubPaint)
+                subY += 8f
+            }
+        }
+        
+        // Center Column: Title Text (headerTitle)
+        val centerPaint = Paint().apply {
+            color = Color.rgb(17, 24, 39)
+            textSize = 12f
+            isFakeBoldText = true
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+        }
+        
+        val centerTitle = proj.headerTitle.ifBlank { "INFORME DE VISITA A OBRA" }
+        canvas.drawText(centerTitle.uppercase(Locale.getDefault()), 240f + 112.5f, topY + 29f, centerPaint)
+        
+        // Right Column: Pagination (Página X de Y)
+        val pagePaint = Paint().apply {
+            color = Color.rgb(55, 65, 81)
+            textSize = 10f
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+        }
+        val pageText = "Página $pageNum de $totalPages"
+        canvas.drawText(pageText, 465f + 45f, topY + 28f, pagePaint)
+    }
+
     // PDF Generation Logic utilizing native A4 drawing
     suspend fun generatePdf(project: ProjectWithBlocks): File = withContext(Dispatchers.IO) {
         val pdfFile = File(context.cacheDir, "project_report_${project.project.id}.pdf")
@@ -208,11 +302,12 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
         val pdfDocument = PdfDocument()
         val pageWidth = 595 // A4 width
         val pageHeight = 842 // A4 height
+        
         var pageNumber = 1
         var pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
         var currentPage = pdfDocument.startPage(pageInfo)
         var canvas = currentPage.canvas
-
+        
         // Define beautiful styling colors
         val titlePaint = Paint().apply {
             color = Color.rgb(31, 41, 55) // Slate gray dark
@@ -245,40 +340,13 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
             style = Paint.Style.STROKE
         }
 
-        var currentY = 60f
         val marginX = 54f // 0.75 in
         val usableWidth = pageWidth - (2 * marginX)
 
-        // Title Block
-        if (project.project.showHeaderLabel) {
-            val labelToDraw = project.project.reportLabel.ifBlank { "REPORTE DE PROYECTO" }
-            canvas.drawText(labelToDraw.uppercase(Locale.getDefault()), marginX, currentY, labelPaint)
-            currentY += 24f
-        }
-        canvas.drawText(project.project.name.uppercase(Locale.getDefault()), marginX, currentY, titlePaint)
-        currentY += 20f
+        val showHeaderBox = project.project.showHeaderBox
+        val contentStartY = if (showHeaderBox) 105f else 60f
+        val contentEndY = pageHeight - 60f
 
-        if (project.project.showHeaderDate) {
-            val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault())
-            val dateText = "Fecha de creación: " + sdf.format(Date(project.project.createdAt))
-            canvas.drawText(dateText, marginX, currentY, subtitlePaint)
-            currentY += 15f
-        }
-
-        // Separator line
-        canvas.drawLine(marginX, currentY, pageWidth - marginX, currentY, borderPaint)
-        currentY += 35f
-
-        fun startNewPage() {
-            pdfDocument.finishPage(currentPage)
-            pageNumber++
-            pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
-            currentPage = pdfDocument.startPage(pageInfo)
-            canvas = currentPage.canvas
-            currentY = 60f
-        }
-
-        // Output blocks sequentially using elegant parallel row calculations
         val mainTitlePaint = Paint().apply {
             color = Color.rgb(31, 41, 55)
             textSize = 16f
@@ -532,6 +600,100 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
         }
 
         val sortedBlocks = project.blocks.sortedBy { it.sequence }
+
+        // --- 1. DRY RUN PASS (To calculate total page count) ---
+        var dryPageCount = 1
+        var dryY = contentStartY
+
+        // First page's title heights in the dry run
+        if (project.project.showHeaderLabel) {
+            dryY += 24f
+        }
+        dryY += 20f // Title Name
+        if (project.project.showHeaderDate) {
+            dryY += 15f
+        }
+        dryY += 35f // separator and spaces
+
+        var dryIndex = 0
+        while (dryIndex < sortedBlocks.size) {
+            val block = sortedBlocks[dryIndex]
+            if (block.isHalfWidth) {
+                val nextBlock = sortedBlocks.getOrNull(dryIndex + 1)
+                if (nextBlock != null && nextBlock.isHalfWidth) {
+                    val colWidth = usableWidth / 2f - 6f
+                    val h1 = getRequiredHeight(block, colWidth)
+                    val h2 = getRequiredHeight(nextBlock, colWidth)
+                    val maxH = maxOf(h1, h2)
+                    
+                    if (dryY + maxH > contentEndY) {
+                        dryPageCount++
+                        dryY = contentStartY
+                    }
+                    dryY += maxH
+                    dryIndex += 2
+                } else {
+                    val colWidth = usableWidth / 2f - 6f
+                    val h = getRequiredHeight(block, colWidth)
+                    if (dryY + h > contentEndY) {
+                        dryPageCount++
+                        dryY = contentStartY
+                    }
+                    dryY += h
+                    dryIndex += 1
+                }
+            } else {
+                val h = getRequiredHeight(block, usableWidth)
+                if (dryY + h > contentEndY) {
+                    dryPageCount++
+                    dryY = contentStartY
+                }
+                dryY += h
+                dryIndex += 1
+            }
+        }
+        val totalPages = dryPageCount
+
+        // --- 2. REAL DRAWING PASS ---
+        // Draw initial page header box
+        if (showHeaderBox) {
+            drawCompanyHeader(canvas, pageNumber, totalPages, project.project)
+        }
+
+        var currentY = contentStartY
+
+        // Title Block
+        if (project.project.showHeaderLabel) {
+            val labelToDraw = project.project.reportLabel.ifBlank { "REPORTE DE PROYECTO" }
+            canvas.drawText(labelToDraw.uppercase(Locale.getDefault()), marginX, currentY, labelPaint)
+            currentY += 24f
+        }
+        canvas.drawText(project.project.name.uppercase(Locale.getDefault()), marginX, currentY, titlePaint)
+        currentY += 20f
+
+        if (project.project.showHeaderDate) {
+            val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault())
+            val dateText = "Fecha de creación: " + sdf.format(Date(project.project.createdAt))
+            canvas.drawText(dateText, marginX, currentY, subtitlePaint)
+            currentY += 15f
+        }
+
+        // Separator line
+        canvas.drawLine(marginX, currentY, pageWidth - marginX, currentY, borderPaint)
+        currentY += 35f
+
+        fun startNewPage() {
+            pdfDocument.finishPage(currentPage)
+            pageNumber++
+            pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
+            currentPage = pdfDocument.startPage(pageInfo)
+            canvas = currentPage.canvas
+            if (showHeaderBox) {
+                drawCompanyHeader(canvas, pageNumber, totalPages, project.project)
+            }
+            currentY = contentStartY
+        }
+
         var bIndex = 0
         while (bIndex < sortedBlocks.size) {
             val block = sortedBlocks[bIndex]
@@ -543,7 +705,7 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                     val h2 = getRequiredHeight(nextBlock, colWidth)
                     val maxH = maxOf(h1, h2)
                     
-                    if (currentY + maxH > pageHeight - 60f) {
+                    if (currentY + maxH > contentEndY) {
                         startNewPage()
                     }
                     
@@ -554,7 +716,7 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                 } else {
                     val colWidth = usableWidth / 2f - 6f
                     val h = getRequiredHeight(block, colWidth)
-                    if (currentY + h > pageHeight - 60f) {
+                    if (currentY + h > contentEndY) {
                         startNewPage()
                     }
                     currentY = drawBlock(block, marginX, colWidth, currentY)
@@ -562,7 +724,7 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                 }
             } else {
                 val h = getRequiredHeight(block, usableWidth)
-                if (currentY + h > pageHeight - 60f) {
+                if (currentY + h > contentEndY) {
                     startNewPage()
                 }
                 currentY = drawBlock(block, marginX, usableWidth, currentY)
