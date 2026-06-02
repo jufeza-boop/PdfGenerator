@@ -285,6 +285,29 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         _draftBlocks.value = currentDraft
     }
 
+    fun updateSignatureDrawing(blockId: Long, signatureBitmap: android.graphics.Bitmap) {
+        val projectId = _selectedProjectId.value ?: return
+        viewModelScope.launch {
+            try {
+                val filePath = repository.saveSignatureToLocalFile(projectId, signatureBitmap)
+                val currentDraft = _draftBlocks.value.map {
+                    if (it.id == blockId) {
+                        val parts = it.content.split("|")
+                        val labelText = parts.getOrNull(1)?.ifBlank { "" } ?: ""
+                        val subtitleText = parts.getOrNull(2)?.ifBlank { "" } ?: ""
+                        val newContent = "$filePath|$labelText|$subtitleText"
+                        it.copy(content = newContent)
+                    } else {
+                        it
+                    }
+                }
+                _draftBlocks.value = currentDraft
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun deleteBlock(block: ContentBlockEntity) {
         val currentDraft = _draftBlocks.value.filter { it.id != block.id }
         _draftBlocks.value = currentDraft

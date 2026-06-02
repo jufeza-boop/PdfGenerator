@@ -76,6 +76,7 @@ fun ProjectApp(
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showSignatureDialog by remember { mutableStateOf(false) }
+    var activeSignatureBlockForDrawing by remember { mutableStateOf<ContentBlockEntity?>(null) }
 
     // Observe mock upload status
     LaunchedEffect(Unit) {
@@ -126,6 +127,7 @@ fun ProjectApp(
                             onDeleteBlock = { block -> viewModel.deleteBlock(block) },
                             onImageSelected = { stream -> viewModel.addImageBlock(stream) },
                             onAddSignatureClick = { showSignatureDialog = true },
+                            onDrawSignatureClick = { block -> activeSignatureBlockForDrawing = block },
                             onExportPdf = { viewModel.exportPdf() },
                             onMoveBlockUp = { block -> viewModel.moveBlockUp(block) },
                             onMoveBlockDown = { block -> viewModel.moveBlockDown(block) },
@@ -169,6 +171,18 @@ fun ProjectApp(
                 onConfirm = { signatureBitmap ->
                     viewModel.addSignatureBlock(signatureBitmap)
                     showSignatureDialog = false
+                }
+            )
+        }
+
+        if (activeSignatureBlockForDrawing != null) {
+            SignatureDialog(
+                onDismiss = { activeSignatureBlockForDrawing = null },
+                onConfirm = { signatureBitmap ->
+                    activeSignatureBlockForDrawing?.let { block ->
+                        viewModel.updateSignatureDrawing(block.id, signatureBitmap)
+                    }
+                    activeSignatureBlockForDrawing = null
                 }
             )
         }
@@ -442,6 +456,7 @@ fun ProjectEditorScreen(
     onDeleteBlock: (ContentBlockEntity) -> Unit,
     onImageSelected: (InputStream) -> Unit,
     onAddSignatureClick: () -> Unit,
+    onDrawSignatureClick: (ContentBlockEntity) -> Unit,
     onExportPdf: () -> Unit,
     onMoveBlockUp: (ContentBlockEntity) -> Unit,
     onMoveBlockDown: (ContentBlockEntity) -> Unit,
@@ -909,7 +924,8 @@ fun ProjectEditorScreen(
                     onMoveUp = { onMoveBlockUp(block) },
                     onMoveDown = { onMoveBlockDown(block) },
                     onToggleWidth = { onToggleBlockWidth(block) },
-                    onSaveDirectEdit = { newContent -> onSaveTextBlockEdit(block, newContent) }
+                    onSaveDirectEdit = { newContent -> onSaveTextBlockEdit(block, newContent) },
+                    onDrawSignature = { onDrawSignatureClick(block) }
                 )
             }
 
@@ -1057,7 +1073,8 @@ fun BlockItemView(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onToggleWidth: () -> Unit,
-    onSaveDirectEdit: ((String) -> Unit)? = null
+    onSaveDirectEdit: ((String) -> Unit)? = null,
+    onDrawSignature: (() -> Unit)? = null
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -1541,109 +1558,160 @@ fun BlockItemView(
                     val signatureLabel = parts.getOrNull(1)?.ifBlank { null } ?: "Firma de Validación"
                     val signatureSubtitle = parts.getOrNull(2)?.ifBlank { null } ?: "Firma Autorizada"
                     val file = File(filePath)
-                    if (file.exists()) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
+                    val hasSignature = file.exists()
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Interactive signature rendering block
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp)
+                                .background(
+                                    color = if (hasSignature) BrandSignatureBg else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (hasSignature) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable { onDrawSignature?.invoke() }
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(100.dp)
-                                    .background(BrandSignatureBg, RoundedCornerShape(12.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
-                                    .padding(12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
+                            if (hasSignature) {
                                 AsyncImage(
                                     model = file,
                                     contentDescription = "Firma digital",
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Fit
                                 )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            if (isEditing) {
-                                val editParts = editValue.split("|")
-                                var labelText by remember(editValue) { mutableStateOf(editParts.getOrNull(0) ?: "Firma de Validación") }
-                                var subtitleText by remember(editValue) { mutableStateOf(editParts.getOrNull(1) ?: "Firma Autorizada") }
-                                
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    OutlinedTextField(
-                                        value = labelText,
-                                        onValueChange = {
-                                            labelText = it
-                                            onEditValueChange("$labelText|$subtitleText")
-                                        },
-                                        placeholder = { Text("Firma de Validación") },
-                                        label = { Text("Etiqueta principal", fontSize = 11.sp) },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    OutlinedTextField(
-                                        value = subtitleText,
-                                        onValueChange = {
-                                            subtitleText = it
-                                            onEditValueChange("$labelText|$subtitleText")
-                                        },
-                                        placeholder = { Text("Firma Autorizada") },
-                                        label = { Text("Subtítulo aclaratorio", fontSize = 11.sp) },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.End,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        TextButton(onClick = onCancelEdit) {
-                                            Text("Cancelar")
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Button(onClick = onSaveEdit) {
-                                            Text("Guardar")
-                                        }
-                                    }
-                                }
                             } else {
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { onStartEdit() }
-                                        .padding(vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Gesture,
+                                        contentDescription = "Firmar",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "Haz clic aquí para firmar",
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        if (isEditing) {
+                            val editParts = editValue.split("|")
+                            var labelText by remember(editValue) { mutableStateOf(editParts.getOrNull(0) ?: "Firma de Validación") }
+                            var subtitleText by remember(editValue) { mutableStateOf(editParts.getOrNull(1) ?: "Firma Autorizada") }
+                            
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = labelText,
+                                    onValueChange = {
+                                        labelText = it
+                                        onEditValueChange("$labelText|$subtitleText")
+                                    },
+                                    placeholder = { Text("Firma de Validación") },
+                                    label = { Text("Etiqueta principal", fontSize = 11.sp) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                OutlinedTextField(
+                                    value = subtitleText,
+                                    onValueChange = {
+                                        subtitleText = it
+                                        onEditValueChange("$labelText|$subtitleText")
+                                    },
+                                    placeholder = { Text("Firma Autorizada") },
+                                    label = { Text("Subtítulo aclaratorio", fontSize = 11.sp) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column {
+                                    TextButton(onClick = onCancelEdit) {
+                                        Text("Cancelar")
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(onClick = onSaveEdit) {
+                                        Text("Guardar")
+                                    }
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f).clickable { onStartEdit() }) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
                                         Text(
                                             text = signatureLabel,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = signatureSubtitle,
-                                            fontSize = 10.sp,
-                                            color = MaterialTheme.colorScheme.outline
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Editar etiquetas de firma",
+                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(12.dp)
                                         )
                                     }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = signatureSubtitle,
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                                
+                                TextButton(
+                                    onClick = { onDrawSignature?.invoke() },
+                                    modifier = Modifier.height(30.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                ) {
                                     Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Editar etiquetas de firma",
-                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(16.dp)
+                                        imageVector = if (hasSignature) Icons.Default.Draw else Icons.Default.Gesture,
+                                        contentDescription = "Firmar",
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (hasSignature) "Editar dibujo" else "Firmar ahora",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
                         }
-                    } else {
-                        EmptyFilePlaceholder(message = "Archivo de firma no encontrado")
                     }
                 }
             }
