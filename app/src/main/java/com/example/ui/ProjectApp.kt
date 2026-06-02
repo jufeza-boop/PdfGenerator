@@ -154,8 +154,8 @@ fun ProjectApp(
         if (showCreateDialog) {
             CreateProjectDialog(
                 onDismiss = { showCreateDialog = false },
-                onConfirm = { name ->
-                    viewModel.createProject(name) { id ->
+                onConfirm = { name, templateType ->
+                    viewModel.createProject(name, templateType) { id ->
                         viewModel.selectProject(id)
                     }
                     showCreateDialog = false
@@ -1677,28 +1677,67 @@ fun EmptyFilePlaceholder(message: String) {
 @Composable
 fun CreateProjectDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String, String) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
+    var selectedTemplate by remember { mutableStateOf("NONE") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nuevo Proyecto") },
+        title = { Text("Nuevo Reporte de Obra") },
         text = {
-            Column {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Text(
                     text = "Ingrese el nombre identificador para este proyecto de reporte:",
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    color = MaterialTheme.colorScheme.outline
                 )
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    placeholder = { Text("Ej. Reporte Obra San Martín") },
+                    placeholder = { Text("Ej. Reporte Obra Tarancon") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("new_project_name_input"),
                     shape = RoundedCornerShape(10.dp)
+                )
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                Text(
+                    text = "Seleccione una plantilla inicial:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                // Option 1: Empty
+                TemplateOptionCard(
+                    title = "Proyecto Vacío",
+                    description = "Comenzar el reporte sin bloques predefinidos para diseñarlo desde cero.",
+                    icon = Icons.Default.Add,
+                    isSelected = selectedTemplate == "NONE",
+                    onClick = { selectedTemplate = "NONE" }
+                )
+                
+                // Option 2: ACTA_VISITA
+                TemplateOptionCard(
+                    title = "Acta de Visita (Dirección de Obra)",
+                    description = "Datos generales, tabla de asistentes, observaciones predefinidas de hormigonado y 4 firmas de validación (D.O., DEO, Promotor, Contratista).",
+                    icon = Icons.Default.Assignment,
+                    isSelected = selectedTemplate == "ACTA_VISITA",
+                    onClick = { selectedTemplate = "ACTA_VISITA" }
+                )
+                
+                // Option 3: CONTROL_CALIDAD
+                TemplateOptionCard(
+                    title = "Recepción y Control de Hormigón",
+                    description = "Especificación de materiales/amasas, registro de probetas, checklist de vertido y firmas de recepción de obra.",
+                    icon = Icons.Default.DoneAll,
+                    isSelected = selectedTemplate == "CONTROL_CALIDAD",
+                    onClick = { selectedTemplate = "CONTROL_CALIDAD" }
                 )
             }
         },
@@ -1706,7 +1745,7 @@ fun CreateProjectDialog(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        onConfirm(title.trim())
+                        onConfirm(title.trim(), selectedTemplate)
                     }
                 },
                 enabled = title.isNotBlank()
@@ -1720,6 +1759,81 @@ fun CreateProjectDialog(
             }
         }
     )
+}
+
+@Composable
+fun TemplateOptionCard(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    val borderWidth = if (isSelected) 1.5.dp else 1.dp
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .border(borderWidth, borderColor, RoundedCornerShape(10.dp)),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(8.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 13.sp
+                )
+            }
+            
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+    }
 }
 
 // Points tracing helper structure for canvas sketching

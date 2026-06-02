@@ -25,9 +25,52 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
 
     fun getProjectById(id: Long): Flow<ProjectWithBlocks?> = projectDao.getProjectByIdFlow(id)
 
-    suspend fun createProject(name: String): Long = withContext(Dispatchers.IO) {
+    suspend fun createProject(name: String, templateType: String = "NONE"): Long = withContext(Dispatchers.IO) {
         val newProj = ProjectEntity(name = name)
-        projectDao.insertProject(newProj)
+        val projectId = projectDao.insertProject(newProj)
+        
+        when (templateType) {
+            "ACTA_VISITA" -> {
+                var seq = 0
+                val blocks = listOf(
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ACTA DE VISITA - DIRECCIÓN FACULTATIVA", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Dato General | Información del Proyecto\nNombre de la obra | Construcción de vivienda unifamiliar\nDirección de la obra | Paseo de la Estación, n.º 11 C.P. 16400 Tarancón\nPromotor | Bernarda Godoy Gómez\nContratista principal | Construcciones CONLOGAR, S.L.\nDirección de la obra (DO) | José Ángel Arquero López / Javier Arquero Avilés\nDirección Ejecución (DEO) | Miguel Ángel Palomar Sánchez / Javier Martínez\nCoord. Seg. y Salud (CSS) | Miguel Ángel Palomar Sánchez / Javier Martínez", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ASISTENTES A LA VISITA", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Entidad / Parte | Representantes Asistentes\nDe la parte promotora | - Encargado de obra\nDe la parte constructora | -\nDe la Dirección Facultativa | - Javier Martínez Parra\nOtros | -", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "DATOS DE LA VISITA", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "DÍA DE LA VISITA: 21/11/2025", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ESTADO DE LA OBRA, TEMAS TRATADOS Y OBSERVACIONES", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.CHECKLIST, content = "false|Hormigonado de la cueva realizado por tongadas\nfalse|Levantamiento de muros perimetrales de termoarcilla\nfalse|Colocación de red de saneamiento separativa en PVC\nfalse|Verificación y medición de la toma de tierra", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "- Se ha comenzado con el hormigonado de la cueva para macizarla. Se realiza por tongadas según se ha indicado en reuniones anteriores. El día de la visita está hormigonada la parte baja, quedando una altura libre de 1,20 m hasta el interior de la bóveda.\n- Se prepara la cimentación de la calle grillo. Se comprueba que las armaduras están colocadas según plano de cimentación.\n- Se ha colocado la red de saneamiento separativa, colocando un tubo de PVC corrugado de 160 para la evacuación de aguas pluviales, con un sifón antes de la acometida municipal y otro de PVC corrugado de 200 para aguas fecales.\n- Se encuentra a falta de la toma de tierra.", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "REPORTAJE FOTOGRÁFICO DE LA VISITA", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "[Añada imágenes aquí usando el botón de captura de foto para registrar el avance de la cueva, cimentación y tuberías]", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ENTERADO Y CONFORME", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.O.|Dirección de Obra", sequence = seq++, isHalfWidth = true),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.E.O. / CSS|Dir. Ejecución / Seg. y Salud", sequence = seq++, isHalfWidth = true),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|P|Promotor", sequence = seq++, isHalfWidth = true),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|C|Contratista", sequence = seq++, isHalfWidth = true)
+                )
+                blocks.forEach { projectDao.insertBlock(it) }
+            }
+            "CONTROL_CALIDAD" -> {
+                var seq = 0
+                val blocks = listOf(
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "CONTROL DE CALIDAD Y RECEPCIÓN DE HORMIGÓN", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Ensayo y Control | Especificación del Proyecto\nTipo de Hormigón | HA-25 / B / 20 / IIa (Fck = 25 N/mm²)\nTipo de Cemento | CEM II/A-L 42.5R (Uso general)\nConsistencia / Cono | Consistencia Blanda (Asentamiento Cono: 6-9 cm)\nTamaño Máximo Árido | 20 mm de piedra de machaqueo\nAditivos incorporados | Plastificantes homologados", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "REGISTRO DE PROBETAS Y RESISTENCIA", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Identificador | Fecha Confección | Plazo Ensayo (Días) | Resistencia Obtenida\nProbeta P-1 (Cimiento) | 21/11/2025 | 7 días | Pendiente ensayo\nProbeta P-2 (Cimiento) | 21/11/2025 | 28 días | Pendiente ensayo\nProbeta P-3 (Muro Sótano) | 21/11/2025 | 28 días | Pendiente ensayo", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "CHECKLIST DE VERIFICACIONES PREVIAS", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.CHECKLIST, content = "false|Verificación y cotejo del documento de suministro (Albarán)\nfalse|Medición del tiempo máximo transcurrido desde adición de agua en planta\nfalse|Prueba de docilidad mediante Cono de Abrams en obra\nfalse|Toma de muestras por probetas cilíndricas\nfalse|Vibrado correcto por inmersión de la masa y curado posterior", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "INSTRUCCIONES DE LA DIRECCIÓN DE EJECUCIÓN (D.E.O.)", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "- Se autoriza la descarga del hormigón tras realizar los controles de consistencia.\n- Ensayar las probetas a los 7 y 28 días según especificaciones de la norma EHE-08 / Código Estructural.\n- Queda prohibida la adición de agua en obra para aumentar la docilidad sin consentimiento explícito.\n- Extremar las precauciones de curado humedeciendo la superficie expuesta durante al menos los 3 primeros días.", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "DOCUMENTO DE VALIDACIÓN", sequence = seq++),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.E.O.|Dirección de Ejecución de Obra", sequence = seq++, isHalfWidth = true),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|Jefe de Obra|Representante de Suministro", sequence = seq++, isHalfWidth = true)
+                )
+                blocks.forEach { projectDao.insertBlock(it) }
+            }
+        }
+        projectId
     }
 
     suspend fun deleteProject(project: ProjectEntity) = withContext(Dispatchers.IO) {
@@ -304,7 +347,7 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                             val scaleRatio = targetWidth / originalWidth
                             originalHeight * scaleRatio + 55f
                         } else 80f
-                    } else 40f
+                    } else 115f
                 }
                 BlockType.TABLE -> {
                     val rows = currBlock.content.split("\n").filter { it.isNotBlank() }
@@ -387,6 +430,35 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
                             canvas.drawText(signatureSubtitle, x, textY + 14f, labelPaint)
                             y += targetHeight + 35f
                         }
+                    } else {
+                        // Unsigned placeholder container
+                        val targetWidth = minOf(colWidth, 180f)
+                        val targetHeight = 80f
+                        val bgPaint = Paint().apply {
+                            color = Color.rgb(249, 250, 251)
+                            style = Paint.Style.FILL
+                        }
+                        canvas.drawRect(x, y, x + targetWidth, y + targetHeight, bgPaint)
+                        canvas.drawRect(x, y, x + targetWidth, y + targetHeight, borderPaint)
+                        
+                        // Draw empty signing line guideline
+                        val linePaint = Paint().apply {
+                            color = Color.rgb(209, 213, 219)
+                            strokeWidth = 1f
+                            style = Paint.Style.STROKE
+                        }
+                        canvas.drawLine(x + 10f, y + targetHeight - 15f, x + targetWidth - 10f, y + targetHeight - 15f, linePaint)
+                        
+                        val textY = y + targetHeight + 14f
+                        val boldLabelPaint = Paint().apply {
+                            color = Color.rgb(31, 41, 55)
+                            textSize = 10f
+                            isFakeBoldText = true
+                            isAntiAlias = true
+                        }
+                        canvas.drawText(signatureLabel, x, textY, boldLabelPaint)
+                        canvas.drawText(signatureSubtitle, x, textY + 14f, labelPaint)
+                        y += targetHeight + 35f
                     }
                 }
                 BlockType.TABLE -> {

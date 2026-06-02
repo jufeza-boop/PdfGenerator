@@ -84,9 +84,9 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun createProject(name: String, onCreated: (Long) -> Unit = {}) {
+    fun createProject(name: String, templateType: String = "NONE", onCreated: (Long) -> Unit = {}) {
         viewModelScope.launch {
-            val id = repository.createProject(name)
+            val id = repository.createProject(name, templateType)
             onCreated(id)
         }
     }
