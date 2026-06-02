@@ -80,7 +80,7 @@ interface ProjectDao {
     suspend fun deleteBlocksForProject(projectId: Long)
 }
 
-@Database(entities = [ProjectEntity::class, ContentBlockEntity::class], version = 2, exportSchema = false)
+@Database(entities = [ProjectEntity::class, ContentBlockEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
 
