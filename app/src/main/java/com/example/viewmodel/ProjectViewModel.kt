@@ -285,6 +285,19 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         _draftBlocks.value = currentDraft
     }
 
+    fun updateProjectInfo(name: String, reportLabel: String, showHeaderLabel: Boolean, showHeaderDate: Boolean) {
+        val project = selectedProject.value?.project ?: return
+        viewModelScope.launch {
+            val updated = project.copy(
+                name = name,
+                reportLabel = reportLabel,
+                showHeaderLabel = showHeaderLabel,
+                showHeaderDate = showHeaderDate
+            )
+            repository.updateProject(updated)
+        }
+    }
+
     fun updateSignatureDrawing(blockId: Long, signatureBitmap: android.graphics.Bitmap) {
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {

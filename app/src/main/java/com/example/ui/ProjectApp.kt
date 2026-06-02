@@ -128,6 +128,9 @@ fun ProjectApp(
                             onImageSelected = { stream -> viewModel.addImageBlock(stream) },
                             onAddSignatureClick = { showSignatureDialog = true },
                             onDrawSignatureClick = { block -> activeSignatureBlockForDrawing = block },
+                            onUpdateProjectInfo = { name, label, showLabel, showDate ->
+                                viewModel.updateProjectInfo(name, label, showLabel, showDate)
+                            },
                             onExportPdf = { viewModel.exportPdf() },
                             onMoveBlockUp = { block -> viewModel.moveBlockUp(block) },
                             onMoveBlockDown = { block -> viewModel.moveBlockDown(block) },
@@ -457,6 +460,7 @@ fun ProjectEditorScreen(
     onImageSelected: (InputStream) -> Unit,
     onAddSignatureClick: () -> Unit,
     onDrawSignatureClick: (ContentBlockEntity) -> Unit,
+    onUpdateProjectInfo: (String, String, Boolean, Boolean) -> Unit,
     onExportPdf: () -> Unit,
     onMoveBlockUp: (ContentBlockEntity) -> Unit,
     onMoveBlockDown: (ContentBlockEntity) -> Unit,
@@ -929,41 +933,196 @@ fun ProjectEditorScreen(
                 )
             }
 
-            if (sortedBlocks.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Assignment,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Proyecto vacío",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Inserta notas escritas, fotos del terreno o firmas autorizadas usando las herramientas de abajo.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.outline,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item(key = "header_settings") {
+                    var expanded by remember { mutableStateOf(false) }
+                    
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { expanded = !expanded },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "Configuración de Cabecera",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = "Edita el título principal, literal del reporte y la fecha",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (expanded) "Colapsar" else "Expandir",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            
+                            if (expanded) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                // Project Name Editable Field
+                                var projName by remember(project.project.name) { mutableStateOf(project.project.name) }
+                                OutlinedTextField(
+                                    value = projName,
+                                    onValueChange = {
+                                        projName = it
+                                        onUpdateProjectInfo(it, project.project.reportLabel, project.project.showHeaderLabel, project.project.showHeaderDate)
+                                    },
+                                    placeholder = { Text("Nombre del Proyecto") },
+                                    label = { Text("Título Principal del Proyecto", fontSize = 11.sp) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                // Report Category Label (e.g. "REPORTE DE PROYECTO" / "ACTA DE VISITA")
+                                var repLabel by remember(project.project.reportLabel) { mutableStateOf(project.project.reportLabel) }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Checkbox(
+                                        checked = project.project.showHeaderLabel,
+                                        onCheckedChange = { isChecked ->
+                                            onUpdateProjectInfo(project.project.name, project.project.reportLabel, isChecked, project.project.showHeaderDate)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Mostrar literal superior",
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            text = "Categoría o tipo de reporte (Modificable / Ocultable)",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                }
+                                
+                                if (project.project.showHeaderLabel) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    OutlinedTextField(
+                                        value = repLabel,
+                                        onValueChange = {
+                                            repLabel = it
+                                            onUpdateProjectInfo(project.project.name, it, project.project.showHeaderLabel, project.project.showHeaderDate)
+                                        },
+                                        placeholder = { Text("Ej. REPORTE DE PROYECTO") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                // Report Date show/hide
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Checkbox(
+                                        checked = project.project.showHeaderDate,
+                                        onCheckedChange = { isChecked ->
+                                            onUpdateProjectInfo(project.project.name, project.project.reportLabel, project.project.showHeaderLabel, isChecked)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Column {
+                                        Text(
+                                            text = "Mostrar fecha en el PDF",
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            text = "Registrará la fecha de creación del reporte",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+
+                if (sortedBlocks.isEmpty()) {
+                    item(key = "empty_placeholder") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 48.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Assignment,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                modifier = Modifier.size(64.dp)
+                                                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Proyecto vacío",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Inserta notas escritas, fotos del terreno o firmas autorizadas usando las herramientas de abajo.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.outline,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
+                    }
+                } else {
                     items(groupedRows, key = { row -> row.map { it.id }.joinToString("-") }) { rowBlocks ->
                         if (rowBlocks.size == 2) {
                             Row(

@@ -12,7 +12,10 @@ enum class BlockType {
 data class ProjectEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val reportLabel: String = "REPORTE DE PROYECTO",
+    val showHeaderLabel: Boolean = true,
+    val showHeaderDate: Boolean = true
 )
 
 @Entity(
@@ -57,6 +60,9 @@ interface ProjectDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProject(project: ProjectEntity): Long
+
+    @Update
+    suspend fun updateProject(project: ProjectEntity)
 
     @Delete
     suspend fun deleteProject(project: ProjectEntity)

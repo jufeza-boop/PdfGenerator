@@ -73,6 +73,10 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
         projectId
     }
 
+    suspend fun updateProject(project: ProjectEntity) = withContext(Dispatchers.IO) {
+        projectDao.updateProject(project)
+    }
+
     suspend fun deleteProject(project: ProjectEntity) = withContext(Dispatchers.IO) {
         // Delete all local files associated with blocks before deleting the project
         val projectWithBlocks = projectDao.getProjectByIdFlow(project.id)
@@ -246,15 +250,20 @@ class ProjectRepository(private val context: Context, private val projectDao: Pr
         val usableWidth = pageWidth - (2 * marginX)
 
         // Title Block
-        canvas.drawText("REPORTE DE PROYECTO", marginX, currentY, labelPaint)
-        currentY += 24f
+        if (project.project.showHeaderLabel) {
+            val labelToDraw = project.project.reportLabel.ifBlank { "REPORTE DE PROYECTO" }
+            canvas.drawText(labelToDraw.uppercase(Locale.getDefault()), marginX, currentY, labelPaint)
+            currentY += 24f
+        }
         canvas.drawText(project.project.name.uppercase(Locale.getDefault()), marginX, currentY, titlePaint)
         currentY += 20f
 
-        val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault())
-        val dateText = "Fecha de creación: " + sdf.format(Date(project.project.createdAt))
-        canvas.drawText(dateText, marginX, currentY, subtitlePaint)
-        currentY += 15f
+        if (project.project.showHeaderDate) {
+            val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault())
+            val dateText = "Fecha de creación: " + sdf.format(Date(project.project.createdAt))
+            canvas.drawText(dateText, marginX, currentY, subtitlePaint)
+            currentY += 15f
+        }
 
         // Separator line
         canvas.drawLine(marginX, currentY, pageWidth - marginX, currentY, borderPaint)
