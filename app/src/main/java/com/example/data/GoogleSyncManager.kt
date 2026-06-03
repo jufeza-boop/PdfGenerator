@@ -130,6 +130,29 @@ class GoogleSyncManager(
         }
     }
 
+    private suspend fun makePutRequest(url: String, json: JSONObject, headers: Map<String, String>): JSONObject? = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(url)
+            .put(json.toString().toRequestBody("application/json".toMediaType()))
+            .apply { headers.forEach { (k, v) -> addHeader(k, v) } }
+            .build()
+        try {
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string()
+                if (response.isSuccessful) {
+                    if (!body.isNullOrBlank()) JSONObject(body) else null
+                } else {
+                    val errorMsg = parseGoogleError(body, response.code, response.message)
+                    Log.e("SyncManager", "PUT failed: $errorMsg")
+                    throw Exception(errorMsg)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SyncManager", "PUT Exception", e)
+            throw e
+        }
+    }
+
     private suspend fun findOrCreateRootFolder(headers: Map<String, String>): String {
         val folderName = "Reportes de Obra (Sincronizado)"
         val query = URLEncoder.encode("mimeType = 'application/vnd.google-apps.folder' and name = '$folderName' and trashed = false", "UTF-8")
@@ -337,17 +360,7 @@ class GoogleSyncManager(
                     }
 
                     val updateUrl = "https://sheets.googleapis.com/v1/spreadsheets/$spreadsheetId/values/Sheet1!A1?valueInputOption=USER_ENTERED"
-                    val sheetUpdateRes = makePostRequest(updateUrl, bodyJson, headers) // Wait, Sheets API PUT works too, but we can do it via Post on values:update
-                    if (sheetUpdateRes == null) {
-                        // Retry with PUT since values update requires it
-                        val req = Request.Builder()
-                            .url(updateUrl)
-                            .put(bodyJson.toString().toRequestBody("application/json".toMediaType()))
-                            .apply { headers.forEach { (k, v) -> addHeader(k, v) } }
-                            .build()
-                        val res = withContext(Dispatchers.IO) { client.newCall(req).execute() }
-                        res.close()
-                    }
+                    makePutRequest(updateUrl, bodyJson, headers)
 
                     // Upload images to this project folder
                     val mediaBlocks = blocks.filter { it.type == BlockType.IMAGE || it.type == BlockType.SIGNATURE }
