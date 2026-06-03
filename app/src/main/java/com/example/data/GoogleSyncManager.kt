@@ -354,12 +354,12 @@ class GoogleSyncManager(
                     }
 
                     val bodyJson = JSONObject().apply {
-                        put("range", "Sheet1!A1")
+                        put("range", "A1")
                         put("majorDimension", "ROWS")
                         put("values", initRows)
                     }
 
-                    val updateUrl = "https://sheets.googleapis.com/v1/spreadsheets/$spreadsheetId/values/Sheet1!A1?valueInputOption=USER_ENTERED"
+                    val updateUrl = "https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/A1?valueInputOption=USER_ENTERED"
                     makePutRequest(updateUrl, bodyJson, headers)
 
                     // Upload images to this project folder
