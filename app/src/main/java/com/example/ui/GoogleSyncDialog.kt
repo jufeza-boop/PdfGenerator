@@ -55,10 +55,10 @@ fun GoogleSyncDialog(
     var isAutoSync by remember(config) { mutableStateOf(config?.isAutoSync ?: false) }
 
     var showConfigHelp by remember { mutableStateOf(false) }
-    var isWebViewVisible by remember { mutableStateOf(false) }
+    var isAuthGuideVisible by remember { mutableStateOf(false) }
 
     Dialog(
-        onDismissRequest = { if (state !is SyncState.Syncing && !isWebViewVisible) onDismiss() },
+        onDismissRequest = { if (state !is SyncState.Syncing && !isAuthGuideVisible) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
@@ -83,26 +83,26 @@ fun GoogleSyncDialog(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = if (isWebViewVisible) Icons.Default.VpnKey else Icons.Default.Cloud,
+                            imageVector = if (isAuthGuideVisible) Icons.Default.VpnKey else Icons.Default.Cloud,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(32.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = if (isWebViewVisible) "Autorizar Cuenta Google" else "Sincronización Delegada",
+                            text = if (isAuthGuideVisible) "Autorizar Cuenta Google" else "Sincronización Delegada",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    if (state !is SyncState.Syncing && !isWebViewVisible) {
+                    if (state !is SyncState.Syncing && !isAuthGuideVisible) {
                         IconButton(onClick = onDismiss) {
                             Icon(Icons.Default.Close, contentDescription = "Cerrar")
                         }
-                    } else if (isWebViewVisible) {
-                        IconButton(onClick = { isWebViewVisible = false }) {
+                    } else if (isAuthGuideVisible) {
+                        IconButton(onClick = { isAuthGuideVisible = false }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
                         }
                     }
@@ -118,56 +118,220 @@ fun GoogleSyncDialog(
                         .weight(1f)
                         .fillMaxWidth()
                 ) {
-                    if (isWebViewVisible) {
-                        // Integrated browser window for OAuth dynamic login
-                        AndroidView(
-                            factory = { ctx ->
-                                WebView(ctx).apply {
-                                    settings.javaScriptEnabled = true
-                                    settings.domStorageEnabled = true
-                                    settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
-                                    
-                                    webViewClient = object : WebViewClient() {
-                                        override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                                            super.onPageStarted(view, url, favicon)
-                                            if (url != null && url.startsWith("http://localhost")) {
-                                                // Check for token in hash fragment/redirect parameter
-                                                val fragment = Uri.parse(url).fragment
-                                                if (!fragment.isNullOrBlank()) {
-                                                    val params = fragment.split("&")
-                                                    var tokenFound = ""
-                                                    for (param in params) {
-                                                        if (param.startsWith("access_token=")) {
-                                                            tokenFound = param.substringAfter("access_token=")
-                                                            break
-                                                        }
-                                                    }
-                                                    if (tokenFound.isNotBlank()) {
-                                                        accessToken = tokenFound
-                                                        onSaveConfig(tokenFound, clientId, isAutoSync)
-                                                        Toast.makeText(context, "¡Sesión iniciada con éxito!", Toast.LENGTH_LONG).show()
-                                                        isWebViewVisible = false
-                                                    }
+                    if (isAuthGuideVisible) {
+                        var pastedInput by remember { mutableStateOf("") }
+                        val extractedToken = remember(pastedInput) { extractTokenFromUrl(pastedInput) }
+                        val isTokenValido = extractedToken.startsWith("ya29.")
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(
+                                text = "Sigue estos sencillos pasos para sincronizar de forma 100% segura con tu almacenamiento y bases de datos en la nube:",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 20.sp
+                            )
+
+                            // Paso 1: Abrir navegador
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                "1",
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Iniciar Sesión en el Navegador",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Iniciaremos sesión utilizando los servidores oficiales y seguros de Google (Chrome, Firefox, etc.). Tu cuenta y credenciales están totalmente protegidas.",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        lineHeight = 18.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Button(
+                                        onClick = {
+                                            val encodedScope = URLEncoder.encode("https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets", "UTF-8")
+                                            val oauthUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
+                                                    "client_id=$clientId" +
+                                                    "&redirect_uri=http://localhost" +
+                                                    "&response_type=token" +
+                                                    "&scope=$encodedScope"
+                                            try {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(oauthUrl))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "No se pudo abrir el navegador: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Launch, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Abrir Google Accounts")
+                                    }
+                                }
+                            }
+
+                            // Paso 2: Copiar URL
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(12.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                "2",
+                                                color = MaterialTheme.colorScheme.onSecondary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Copiar Enlace Local (Localhost)",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Una vez concedas los permisos, el navegador te redirigirá a una dirección que comienza con 'http://localhost' y mostrará una pantalla de error diciendo 'No se puede conectar'.\n\n¡Eso es perfecto! Copia la dirección (URL) completa desde la barra superior de tu navegador.",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                            }
+
+                            // Paso 3: Pegar
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isTokenValido) Color(0xFFDCFCE7) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .background(if (isTokenValido) Color(0xFF16A34A) else MaterialTheme.colorScheme.tertiary, RoundedCornerShape(12.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                "3",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Pegar URL o Token de Acceso",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = if (isTokenValido) Color(0xFF14532D) else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    OutlinedTextField(
+                                        value = pastedInput,
+                                        onValueChange = { pastedInput = it },
+                                        placeholder = { Text("Pega la dirección copiada o el token ya29...") },
+                                        modifier = Modifier.fillMaxWidth().testTag("token_url_input"),
+                                        maxLines = 4,
+                                        trailingIcon = {
+                                            if (isTokenValido) {
+                                                Icon(Icons.Default.CheckCircle, contentDescription = "Validado", tint = Color(0xFF16A34A))
+                                            } else {
+                                                IconButton(onClick = { pastedInput = "" }) {
+                                                    Icon(Icons.Default.ContentPaste, contentDescription = "Pegar")
                                                 }
                                             }
+                                        },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = if (isTokenValido) Color(0xFF16A34A) else MaterialTheme.colorScheme.primary
+                                        )
+                                    )
+
+                                    if (isTokenValido) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF16A34A))
+                                            Text(
+                                                text = "¡Token de acceso verificado exitosamente!",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color(0xFF14532D)
+                                            )
                                         }
                                     }
                                 }
-                            },
-                            update = { webView ->
-                                val encodedScope = URLEncoder.encode("https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets", "UTF-8")
-                                val oauthUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
-                                        "client_id=$clientId" +
-                                        "&redirect_uri=http://localhost" +
-                                        "&response_type=token" +
-                                        "&scope=$encodedScope"
-                                webView.loadUrl(oauthUrl)
-                            },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
-                                .clip(RoundedCornerShape(12.dp))
-                        )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Button(
+                                onClick = {
+                                    if (isTokenValido) {
+                                        accessToken = extractedToken
+                                        onSaveConfig(extractedToken, clientId, isAutoSync)
+                                        Toast.makeText(context, "¡Sesión autorizada correctamente!", Toast.LENGTH_SHORT).show()
+                                        isAuthGuideVisible = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                enabled = isTokenValido,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF16A34A),
+                                    disabledContainerColor = MaterialTheme.colorScheme.outlineVariant
+                                )
+                            ) {
+                                Icon(Icons.Default.VpnKey, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Guardar y Autorizar Sincronización")
+                            }
+                        }
                     } else {
                         // Regular Sync States
                         when (state) {
@@ -262,7 +426,7 @@ fun GoogleSyncDialog(
                                                 Button(
                                                     onClick = {
                                                         onSaveConfig(accessToken, clientId, isAutoSync)
-                                                        isWebViewVisible = true
+                                                        isAuthGuideVisible = true
                                                     },
                                                     shape = RoundedCornerShape(10.dp)
                                                 ) {
@@ -625,4 +789,36 @@ fun GoogleSyncDialog(
             }
         }
     }
+}
+
+private fun extractTokenFromUrl(url: String): String {
+    val clean = url.trim()
+    if (clean.startsWith("ya29.")) {
+        return clean
+    }
+    try {
+        val uri = Uri.parse(clean)
+        val fragment = uri.fragment
+        if (!fragment.isNullOrBlank()) {
+            val params = fragment.split("&")
+            for (param in params) {
+                if (param.startsWith("access_token=")) {
+                    return param.substringAfter("access_token=").trim()
+                }
+            }
+        }
+        val queryToken = uri.getQueryParameter("access_token")
+        if (!queryToken.isNullOrBlank()) {
+            return queryToken.trim()
+        }
+    } catch (e: java.lang.Exception) {
+        // Fallback simple parsing if Uri.parse fails
+    }
+    // Simple regex fallback
+    val regex = Regex("access_token=([^&]+)")
+    val matchResult = regex.find(clean)
+    if (matchResult != null) {
+        return matchResult.groupValues[1].trim()
+    }
+    return ""
 }
