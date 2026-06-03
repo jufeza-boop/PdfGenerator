@@ -61,6 +61,29 @@ class GoogleSyncManager(
             .apply()
     }
 
+    private fun parseGoogleError(responseBody: String?, statusCode: Int, statusMessage: String): String {
+        if (responseBody.isNullOrBlank()) {
+            return "Error HTTP $statusCode: $statusMessage"
+        }
+        return try {
+            val json = JSONObject(responseBody)
+            if (json.has("error")) {
+                val errorObj = json.getJSONObject("error")
+                val msg = errorObj.optString("message", "")
+                val status = errorObj.optString("status", "")
+                if (msg.isNotBlank()) {
+                    "Error de Google ($statusCode - $status): $msg"
+                } else {
+                    "Error de Google ($statusCode): $status"
+                }
+            } else {
+                "Error HTTP $statusCode: $responseBody"
+            }
+        } catch (e: Exception) {
+            "Error HTTP $statusCode: $responseBody"
+        }
+    }
+
     // Google API Helpers
     private suspend fun makeGetRequest(url: String, headers: Map<String, String>): JSONObject? = withContext(Dispatchers.IO) {
         val request = Request.Builder()
@@ -69,17 +92,18 @@ class GoogleSyncManager(
             .build()
         try {
             client.newCall(request).execute().use { response ->
+                val body = response.body?.string()
                 if (response.isSuccessful) {
-                    val body = response.body?.string()
                     if (!body.isNullOrBlank()) JSONObject(body) else null
                 } else {
-                    Log.e("SyncManager", "GET failed: ${response.code} / ${response.message}")
-                    null
+                    val errorMsg = parseGoogleError(body, response.code, response.message)
+                    Log.e("SyncManager", "GET failed: $errorMsg")
+                    throw Exception(errorMsg)
                 }
             }
         } catch (e: Exception) {
             Log.e("SyncManager", "GET Exception", e)
-            null
+            throw e
         }
     }
 
@@ -91,17 +115,18 @@ class GoogleSyncManager(
             .build()
         try {
             client.newCall(request).execute().use { response ->
+                val body = response.body?.string()
                 if (response.isSuccessful) {
-                    val body = response.body?.string()
                     if (!body.isNullOrBlank()) JSONObject(body) else null
                 } else {
-                    Log.e("SyncManager", "POST failed: ${response.code} / ${response.message}")
-                    null
+                    val errorMsg = parseGoogleError(body, response.code, response.message)
+                    Log.e("SyncManager", "POST failed: $errorMsg")
+                    throw Exception(errorMsg)
                 }
             }
         } catch (e: Exception) {
             Log.e("SyncManager", "POST Exception", e)
-            null
+            throw e
         }
     }
 

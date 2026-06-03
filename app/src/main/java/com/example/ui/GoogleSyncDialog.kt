@@ -120,6 +120,7 @@ fun GoogleSyncDialog(
                 ) {
                     if (isAuthGuideVisible) {
                         var pastedInput by remember { mutableStateOf("") }
+                        var requestFullDriveAccess by remember { mutableStateOf(true) }
                         val extractedToken = remember(pastedInput) { extractTokenFromUrl(pastedInput) }
                         val isTokenValido = extractedToken.startsWith("ya29.")
 
@@ -168,15 +169,81 @@ fun GoogleSyncDialog(
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
-                                        text = "Iniciaremos sesión utilizando los servidores oficiales y seguros de Google (Chrome, Firefox, etc.). Tu cuenta y credenciales están totalmente protegidas.",
+                                        text = "Iniciaremos sesión utilizando los servidores oficiales y seguros de Google. Selecciona abajo el nivel de acceso deseado para la sincronización:",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         lineHeight = 18.sp
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Selector de nivel de acceso
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                                    ) {
+                                        Surface(
+                                            onClick = { requestFullDriveAccess = false },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (!requestFullDriveAccess) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                if (!requestFullDriveAccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                RadioButton(
+                                                    selected = !requestFullDriveAccess,
+                                                    onClick = { requestFullDriveAccess = false },
+                                                    colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Column {
+                                                    Text("Acceso Limitado (drive.file) 🔒", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = if (!requestFullDriveAccess) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                                    Text("Solo puede gestionar archivos creados por esta aplicación. Requiere que habilites 'Google Drive API' en tu consola de Google Cloud.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                        }
+
+                                        Surface(
+                                            onClick = { requestFullDriveAccess = true },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (requestFullDriveAccess) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                if (requestFullDriveAccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                RadioButton(
+                                                    selected = requestFullDriveAccess,
+                                                    onClick = { requestFullDriveAccess = true },
+                                                    colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Column {
+                                                    Text("Acceso Completo (drive) ⭐ [Recomendado]", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = if (requestFullDriveAccess) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                                    Text("Otorga permisos para crear la carpeta raíz y organizar archivos sin restricciones de indexación de Google.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     Button(
                                         onClick = {
-                                            val encodedScope = URLEncoder.encode("https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets", "UTF-8")
+                                            val scopeStr = if (requestFullDriveAccess) {
+                                                "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets"
+                                            } else {
+                                                "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets"
+                                            }
+                                            val encodedScope = URLEncoder.encode(scopeStr, "UTF-8")
                                             val oauthUrl = "https://accounts.google.com/o/oauth2/v2/auth?" +
                                                     "client_id=$clientId" +
                                                     "&redirect_uri=http://localhost" +
