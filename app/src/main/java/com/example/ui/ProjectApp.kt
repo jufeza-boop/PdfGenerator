@@ -200,8 +200,8 @@ fun ProjectApp(
             GoogleSyncDialog(
                 config = syncConfig,
                 state = syncState,
-                onSaveConfig = { token, sheetId, foldId, auto ->
-                    viewModel.updateSyncConfig(token, sheetId, foldId, auto)
+                onSaveConfig = { token, clientId, auto ->
+                    viewModel.updateSyncConfig(token, clientId, auto)
                 },
                 onRunSync = { real ->
                     viewModel.runGoogleWorkspaceSync(real)

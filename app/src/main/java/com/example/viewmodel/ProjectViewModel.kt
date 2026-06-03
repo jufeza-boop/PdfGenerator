@@ -77,8 +77,8 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             )
     }
 
-    fun updateSyncConfig(accessToken: String, spreadsheetId: String, folderId: String, isAutoSync: Boolean) {
-        syncManager.saveConfig(accessToken, spreadsheetId, folderId, isAutoSync)
+    fun updateSyncConfig(accessToken: String, clientId: String, isAutoSync: Boolean) {
+        syncManager.saveConfig(accessToken, clientId, isAutoSync)
         _syncConfig.value = syncManager.getConfig()
     }
 
