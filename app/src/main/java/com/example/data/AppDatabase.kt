@@ -13,6 +13,7 @@ data class ProjectEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
     val reportLabel: String = "REPORTE DE PROYECTO",
     val showHeaderLabel: Boolean = true,
     val showHeaderDate: Boolean = true,
@@ -84,7 +85,7 @@ interface ProjectDao {
     suspend fun deleteBlocksForProject(projectId: Long)
 }
 
-@Database(entities = [ProjectEntity::class, ContentBlockEntity::class], version = 4, exportSchema = false)
+@Database(entities = [ProjectEntity::class, ContentBlockEntity::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
 

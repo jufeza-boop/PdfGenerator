@@ -19,7 +19,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-class ProjectRepository(private val context: Context, private val projectDao: ProjectDao) {
+class ProjectRepository(val context: Context, val projectDao: ProjectDao) {
 
     val allProjects: Flow<List<ProjectWithBlocks>> = projectDao.getAllProjectsFlow()
 

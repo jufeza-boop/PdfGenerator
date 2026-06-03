@@ -197,14 +197,14 @@ fun ProjectApp(
         }
 
         if (showSyncDialog) {
-            GoogleSyncDialog(
+            GithubSyncDialog(
                 config = syncConfig,
                 state = syncState,
-                onSaveConfig = { token, clientId, auto ->
-                    viewModel.updateSyncConfig(token, clientId, auto)
+                onSaveConfig = { token, owner, repo, branch, auto ->
+                    viewModel.updateSyncConfig(token, owner, repo, branch, auto)
                 },
                 onRunSync = { real ->
-                    viewModel.runGoogleWorkspaceSync(real)
+                    viewModel.runGithubSync(real)
                 },
                 onDismiss = { showSyncDialog = false },
                 onResetState = { viewModel.resetSyncState() }

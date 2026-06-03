@@ -15,7 +15,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 class ProjectViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: ProjectRepository
-    val syncManager: GoogleSyncManager
+    val syncManager: GithubSyncManager
 
     private val _syncConfig = MutableStateFlow<SyncConfig?>(null)
     val syncConfig: StateFlow<SyncConfig?> = _syncConfig.asStateFlow()
@@ -66,7 +66,7 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
     init {
         val database = AppDatabase.getDatabase(application)
         repository = ProjectRepository(application, database.projectDao())
-        syncManager = GoogleSyncManager(application, repository)
+        syncManager = GithubSyncManager(application, repository)
         _syncConfig.value = syncManager.getConfig()
         
         allProjects = repository.allProjects
@@ -77,12 +77,12 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             )
     }
 
-    fun updateSyncConfig(accessToken: String, clientId: String, isAutoSync: Boolean) {
-        syncManager.saveConfig(accessToken, clientId, isAutoSync)
+    fun updateSyncConfig(githubToken: String, githubOwner: String, githubRepo: String, githubBranch: String, isAutoSync: Boolean) {
+        syncManager.saveConfig(githubToken, githubOwner, githubRepo, githubBranch, isAutoSync)
         _syncConfig.value = syncManager.getConfig()
     }
 
-    fun runGoogleWorkspaceSync(realSync: Boolean) {
+    fun runGithubSync(realSync: Boolean) {
         viewModelScope.launch {
             syncManager.runSync(realSync).collect { state ->
                 _syncState.value = state
@@ -331,7 +331,8 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                 headerCompany = headerCompany,
                 headerCompanySub = headerCompanySub,
                 headerTitle = headerTitle,
-                showHeaderBox = showHeaderBox
+                showHeaderBox = showHeaderBox,
+                updatedAt = System.currentTimeMillis()
             )
             repository.updateProject(updated)
         }
@@ -396,7 +397,13 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
 
-            // 3. Reload saved blocks from DB
+            // 3. Update project updatedAt when blocks are changed
+            val currentProj = selectedProject.value?.project
+            if (currentProj != null) {
+                repository.updateProject(currentProj.copy(updatedAt = System.currentTimeMillis()))
+            }
+
+            // 4. Reload saved blocks from DB
             val freshProject = repository.getProjectById(projectId).filterNotNull().first()
             val sorted = freshProject.blocks.sortedBy { it.sequence }
             _originalBlocks.value = sorted
