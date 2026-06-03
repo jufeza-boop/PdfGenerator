@@ -15,6 +15,13 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 class ProjectViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: ProjectRepository
+    val syncManager: GoogleSyncManager
+
+    private val _syncConfig = MutableStateFlow<SyncConfig?>(null)
+    val syncConfig: StateFlow<SyncConfig?> = _syncConfig.asStateFlow()
+
+    private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
+    val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
     // List of all projects for the dashboard
     val allProjects: StateFlow<List<ProjectWithBlocks>>
@@ -59,6 +66,8 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
     init {
         val database = AppDatabase.getDatabase(application)
         repository = ProjectRepository(application, database.projectDao())
+        syncManager = GoogleSyncManager(application, repository)
+        _syncConfig.value = syncManager.getConfig()
         
         allProjects = repository.allProjects
             .stateIn(
@@ -66,6 +75,23 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                 started = SharingStarted.WhileSubscribed(5000),
                 initialValue = emptyList()
             )
+    }
+
+    fun updateSyncConfig(accessToken: String, spreadsheetId: String, folderId: String, isAutoSync: Boolean) {
+        syncManager.saveConfig(accessToken, spreadsheetId, folderId, isAutoSync)
+        _syncConfig.value = syncManager.getConfig()
+    }
+
+    fun runGoogleWorkspaceSync(realSync: Boolean) {
+        viewModelScope.launch {
+            syncManager.runSync(realSync).collect { state ->
+                _syncState.value = state
+            }
+        }
+    }
+
+    fun resetSyncState() {
+        _syncState.value = SyncState.Idle
     }
 
     fun selectProject(id: Long?) {

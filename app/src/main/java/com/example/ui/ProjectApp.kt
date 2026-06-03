@@ -74,9 +74,13 @@ fun ProjectApp(
     val generatedPdfFile by viewModel.generatedPdfFile.collectAsStateWithLifecycle()
     val isGeneratingPdf by viewModel.isGeneratingPdf.collectAsStateWithLifecycle()
     val isUploadingCloud by viewModel.isUploadingCloud.collectAsStateWithLifecycle()
+    
+    val syncConfig by viewModel.syncConfig.collectAsStateWithLifecycle()
+    val syncState by viewModel.syncState.collectAsStateWithLifecycle()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showSignatureDialog by remember { mutableStateOf(false) }
+    var showSyncDialog by remember { mutableStateOf(false) }
     var activeSignatureBlockForDrawing by remember { mutableStateOf<ContentBlockEntity?>(null) }
 
     // Observe mock upload status
@@ -110,7 +114,8 @@ fun ProjectApp(
                         projects = allProjects,
                         onProjectSelected = { id -> viewModel.selectProject(id) },
                         onCreateProjectClick = { showCreateDialog = true },
-                        onDeleteProject = { project -> viewModel.deleteProject(project) }
+                        onDeleteProject = { project -> viewModel.deleteProject(project) },
+                        onSyncClick = { showSyncDialog = true }
                     )
                 }
                 AppScreen.Editor -> {
@@ -190,6 +195,21 @@ fun ProjectApp(
                 }
             )
         }
+
+        if (showSyncDialog) {
+            GoogleSyncDialog(
+                config = syncConfig,
+                state = syncState,
+                onSaveConfig = { token, sheetId, foldId, auto ->
+                    viewModel.updateSyncConfig(token, sheetId, foldId, auto)
+                },
+                onRunSync = { real ->
+                    viewModel.runGoogleWorkspaceSync(real)
+                },
+                onDismiss = { showSyncDialog = false },
+                onResetState = { viewModel.resetSyncState() }
+            )
+        }
     }
 }
 
@@ -203,7 +223,8 @@ fun DashboardScreen(
     projects: List<ProjectWithBlocks>,
     onProjectSelected: (Long) -> Unit,
     onCreateProjectClick: () -> Unit,
-    onDeleteProject: (ProjectEntity) -> Unit
+    onDeleteProject: (ProjectEntity) -> Unit,
+    onSyncClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -222,6 +243,19 @@ fun DashboardScreen(
                                 text = "Mis Proyectos",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 20.sp
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = onSyncClick,
+                            modifier = Modifier.testTag("sync_cloud_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudSync,
+                                contentDescription = "Sincronización en la Nube",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     },
