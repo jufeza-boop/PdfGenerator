@@ -30,6 +30,8 @@
             }
         }
     </script>
+    <!-- html2pdf.js for high fidelity client-side PDF document generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         /* Custom scrollbar */
         ::-webkit-scrollbar {
@@ -45,6 +47,35 @@
         }
         ::-webkit-scrollbar-thumb:hover {
             background: #64748b;
+        }
+
+        /* High-parity custom styles for A4 printing and PDF drawing */
+        @media print {
+            header, footer, nav, aside, button, .no-print, #toastContainer, #configModal, div.shrink-0 {
+                display: none !important;
+            }
+            body, main, #editorContent, #editorViewArea, #tabContentPreview {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                width: 100% !important;
+                height: auto !important;
+                display: block !important;
+            }
+            #pdfDocumentMockup {
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                page-break-inside: avoid;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 15mm;
+            }
         }
     </style>
 </head>
@@ -254,7 +285,9 @@
                                 <button onclick="addNewBlock('TEXT')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Texto</button>
                                 <button onclick="addNewBlock('TITLE')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Título</button>
                                 <button onclick="addNewBlock('CHECKLIST')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Checklist</button>
-                                <button onclick="addNewBlock('IMAGE')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Imagen/Foto</button>
+                                <button onclick="addNewBlock('TABLE')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Tabla</button>
+                                <button onclick="addNewBlock('IMAGE')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Imagen</button>
+                                <button onclick="addNewBlock('SIGNATURE')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Firma</button>
                                 <button onclick="addNewBlock('FOOTER')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Pié de Página</button>
                             </div>
                         </div>
@@ -268,24 +301,33 @@
 
                 <!-- TAB 2: VISTA PREVIA DOCUMENTO (Mock design replicating official template styled sheet) -->
                 <div id="tabContentPreview" class="hidden">
-                    <div class="max-w-[800px] mx-auto bg-white border border-slate-300 shadow-lg p-10 min-h-[1050px] flex flex-col justify-between" id="pdfDocumentMockup">
-                        <!-- Top header card box -->
+                    <!-- Standard high-fidelity responsive A4 container replicating app coordinates perfectly -->
+                    <div class="mx-auto bg-white border border-slate-300 shadow-lg p-12 flex flex-col justify-between" id="pdfDocumentMockup" style="width: 794px; min-height: 1123px; box-sizing: border-box;">
+                        <!-- Top content box -->
                         <div>
-                            <!-- Header Info -->
-                            <div id="previewHeaderBox" class="border-2 border-slate-800 p-4 mb-6 flex flex-col md:flex-row justify-between items-start gap-4">
-                                <div>
-                                    <h2 id="previewHeaderCompany" class="text-base font-bold text-slate-900 tracking-wider">JAVIER MARTÍNEZ PARRA</h2>
-                                    <p id="previewHeaderCompanySub" class="text-[10px] text-slate-500 leading-normal whitespace-pre-line mt-1">ARQUITECTO TÉCNICO - INGENIERO DE EDIFICACIÓN</p>
+                            <!-- Three-column Architectural Header Box replicating Android PDF graphics exactly -->
+                            <div id="previewHeaderBox" class="w-full border border-slate-300 mb-6 grid grid-cols-12 text-xs overflow-hidden h-[80px]">
+                                <!-- Left column: Company info (Copper accent colored) -->
+                                <div class="col-span-5 p-3 flex flex-col justify-center">
+                                    <h2 id="previewHeaderCompany" class="text-[10.5px] font-extrabold text-[#9a6640] leading-tight uppercase tracking-wide">JAVIER MARTÍNEZ PARRA</h2>
+                                    <span id="previewHeaderCompanySub" class="text-[7.5px] text-slate-500 mt-1 whitespace-pre-line font-medium leading-tight">ARQUITECTO TÉCNICO - INGENIERO DE EDIFICACIÓN</span>
                                 </div>
-                                <div class="text-left md:text-right">
-                                    <h3 id="previewHeaderTitle" class="text-sm font-bold text-slate-900 tracking-wider bg-slate-200 px-2 py-0.5 rounded">INFORME DE VISITA A OBRA</h3>
-                                    <p id="previewHeaderDate" class="text-xs text-slate-500 font-medium mt-1">Fecha de Visita: [Fecha del Reporte]</p>
+                                <!-- Center column: Report header title (grey filled background) -->
+                                <div class="col-span-5 bg-slate-100/90 border-x border-slate-300 p-3 flex items-center justify-center text-center">
+                                    <h3 id="previewHeaderTitle" class="text-[11px] font-extrabold text-slate-900 uppercase tracking-widest leading-normal">INFORME DE VISITA A OBRA</h3>
+                                </div>
+                                <!-- Right column: Page numbers / state details -->
+                                <div class="col-span-2 p-3 flex flex-col items-center justify-center text-center">
+                                    <span id="previewPageNum" class="text-[10px] font-semibold text-slate-600">Página 1 de 1</span>
                                 </div>
                             </div>
                             
-                            <!-- Document Label -->
-                            <div id="previewReportLabelContainer" class="mb-4">
-                                <h1 id="previewReportLabel" class="text-sm font-extrabold text-slate-800 border-b border-slate-300 pb-1 uppercase tracking-widest">REPORTE DE PROYECTO</h1>
+                            <!-- Dynamic Document Title Block (matches coordinate details exactly) -->
+                            <div class="mb-6 space-y-1" id="previewTitleSection">
+                                <span id="previewReportLabel" class="text-[9px] font-bold text-slate-400 tracking-widest uppercase block">REPORTE DE PROYECTO</span>
+                                <h1 id="previewProjectName" class="text-xl font-extrabold text-[#1f2937] uppercase leading-tight tracking-tight">Nueva Obra de Construcción</h1>
+                                <p id="previewHeaderDateText" class="text-[10px] text-slate-500 font-medium">Fecha de creación: 3 de Junio de 2026</p>
+                                <div class="border-b border-slate-200 pt-2 pb-1"></div>
                             </div>
                             
                             <!-- Dynamic Blocks Renderer Mock -->
@@ -295,9 +337,9 @@
                         </div>
                         
                         <!-- Bottom standard technical architect sign section -->
-                        <div class="border-t border-slate-200 pt-4 flex justify-between text-[10px] text-slate-400 font-medium">
+                        <div class="border-t border-slate-200 pt-4 flex justify-between text-[10px] text-slate-400 font-medium pb-2 no-print">
                             <span>Sincronizado vía Plataforma Seguro y Encriptado de Obras</span>
-                            <span id="previewPageNum">Página 1 de 1</span>
+                            <span id="previewPageNumFooter">Página 1 de 1</span>
                         </div>
                     </div>
                 </div>
@@ -321,6 +363,21 @@
                         </svg>
                         <span>Escribiendo en GitHub API...</span>
                     </div>
+
+                    <!-- Action buttons specifically designed to print/export high fidelity web PDF -->
+                    <button onclick="generateBrowserPDF()" id="btnDownloadPDF" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-5 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-md">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Descargar PDF</span>
+                    </button>
+
+                    <button onclick="window.print()" id="btnPrintPDF" class="bg-slate-600 hover:bg-slate-705 text-white font-bold py-2.5 px-5 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-md">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                        <span>Imprimir / Guardar PDF</span>
+                    </button>
 
                     <button onclick="saveProjectToGithub()" id="btnSaveToGit" class="bg-brand-emerald hover:bg-emerald-600 text-white font-bold py-2.5 px-6 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-md">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -570,7 +627,8 @@
                         const fileDetailsRes = await fetch(file.url, { headers });
                         if (fileDetailsRes.ok) {
                             const fileDetails = await fileDetailsRes.json();
-                            const decodedContent = atob(fileDetails.content.replace(/\n|\r/g, ''));
+                            // Decode standard base64 to Unicode string safe from accent omissions
+                            const decodedContent = decodeURIComponent(escape(atob(fileDetails.content.replace(/\n|\r/g, ''))));
                             const projectData = JSON.parse(decodedContent);
                             
                             // Map filename meta tracking
@@ -946,8 +1004,12 @@
             initialContent = " [ ] Elemento de inspección 1\n [ ] Elemento de inspección 2";
         } else if (type === 'TITLE') {
             initialContent = "Sección nueva del informe";
-        } else if (type === 'IMAGE' || type === 'SIGNATURE') {
+        } else if (type === 'IMAGE') {
             initialContent = "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=600";
+        } else if (type === 'SIGNATURE') {
+            initialContent = "|Firma de Validación|Javier Martínez Parra";
+        } else if (type === 'TABLE') {
+            initialContent = "Parámetro|Descripción / Estado\nFase de Estructura|Hormigonado de Cimentación Completado\nDirección Técnica|Javier Martínez Parra";
         } else if (type === 'FOOTER') {
             initialContent = "Fin de la inspección e informe técnico.";
         }
@@ -1040,27 +1102,39 @@
         // Populate standard headers
         const headerBox = document.getElementById('previewHeaderBox');
         if (activeProject.project.showHeaderBox === false) {
-            headerBox.className = "p-4 mb-6 flex justify-between items-start gap-4 border-b border-slate-300";
+            headerBox.classList.add('hidden');
         } else {
-            headerBox.className = "border-2 border-slate-800 p-4 mb-6 flex flex-col md:flex-row justify-between items-start gap-4";
-        }
-
-        const reportLabelContainer = document.getElementById('previewReportLabelContainer');
-        if (activeProject.project.showHeaderLabel === false) {
-            reportLabelContainer.classList.add('hidden');
-        } else {
-            reportLabelContainer.classList.remove('hidden');
-            document.getElementById('previewReportLabel').innerText = activeProject.project.reportLabel || 'REPORTE DE PROYECTO';
+            headerBox.classList.remove('hidden');
         }
 
         document.getElementById('previewHeaderCompany').innerText = activeProject.project.headerCompany || 'JAVIER MARTÍNEZ PARRA';
         document.getElementById('previewHeaderCompanySub').innerText = activeProject.project.headerCompanySub || '';
         document.getElementById('previewHeaderTitle').innerText = activeProject.project.headerTitle || 'INFORME DE VISITA A OBRA';
         
-        const dateStr = new Date(activeProject.project.createdAt).toLocaleDateString('es-ES', {
-            year: 'numeric', month: 'long', day: 'numeric'
-        });
-        document.getElementById('previewHeaderDate').innerText = activeProject.project.showHeaderDate === false ? "" : `Fecha de Visita: ${dateStr}`;
+        // Title block section details matching coordinate layouts exactly
+        const previewReportLabel = document.getElementById('previewReportLabel');
+        const previewProjectName = document.getElementById('previewProjectName');
+        const previewHeaderDateText = document.getElementById('previewHeaderDateText');
+
+        if (activeProject.project.showHeaderLabel === false) {
+            previewReportLabel.classList.add('hidden');
+        } else {
+            previewReportLabel.classList.remove('hidden');
+            previewReportLabel.innerText = (activeProject.project.reportLabel || 'REPORTE DE PROYECTO').toUpperCase();
+        }
+
+        previewProjectName.innerText = (activeProject.project.name || '').toUpperCase();
+
+        if (activeProject.project.showHeaderDate === false) {
+            previewHeaderDateText.classList.add('hidden');
+        } else {
+            previewHeaderDateText.classList.remove('hidden');
+            const dateObj = new Date(activeProject.project.createdAt);
+            const formattedDate = dateObj.toLocaleDateString('es-ES', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            }) + `, ` + dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            previewHeaderDateText.innerText = `Fecha de creación: ${formattedDate}`;
+        }
 
         // Blocks container
         const blocksContainer = document.getElementById('previewBlocksContainer');
@@ -1068,35 +1142,73 @@
 
         activeProject.blocks.sort((a,b) => a.sequence - b.sequence).forEach(block => {
             const blockEl = document.createElement('div');
-            blockEl.className = block.isHalfWidth ? "col-span-1 border border-slate-100 p-3 rounded-lg" : "col-span-2 border border-slate-100 p-3 rounded-lg";
+            blockEl.className = block.isHalfWidth ? "col-span-1 p-2 bg-transparent" : "col-span-2 p-2 bg-transparent";
             
             let blockInnerHtml = "";
             switch (block.type) {
                 case 'TITLE':
                     blockInnerHtml = `
-                        <h3 class="text-sm font-extrabold text-indigo-900 border-l-4 border-indigo-600 pl-2 py-0.5 my-1 uppercase tracking-wide bg-slate-50">${block.content}</h3>
+                        <h3 class="text-sm font-extrabold text-[#1f2937] border-l-4 border-[#9a6640] pl-2 py-0.5 my-1 uppercase tracking-wider">${block.content}</h3>
                     `;
                     break;
                 case 'TEXT':
                     blockInnerHtml = `
-                        <p class="text-xs text-slate-800 leading-relaxed font-sans whitespace-pre-line">${block.content}</p>
+                        <p class="text-xs text-[#374151] leading-relaxed font-sans whitespace-pre-line">${block.content}</p>
                     `;
                     break;
                 case 'FOOTER':
                     blockInnerHtml = `
-                        <p class="text-[10px] text-slate-400 italic text-center mt-3 border-t border-slate-100 pt-1">${block.content}</p>
+                        <p class="text-[10px] text-slate-500 italic text-center mt-3 border-t border-slate-100 pt-1">${block.content}</p>
                     `;
                     break;
                 case 'IMAGE':
-                case 'SIGNATURE':
-                    const isCustomUrl = block.content.startsWith('http') || block.content.startsWith('data:image');
-                    const imgUrl = isCustomUrl ? block.content : 'https://placehold.co/400x250?text=Viendo+Foto+M%C3%B3vil';
+                    const isCustomImgUrl = block.content.startsWith('http') || block.content.startsWith('data:image');
+                    const mainImgUrl = isCustomImgUrl ? block.content : 'https://placehold.co/600x400?text=Foto+de+Obra+Móvil';
                     blockInnerHtml = `
-                        <div class="my-2 bg-slate-50 rounded border border-slate-200 overflow-hidden text-center flex flex-col justify-center items-center p-1 relative">
-                            <img src="${imgUrl}" class="max-h-[300px] w-full object-contain mb-1 rounded">
-                            <span class="text-[10px] font-bold text-slate-500">${block.type === 'IMAGE' ? 'Imagen Ajustada / Registro Fotográfico' : 'Firma de Conformidad Técnica'}</span>
+                        <div class="my-2 border border-[#e5e7eb] rounded-lg overflow-hidden flex flex-col items-center bg-white shadow-sm">
+                            <img src="${mainImgUrl}" class="max-h-[300px] w-full object-cover">
+                            ${!isCustomImgUrl ? `<span class="text-[9px] text-slate-450 p-1.5 bg-slate-50 w-full text-center border-t border-slate-100 font-mono text-xs">Archo. Celular: ${block.content.split('/').pop()}</span>` : ''}
                         </div>
                     `;
+                    break;
+                case 'SIGNATURE':
+                    const partsSig = block.content.split("|");
+                    const sigPath = partsSig[0];
+                    const sigLabel = (partsSig[1] && partsSig[1].trim() !== "") ? partsSig[1] : "Firma de Validación";
+                    const sigSub = (partsSig[2] && partsSig[2].trim() !== "") ? partsSig[2] : "Firma Autorizada";
+                    
+                    const isSigImage = sigPath && (sigPath.startsWith('http') || sigPath.startsWith('data:image') || sigPath.endsWith('.png') || sigPath.endsWith('.jpg'));
+                    const sigImgUrl = isSigImage ? (sigPath.startsWith('http') || sigPath.startsWith('data:image') ? sigPath : 'https://placehold.co/180x80?text=Firma') : null;
+
+                    blockInnerHtml = `
+                        <div class="my-2 bg-[#f9fafb] border border-[#e5e7eb] p-3 rounded-lg flex flex-col items-center justify-center max-w-[220px]" style="height: 135px;">
+                            ${sigImgUrl ? 
+                                `<img src="${sigImgUrl}" class="max-h-[60px] object-contain mb-2">` : 
+                                `<div class="h-[55px] w-full border-b border-dashed border-slate-300 flex items-end justify-center mb-1"><span class="text-[9px] text-slate-400 pb-1 font-mono hover:text-[#9a6640] text-center px-1">Firma Requerida</span></div>`
+                            }
+                            <div class="text-center mt-1">
+                                <p class="text-[10px] font-extrabold text-[#1f2937] leading-none uppercase">${sigLabel}</p>
+                                <p class="text-[8px] text-slate-400 mt-1 font-medium leading-none">${sigSub}</p>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                case 'TABLE':
+                    const rows = block.content.split('\n').filter(r => r.trim() !== "");
+                    if (rows.length > 0) {
+                        let tableHtml = `<div class="overflow-hidden my-2 border border-[#e5e7eb] rounded-lg bg-white"><table class="min-w-full divide-y divide-[#e5e7eb] text-[11px]">`;
+                        rows.forEach((row, rowIndex) => {
+                            const cells = row.split('|');
+                            const isHeader = rowIndex === 0;
+                            tableHtml += `<tr class="${isHeader ? 'bg-[#f3f4f6]/95 font-extrabold text-[#111827]' : 'text-slate-700'}">`;
+                            cells.forEach(cell => {
+                                tableHtml += `<td class="px-3 py-1.5 border-r border-[#e5e7eb] last:border-0 text-left font-medium leading-tight">${cell.trim()}</td>`;
+                            });
+                            tableHtml += `</tr>`;
+                        });
+                        tableHtml += `</table></div>`;
+                        blockInnerHtml = tableHtml;
+                    }
                     break;
                 case 'CHECKLIST':
                     let listLinesHtml = "";
@@ -1106,15 +1218,17 @@
                         const isChecked = line.includes('[x]');
                         const rawText = line.replace(/\[\s?x?\s?\]/, "").trim();
                         listLinesHtml += `
-                            <div class="flex items-start space-x-1.5 py-0.5 text-xs text-slate-750">
-                                <span class="text-base select-none">${isChecked ? '☑' : '☐'}</span>
-                                <span class="${isChecked ? 'line-through text-slate-400' : ''}">${rawText}</span>
+                            <div class="flex items-center space-x-2 py-0.5 text-xs text-[#374151]">
+                                <div class="h-3 w-3 rounded border border-[#2563eb] flex items-center justify-center shrink-0" style="margin-top: 1px;">
+                                    ${isChecked ? '<div class="h-1.5 w-1.5 bg-[#2563eb] rounded-sm"></div>' : ''}
+                                </div>
+                                <span class="leading-none text-[11px] font-medium">${rawText}</span>
                             </div>
                         `;
                     });
                     
                     blockInnerHtml = `
-                        <div class="bg-amber-50/20 border border-amber-200/40 p-2 roundedMy space-y-1">
+                        <div class="p-3 border border-slate-100 rounded-lg space-y-1 bg-white shadow-sm">
                             ${listLinesHtml}
                         </div>
                     `;
@@ -1126,6 +1240,49 @@
             blockEl.innerHTML = blockInnerHtml;
             blocksContainer.appendChild(blockEl);
         });
+    }
+
+    // GENERATE HIGH-RESOLUTION AND PERFECT PARITY PDF USING HTML2PDF.JS
+    function generateBrowserPDF() {
+        if (!activeProject) return;
+        
+        // Assure we are on the Vista Previa tab so dimensions and fonts render correctly
+        switchTab('preview');
+        
+        // Element mockup PDF
+        const element = document.getElementById('pdfDocumentMockup');
+        
+        // Save styles for safety reset
+        const originalBoxShadow = element.style.boxShadow;
+        const originalBorder = element.style.border;
+        
+        element.style.boxShadow = 'none';
+        element.style.border = 'none';
+
+        // Set configuration options matching standard portrait A4 size perfectly
+        const opt = {
+            margin:       10,
+            filename:     `reporte_obra_${activeProject.project.createdAt}.pdf`,
+            image:        { type: 'jpeg', quality: 0.99 },
+            html2canvas:  { scale: 2.2, useCORS: true, letterRendering: true, logging: false },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        showToast("Generando reporte PDF del proyecto...", "info");
+
+        html2pdf().from(element).set(opt).save()
+            .then(() => {
+                showToast("✓ Reporte PDF descargado con éxito.", "success");
+                // Restore element decorations
+                element.style.boxShadow = originalBoxShadow;
+                element.style.border = originalBorder;
+            })
+            .catch(err => {
+                console.error("Fallo PDF", err);
+                showToast("Error generando PDF. Utiliza la opción de Imprimir.", "error");
+                element.style.boxShadow = originalBoxShadow;
+                element.style.border = originalBorder;
+            });
     }
 
     // WRITE MODIFIED DATA TO GITHUB REPOSITORIES
