@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Control de Obras (Sincronizador Web/Windows)</title>
+    <!-- Tailwind CSS for modern aesthetics -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            cobalt: '#3b82f6',
+                            emerald: '#10b981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #cbd5e1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
+
+<!-- TOAST ALERTS -->
+<div id="toastContainer" class="fixed top-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+<!-- MAIN HEAD / APP ID BAR -->
+<header class="bg-brand-900 text-white px-6 py-4 flex items-center justify-between shadow-md border-b border-brand-800">
+    <div class="flex items-center space-x-3">
+        <!-- SVG Icon representing Database Branching Sync -->
+        <svg class="h-8 w-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        <div>
+            <h1 class="text-lg font-bold tracking-tight">Sincronizador Seguro de Obras Git</h1>
+            <p class="text-xs text-slate-400">Panel Autónomo Windows / Web (Soporte Multidispositivo)</p>
+        </div>
+    </div>
+    
+    <div class="flex items-center space-x-4">
+        <!-- Credentials Status indicator badge -->
+        <div id="syncStatusBadge" class="flex items-center space-x-2 bg-red-950/40 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-full text-xs font-semibold">
+            <span class="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+            <span id="syncStatusText">Repositorio Desconectado</span>
+        </div>
+        
+        <button onclick="toggleConfigModal(true)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center space-x-1.5 transition-all shadow shadow-indigo-900/30">
+            <!-- Settings cog icon -->
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>Configurar Acceso Git</span>
+        </button>
+    </div>
+</header>
+
+<!-- MAIN APP PANEL (Side-by-side List & Editor) -->
+<main class="flex-1 flex overflow-hidden">
+    <!-- LEFT SIDEBAR: Report selection & query filters -->
+    <aside class="w-80 bg-white border-r border-slate-200 flex flex-col">
+        <!-- Search bar -->
+        <div class="p-4 border-b border-slate-100 bg-slate-50">
+            <div class="relative">
+                <input id="searchQuery" oninput="renderProjectsList()" type="text" placeholder="Buscar reportes..." class="w-full pl-9 pr-4 py-1.5 bg-white border border-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 transition-all">
+                <svg class="absolute left-3 top-2.5 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            
+            <button onclick="createNewProject()" class="mt-3 w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all shadow-sm">
+                <svg class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Nuevo Reporte de Obra</span>
+            </button>
+        </div>
+        
+        <!-- Interactive List container -->
+        <div class="flex-1 overflow-y-auto" id="projectsListContainer">
+            <div class="p-8 text-center text-slate-400 text-sm">
+                <svg class="h-10 w-10 mx-auto text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20" />
+                </svg>
+                <div class="font-semibold text-slate-500 text-xs">Cargar Repositorio</div>
+                <p class="text-[11px] mt-1 text-slate-400">Ingresa tu Token de GitHub para descargar los JSON del servidor de control.</p>
+            </div>
+        </div>
+        
+        <div class="p-3 border-t border-slate-100 bg-slate-50 text-center flex items-center justify-between text-[11px] text-slate-500">
+            <span>Repositorio Local cacheado.</span>
+            <button onclick="fetchRemoteProjects()" class="text-indigo-600 hover:text-indigo-500 font-bold flex items-center space-x-0.5">
+                <svg class="h-3 w-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H20" />
+                </svg>
+                <span>Refrescar</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- RIGHT WORKSPACE: Loaded project card (Header details, Live Form editor, mockup visualizer) -->
+    <section class="flex-1 flex flex-col bg-slate-50 overflow-hidden" id="editorArea">
+        <div class="flex-1 flex flex-col items-center justify-center p-12 text-slate-400" id="emptyState">
+            <div class="max-w-md text-center">
+                <!-- Bidirectional DB cloud illustration -->
+                <svg class="h-20 w-20 mx-auto text-indigo-400/80 mb-4 animate-bounce duration-1000" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <h3 class="text-lg font-bold text-slate-700">Consola Central de Obras</h3>
+                <p class="text-sm mt-2 text-slate-500 leading-relaxed">
+                    Esta ventana se conecta mediante API externa a la rama git de tu repositorio. Podrás crear, reordenar bloques, escribir textos e insertar fotos de visitas de manera cómoda con teclado de PC de escritorio o Windows.
+                </p>
+                <div class="mt-6 p-4 rounded-xl border border-slate-200 bg-white grid grid-cols-3 gap-3 text-left">
+                    <div class="text-center">
+                        <span class="text-lg">📱</span>
+                        <div class="font-bold text-xs text-slate-600 mt-1">App Móvil</div>
+                        <p class="text-[10px] text-slate-400">Captura en obra (Fotos, firmas, coordenadas)</p>
+                    </div>
+                    <div class="text-center border-x border-slate-100">
+                        <span class="text-lg">🔁</span>
+                        <div class="font-bold text-xs text-indigo-500 mt-1">GitHub Sync</div>
+                        <p class="text-[10px] text-slate-400">Control y versionado automático</p>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-lg">💻</span>
+                        <div class="font-bold text-xs text-slate-600 mt-1">Soporte PC</div>
+                        <p class="text-[10px] text-slate-400">Edita con comodidad desde esta web</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN EDITOR ELEMENT (Hidden by default until a repo or list project is tapped) -->
+        <div id="editorContent" class="hidden flex-1 flex flex-col overflow-hidden">
+            <!-- TAB BAR SELECTION & PROJECT META HEAD -->
+            <div class="bg-white border-b border-slate-200 px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm shrink-0">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="activeProjectName" oninput="syncProjectHeaderName(this.value)" class="text-lg font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-600 focus:outline-none focus:bg-slate-50 px-1 py-0.5 rounded transition-all max-w-sm" placeholder="Nombre del Reporte / Obra">
+                        <span id="activeProjectUnsavedBadge" class="hidden bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200">Cambios sin guardar</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">
+                        ID único (createdAt): <span id="activeProjectUid" class="font-mono text-slate-500"></span> | 
+                        Última sync (updatedAt): <span id="activeProjectUpdatedAt" class="font-mono font-semibold text-slate-600"></span>
+                    </p>
+                </div>
+                
+                <!-- Toggle Mode: Editor (Form) vs Preview (Mockup document representation) -->
+                <div class="flex bg-slate-100 rounded-lg p-0.5 self-start">
+                    <button id="tabButtonForm" onclick="switchTab('form')" class="px-4 py-1.5 rounded-md text-xs font-bold transition-all bg-white text-slate-800 shadow">
+                        Formulario de Edición
+                    </button>
+                    <button id="tabButtonPreview" onclick="switchTab('preview')" class="px-4 py-1.5 rounded-md text-xs font-bold transition-all text-slate-500 hover:text-slate-800">
+                        Vista Previa Documento PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTAINER VIEWS -->
+            <div class="flex-1 overflow-y-auto p-6" id="editorViewArea">
+                <!-- TAB 1: FORMULARIO DE EDICIÓN -->
+                <div id="tabContentForm" class="space-y-6 max-w-4xl mx-auto">
+                    <!-- SECCIÓN INFRAESTRUCTURA DE CABECERA (PDF Header fields) -->
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h4 class="text-sm font-bold text-slate-700 flex items-center space-x-1.5">
+                                <span class="text-lg">📋</span>
+                                <span>Configuración y Cabecera de Visita</span>
+                            </h4>
+                            <span class="text-xs text-slate-400">Rellenar y configurar para el membrete oficial del PDF</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Nombre Label Reporte</label>
+                                <input type="text" id="metaReportLabel" oninput="updateMetaField('reportLabel', this.value)" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Título de la Visita (Ej: INFORME DE OBSERVACIÓN)</label>
+                                <input type="text" id="metaHeaderTitle" oninput="updateMetaField('headerTitle', this.value)" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Nombre Técnico de Obra</label>
+                                <input type="text" id="metaHeaderCompany" oninput="updateMetaField('headerCompany', this.value)" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Especialidad o Subtítulo Técnico</label>
+                                <textarea id="metaHeaderCompanySub" oninput="updateMetaField('headerCompanySub', this.value)" rows="2" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700" style="resize: none;"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Checkbox switches for styles -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+                            <label class="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100 p-2.5 rounded-lg border border-slate-200 cursor-pointer transition-all">
+                                <input type="checkbox" id="metaShowHeaderBox" onchange="updateMetaField('showHeaderBox', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-xs font-semibold text-slate-600">Ver caja de cabecera</span>
+                            </label>
+                            
+                            <label class="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100 p-2.5 rounded-lg border border-slate-200 cursor-pointer transition-all">
+                                <input type="checkbox" id="metaShowHeaderLabel" onchange="updateMetaField('showHeaderLabel', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-xs font-semibold text-slate-600">Ver etiqueta de reporte</span>
+                            </label>
+
+                            <label class="flex items-center space-x-2 bg-slate-50 hover:bg-slate-100 p-2.5 rounded-lg border border-slate-200 cursor-pointer transition-all">
+                                <input type="checkbox" id="metaShowHeaderDate" onchange="updateMetaField('showHeaderDate', this.checked)" class="rounded text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-xs font-semibold text-slate-600">Ver fecha de reporte</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- BLOCKS MANAGER HEADER & ACTION PANEL -->
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-sm font-bold text-slate-700 flex items-center space-x-1.5">
+                            <span class="text-lg">🧱</span>
+                            <span>Bloques de Contenido del Reporte</span>
+                        </h4>
+                        
+                        <!-- Add Block Selector Menu -->
+                        <div class="flex items-center space-x-2 text-xs">
+                            <span class="text-slate-500 font-semibold">Añadir Bloque Nuevo:</span>
+                            <div class="bg-white border border-slate-200 rounded-lg flex divide-x divide-slate-100 shadow-sm overflow-hidden">
+                                <button onclick="addNewBlock('TEXT')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Texto</button>
+                                <button onclick="addNewBlock('TITLE')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Título</button>
+                                <button onclick="addNewBlock('CHECKLIST')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Checklist</button>
+                                <button onclick="addNewBlock('IMAGE')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Imagen/Foto</button>
+                                <button onclick="addNewBlock('FOOTER')" class="px-2.5 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-bold transition-all">+ Pié de Página</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BLOCKS CONTAINER LIST -->
+                    <div id="blocksEditorList" class="space-y-4">
+                        <!-- Instantiated Block elements render here dynamically -->
+                    </div>
+                </div>
+
+                <!-- TAB 2: VISTA PREVIA DOCUMENTO (Mock design replicating official template styled sheet) -->
+                <div id="tabContentPreview" class="hidden">
+                    <div class="max-w-[800px] mx-auto bg-white border border-slate-300 shadow-lg p-10 min-h-[1050px] flex flex-col justify-between" id="pdfDocumentMockup">
+                        <!-- Top header card box -->
+                        <div>
+                            <!-- Header Info -->
+                            <div id="previewHeaderBox" class="border-2 border-slate-800 p-4 mb-6 flex flex-col md:flex-row justify-between items-start gap-4">
+                                <div>
+                                    <h2 id="previewHeaderCompany" class="text-base font-bold text-slate-900 tracking-wider">JAVIER MARTÍNEZ PARRA</h2>
+                                    <p id="previewHeaderCompanySub" class="text-[10px] text-slate-500 leading-normal whitespace-pre-line mt-1">ARQUITECTO TÉCNICO - INGENIERO DE EDIFICACIÓN</p>
+                                </div>
+                                <div class="text-left md:text-right">
+                                    <h3 id="previewHeaderTitle" class="text-sm font-bold text-slate-900 tracking-wider bg-slate-200 px-2 py-0.5 rounded">INFORME DE VISITA A OBRA</h3>
+                                    <p id="previewHeaderDate" class="text-xs text-slate-500 font-medium mt-1">Fecha de Visita: [Fecha del Reporte]</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Document Label -->
+                            <div id="previewReportLabelContainer" class="mb-4">
+                                <h1 id="previewReportLabel" class="text-sm font-extrabold text-slate-800 border-b border-slate-300 pb-1 uppercase tracking-widest">REPORTE DE PROYECTO</h1>
+                            </div>
+                            
+                            <!-- Dynamic Blocks Renderer Mock -->
+                            <div id="previewBlocksContainer" class="grid grid-cols-2 gap-4 pb-12">
+                                <!-- Generated PDF styled blocks render here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom standard technical architect sign section -->
+                        <div class="border-t border-slate-200 pt-4 flex justify-between text-[10px] text-slate-400 font-medium">
+                            <span>Sincronizado vía Plataforma Seguro y Encriptado de Obras</span>
+                            <span id="previewPageNum">Página 1 de 1</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOOTER CONTAINER ACTION CONTROLS -->
+            <div class="bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between shadow shadow-inner shrink-0">
+                <div class="flex items-center space-x-2">
+                    <button onclick="discardChangesAndReload()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-4 rounded-lg transition-all">
+                        Descartar Cambios / Recargar
+                    </button>
+                    <span id="autoSaveNotification" class="text-xs text-slate-400">Todo el contenido se auto-sincroniza en cache local. No olvides presionar Guardar.</span>
+                </div>
+                
+                <div class="flex items-center space-x-3">
+                    <!-- Progress Bar loader on Sync action -->
+                    <div id="syncLoaderBar" class="hidden flex items-center space-x-2 text-xs text-slate-500">
+                        <svg class="animate-spin h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Escribiendo en GitHub API...</span>
+                    </div>
+
+                    <button onclick="saveProjectToGithub()" id="btnSaveToGit" class="bg-brand-emerald hover:bg-emerald-600 text-white font-bold py-2.5 px-6 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-md">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Guardar Cambios en GitHub</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+<!-- MODAL POPUP: GITHUB CREDENTIALS SETUPS -->
+<div id="configModal" class="hidden fixed inset-0 z-50 bg-brand-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-lg font-bold text-brand-900 flex items-center space-x-2">
+                <svg class="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span>Acceso Centralizado GitHub</span>
+            </h3>
+            <button onclick="toggleConfigModal(false)" class="text-slate-400 hover:text-slate-600">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        
+        <p class="text-xs text-slate-400 leading-normal">
+            Configura el token de acceso personal y el repositorio GitHub. Esta información se almacena localmente de forma encriptada/segura en tu navegador (Windows) para evitar que tengas que reescribirla.
+        </p>
+        
+        <!-- Form Fields -->
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Token de Acceso Personal Classic (PAT) <span class="text-red-500">*</span></label>
+                <input type="password" id="cfgToken" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" placeholder="ghp_xxxxxxxxxxxxxxxxxx">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Nombre de Usuario <span class="text-red-500">*</span></label>
+                    <input type="text" id="cfgOwner" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" placeholder="ej. juanelpipa">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Repositorio Git <span class="text-red-500">*</span></label>
+                    <input type="text" id="cfgRepo" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" placeholder="ej. obras-db">
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Rama (Branch) <span class="text-red-500">*</span></label>
+                <input type="text" id="cfgBranch" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" placeholder="main" value="main">
+            </div>
+        </div>
+
+        <!-- Instructions guide link -->
+        <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-start space-x-3 text-xs">
+            <span class="text-lg">💡</span>
+            <div class="space-y-1">
+                <span class="font-bold text-indigo-800">¿Cómo crear el token classic en GitHub?</span>
+                <p class="text-indigo-700/80 leading-normal">
+                    Dirígete a tu cuenta de GitHub ➔ Developer Settings ➔ Personal Access Tokens ➔ Tokens (classic). Genera un token con permiso <strong>'repo'</strong>.
+                </p>
+                <a href="https://github.com/settings/tokens" target="_blank" class="inline-block text-indigo-600 font-extrabold hover:underline pt-1">Abrir Creador de Tokens de GitHub ➔</a>
+            </div>
+        </div>
+        
+        <div class="flex space-x-3 pt-3 border-t border-slate-100 h-14">
+            <button onclick="toggleConfigModal(false)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded-lg transition-all">Cancelar</button>
+            <button onclick="saveConfigCredentials()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 rounded-lg transition-all shadow shadow-indigo-900/30">Guardar y Conectarse</button>
+        </div>
+    </div>
+</div>
+
+<!-- DETAILED LOGIC SCRIPTS -->
+<script>
+    // App Cache & Memory models
+    let config = {
+        token: '',
+        owner: '',
+        repo: '',
+        branch: 'main'
+    };
+    
+    let projects = []; // Stores loaded list of project objects from GitHub
+    let activeProject = null; // Currently selected project object cloned for mutations
+    let activeTab = 'form'; // Active tab view state
+    let remoteFileShas = {}; // Local memory mapping project Filename -> SHA hash for updates/commits
+
+    // Standard Setup & Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+        loadConfigFromLocalStorage();
+        if (config.token && config.owner && config.repo) {
+            updateBadgeUI(true, `Obteniendo datos de GitHub...`);
+            fetchRemoteProjects();
+        } else {
+            updateBadgeUI(false, "Faltan Ajustes de Git");
+            toggleConfigModal(true); // Open configuration screen to guide users
+        }
+    });
+
+    // Local Storage Config Handlers
+    function loadConfigFromLocalStorage() {
+        const storedToken = localStorage.getItem('cfg_gh_token') || '';
+        const storedOwner = localStorage.getItem('cfg_gh_owner') || '';
+        const storedRepo = localStorage.getItem('cfg_gh_repo') || '';
+        const storedBranch = localStorage.getItem('cfg_gh_branch') || 'main';
+
+        config.token = storedToken;
+        config.owner = storedOwner;
+        config.repo = storedRepo;
+        config.branch = storedBranch;
+
+        // Fill form fields if values exist
+        document.getElementById('cfgToken').value = storedToken;
+        document.getElementById('cfgOwner').value = storedOwner;
+        document.getElementById('cfgRepo').value = storedRepo;
+        document.getElementById('cfgBranch').value = storedBranch;
+    }
+
+    function saveConfigCredentials() {
+        const token = document.getElementById('cfgToken').value.trim();
+        const owner = document.getElementById('cfgOwner').value.trim();
+        const repo = document.getElementById('cfgRepo').value.trim();
+        const branch = document.getElementById('cfgBranch').value.trim() || 'main';
+
+        if (!token || !owner || !repo) {
+            showToast("Completa todos los campos con asteriscos (*).", "error");
+            return;
+        }
+
+        config.token = token;
+        config.owner = owner;
+        config.repo = repo;
+        config.branch = branch;
+
+        localStorage.setItem('cfg_gh_token', token);
+        localStorage.setItem('cfg_gh_owner', owner);
+        localStorage.setItem('cfg_gh_repo', repo);
+        localStorage.setItem('cfg_gh_branch', branch);
+
+        showToast("✓ Configuración de GitHub actualizada.", "success");
+        toggleConfigModal(false);
+        fetchRemoteProjects();
+    }
+
+    function toggleConfigModal(show) {
+        const modal = document.getElementById('configModal');
+        if (show) {
+            modal.classList.remove('hidden');
+        } else {
+            modal.classList.add('hidden');
+        }
+    }
+
+    function updateBadgeUI(connected, message) {
+        const badge = document.getElementById('syncStatusBadge');
+        const text = document.getElementById('syncStatusText');
+        
+        if (connected) {
+            badge.className = "flex items-center space-x-2 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-full text-xs font-semibold";
+            badge.querySelector('span').className = "h-2 w-2 rounded-full bg-emerald-500 animate-pulse";
+        } else {
+            badge.className = "flex items-center space-x-2 bg-red-950/40 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-full text-xs font-semibold";
+            badge.querySelector('span').className = "h-2 w-2 rounded-full bg-red-500 animate-pulse";
+        }
+        text.innerText = message || (connected ? "Conectado a GitHub" : "Desconectado");
+    }
+
+    // TOAST ALERTS DRAWING
+    function showToast(message, type = "success") {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `flex items-center space-x-2.5 px-4 py-3 rounded-xl border text-xs font-medium shadow-lg pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0`;
+        
+        if (type === "success") {
+            toast.className += " bg-emerald-50 border-emerald-200 text-emerald-800";
+            toast.innerHTML = `<span class="text-base">✓</span> <span>${message}</span>`;
+        } else if (type === "error") {
+            toast.className += " bg-red-50 border-red-200 text-red-850";
+            toast.innerHTML = `<span class="text-base">⚠</span> <span>${message}</span>`;
+        } else {
+            toast.className += " bg-indigo-50 border-indigo-200 text-indigo-850";
+            toast.innerHTML = `<span class="text-base">ℹ</span> <span>${message}</span>`;
+        }
+
+        container.appendChild(toast);
+        // Force Reflow
+        setTimeout(() => {
+            toast.classList.remove('translate-y-2', 'opacity-0');
+        }, 10);
+
+        // Auto remove
+        setTimeout(() => {
+            toast.classList.add('opacity-0', 'translate-y-1');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, 4000);
+    }
+
+    // FETCH DATA FROM GITHUB API
+    async function fetchRemoteProjects() {
+        if (!config.token || !config.owner || !config.repo) {
+            updateBadgeUI(false, "Falta Configuración de GitHub");
+            showToast("Suministra un token para conectarse con GitHub.", "error");
+            return;
+        }
+
+        updateBadgeUI(true, "Listando repositorio...");
+        const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/projects?ref=${config.branch}`;
+        const headers = {
+            "Authorization": `Bearer ${config.token}`,
+            "Accept": "application/vnd.github+json"
+        };
+
+        try {
+            const listResponse = await fetch(url, { headers });
+            
+            if (listResponse.status === 404) {
+                // Folder doesnt exist or repo empty
+                projects = [];
+                renderProjectsList();
+                updateBadgeUI(true, "Repo Listo (Sin archivos)");
+                showToast("Carpeta 'projects/' creada. Aún no existen reportes.", "success");
+                return;
+            }
+
+            if (!listResponse.ok) {
+                throw new Error(`Código de error HTTP ${listResponse.status}`);
+            }
+
+            const filesList = await listResponse.json();
+            const loadedProjects = [];
+            remoteFileShas = {}; // Reset file-SHA caching
+
+            updateBadgeUI(true, `Descargando ${filesList.length} archivos...`);
+
+            // Use parallel fetch for each JSON project file found
+            const fetchPromises = filesList
+                .filter(file => file.type === "file" && file.name.endsWith(".json"))
+                .map(async (file) => {
+                    remoteFileShas[file.name] = file.sha; // Save SHA value in index
+                    try {
+                        const fileDetailsRes = await fetch(file.url, { headers });
+                        if (fileDetailsRes.ok) {
+                            const fileDetails = await fileDetailsRes.json();
+                            const decodedContent = atob(fileDetails.content.replace(/\n|\r/g, ''));
+                            const projectData = JSON.parse(decodedContent);
+                            
+                            // Map filename meta tracking
+                            projectData._fileName = file.name;
+                            loadedProjects.push(projectData);
+                        }
+                    } catch (e) {
+                        console.error(`Fallo cargando archivo: ${file.name}`, e);
+                    }
+                });
+
+            await Promise.all(fetchPromises);
+            
+            // Sort projects by createdAt DESC
+            projects = loadedProjects.sort((a, b) => b.project.createdAt - a.project.createdAt);
+            
+            renderProjectsList();
+            updateBadgeUI(true, `Conectado: ${projects.length} Reportes`);
+            showToast("Bases de datos Git descargadas exitosamente.", "success");
+
+        } catch (error) {
+            console.error("Fallo obteniendo datos remotos", error);
+            updateBadgeUI(false, "Fallo Conexión Git");
+            showToast(`Fallo sincronización: ${error.message}`, "error");
+        }
+    }
+
+    // DRAW LIST OF REPOS SIDEBAR
+    function renderProjectsList() {
+        const container = document.getElementById('projectsListContainer');
+        const query = document.getElementById('searchQuery').value.toLowerCase().trim();
+        
+        const filtered = projects.filter(item => {
+            const nameMatch = item.project.name.toLowerCase().includes(query);
+            const labelMatch = item.project.reportLabel.toLowerCase().includes(query);
+            return nameMatch || labelMatch;
+        });
+
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="p-8 text-center text-slate-400">
+                    <p class="text-xs">No se encontraron reportes que coincidan con la búsqueda.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = "";
+        filtered.forEach(item => {
+            const isSelected = activeProject && activeProject.project.createdAt === item.project.createdAt;
+            const dateStr = new Date(item.project.createdAt).toLocaleDateString('es-ES', {
+                year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+
+            const card = document.createElement('div');
+            card.onclick = () => selectProject(item);
+            card.className = `p-4 border-b border-slate-100 cursor-pointer transition-all hover:bg-slate-50 flex flex-col space-y-1 ${isSelected ? 'border-l-4 border-indigo-600 bg-indigo-50/50' : ''}`;
+            
+            card.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">${item.project.reportLabel || 'REPORTE'}</span>
+                    <span class="text-[10px] text-slate-450 font-mono">${dateStr}</span>
+                </div>
+                <h4 class="text-sm font-bold text-slate-800 line-clamp-1">${item.project.name}</h4>
+                <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                    <span class="flex items-center space-x-0.5">
+                        <svg class="h-3 w-3 text-slate-400 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <span>${item.blocks.length} bloques</span>
+                    </span>
+                    <span class="font-mono text-[9px] bg-slate-200/60 px-1 py-0.5 rounded text-slate-650">V: ${new Date(item.project.updatedAt).toLocaleTimeString('es-ES')}</span>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // CREATE NEW EMPTY TEMPLATE REPORT
+    function createNewProject() {
+        const timestamp = Date.now();
+        const newProj = {
+            project: {
+                name: "Nueva obra de construcción " + new Date().toLocaleDateString('es-ES'),
+                createdAt: timestamp,
+                updatedAt: timestamp,
+                reportLabel: "REPORTE DE PROYECTO",
+                showHeaderLabel: true,
+                showHeaderDate: true,
+                headerCompany: "JAVIER MARTÍNEZ PARRA",
+                headerCompanySub: "ARQUITECTO TÉCNICO-INGENIERO DE EDIFICACIÓN\nESPECIALISTA EN C.S.S. EN OBRAS DE CONSTRUCCIÓN",
+                headerTitle: "INFORME DE VISITA A OBRA",
+                showHeaderBox: true
+            },
+            blocks: [
+                {
+                    type: "TITLE",
+                    content: "Detalles Generales del Progreso",
+                    sequence: 0,
+                    isHalfWidth: false
+                },
+                {
+                    type: "TEXT",
+                    content: "Este es el bloque inicial de observaciones. Puedes escribir detalles técnicos, advertencias sobre las normativas de seguridad, mediciones, etcétera.",
+                    sequence: 1,
+                    isHalfWidth: false
+                }
+            ],
+            _fileName: `project_${timestamp}.json`
+        };
+
+        projects.unshift(newProj);
+        selectProject(newProj);
+        renderProjectsList();
+        showToast("✓ Nuevo reporte de obra inicializado localmente en memoria.", "info");
+    }
+
+    // LOAD SELECTED ACTIVE REPORT PROJECT
+    function selectProject(proj) {
+        // Deep clone project and blocks to allow non-destructive local editing
+        activeProject = JSON.parse(JSON.stringify(proj));
+        
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('editorContent').classList.remove('hidden');
+        
+        // Populate view headers
+        document.getElementById('activeProjectName').value = activeProject.project.name;
+        document.getElementById('activeProjectUid').innerText = activeProject.project.createdAt;
+        document.getElementById('activeProjectUpdatedAt').innerText = new Date(activeProject.project.updatedAt).toLocaleTimeString('es-ES', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
+        
+        // Load Meta Header Configuration Inputs
+        document.getElementById('metaReportLabel').value = activeProject.project.reportLabel || '';
+        document.getElementById('metaHeaderTitle').value = activeProject.project.headerTitle || '';
+        document.getElementById('metaHeaderCompany').value = activeProject.project.headerCompany || '';
+        document.getElementById('metaHeaderCompanySub').value = activeProject.project.headerCompanySub || '';
+        
+        document.getElementById('metaShowHeaderBox').checked = activeProject.project.showHeaderBox !== false;
+        document.getElementById('metaShowHeaderLabel').checked = activeProject.project.showHeaderLabel !== false;
+        document.getElementById('metaShowHeaderDate').checked = activeProject.project.showHeaderDate !== false;
+
+        document.getElementById('activeProjectUnsavedBadge').classList.add('hidden');
+
+        // Render Tabs
+        if (activeTab === 'form') {
+            renderBlocksForm();
+        } else {
+            renderPDFMockView();
+        }
+
+        // Re-draw list to reflect active highlighting
+        renderProjectsList();
+    }
+
+    // DISCARD LOCAL MODIFICATIONS AND RELOAD
+    function discardChangesAndReload() {
+        if (!activeProject) return;
+        
+        // Find remote original matching index
+        const original = projects.find(item => item.project.createdAt === activeProject.project.createdAt);
+        if (original) {
+            selectProject(original);
+            showToast("✓ Cambios locales descartados.", "info");
+        } else {
+            fetchRemoteProjects();
+        }
+    }
+
+    // UPDATE MODEL METADATA FIELDS VALUE CONVERTED
+    function updateMetaField(field, value) {
+        if (!activeProject) return;
+        activeProject.project[field] = value;
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+        
+        if (activeTab === 'preview') {
+            renderPDFMockView();
+        }
+    }
+
+    function syncProjectHeaderName(val) {
+        if (!activeProject) return;
+        activeProject.project.name = val;
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+        renderProjectsList();
+    }
+
+    // TAB SELECTION CONTROL
+    function switchTab(tab) {
+        activeTab = tab;
+        const btnForm = document.getElementById('tabButtonForm');
+        const btnPrev = document.getElementById('tabButtonPreview');
+        
+        const formView = document.getElementById('tabContentForm');
+        const prevView = document.getElementById('tabContentPreview');
+
+        if (tab === 'form') {
+            btnForm.className = "px-4 py-1.5 rounded-md text-xs font-bold transition-all bg-white text-slate-800 shadow";
+            btnPrev.className = "px-4 py-1.5 rounded-md text-xs font-bold transition-all text-slate-500 hover:text-slate-800";
+            formView.classList.remove('hidden');
+            prevView.classList.add('hidden');
+            renderBlocksForm();
+        } else {
+            btnPrev.className = "px-4 py-1.5 rounded-md text-xs font-bold transition-all bg-white text-slate-800 shadow";
+            btnForm.className = "px-4 py-1.5 rounded-md text-xs font-bold transition-all text-slate-500 hover:text-slate-800";
+            prevView.classList.remove('hidden');
+            formView.classList.add('hidden');
+            renderPDFMockView();
+        }
+    }
+
+    // RENDER TAB 1: FORM CARDS CREATOR
+    function renderBlocksForm() {
+        const container = document.getElementById('blocksEditorList');
+        if (!activeProject || !activeProject.blocks) return;
+        
+        // Sort active projects block by sequence first
+        activeProject.blocks.sort((a, b) => a.sequence - b.sequence);
+        
+        if (activeProject.blocks.length === 0) {
+            container.innerHTML = `
+                <div class="bg-white p-10 text-center rounded-xl border border-slate-200 text-slate-400">
+                    <p class="text-xs">No hay bloques en este reporte. Añade uno usando el selector superior.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = "";
+        activeProject.blocks.forEach((block, idx) => {
+            const card = document.createElement('div');
+            card.className = `p-4 rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow transition-all space-y-3 relative`;
+            
+            // Badge representing Block Mode Class
+            let typeBadge = `<span class="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2 py-1 rounded tracking-wide uppercase">${block.type}</span>`;
+            if (block.type === 'TITLE') typeBadge = `<span class="bg-indigo-100 text-indigo-700 text-[10px] font-extrabold px-2 py-1 rounded tracking-wide uppercase">${block.type}</span>`;
+            if (block.type === 'CHECKLIST') typeBadge = `<span class="bg-amber-100 text-amber-700 text-[10px] font-extrabold px-2 py-1 rounded tracking-wide uppercase">${block.type}</span>`;
+            if (block.type === 'IMAGE' || block.type === 'SIGNATURE') typeBadge = `<span class="bg-cyan-100 text-cyan-700 text-[10px] font-extrabold px-2 py-1 rounded tracking-wide uppercase">${block.type}</span>`;
+
+            // Block edit core input content
+            let editContent = "";
+            if (block.type === 'TITLE' || block.type === 'FOOTER') {
+                editContent = `
+                    <input type="text" oninput="updateBlockContent(${idx}, this.value)" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold" value="${block.content}">
+                `;
+            } else if (block.type === 'TEXT') {
+                editContent = `
+                    <textarea oninput="updateBlockContent(${idx}, this.value)" rows="3" class="w-full px-3 py-1.5 border border-slate-100 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 leading-relaxed">${block.content}</textarea>
+                `;
+            } else if (block.type === 'IMAGE' || block.type === 'SIGNATURE') {
+                const isCustomUrl = block.content.startsWith('http') || block.content.startsWith('data:image');
+                editContent = `
+                    <div class="space-y-3">
+                        <label class="block text-[11px] font-bold text-slate-500">URL del Recurso o Ruta del Servidor (.jpg / .png):</label>
+                        <input type="text" oninput="updateBlockContent(${idx}, this.value)" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono bg-slate-50 focus:bg-white text-slate-650" value="${block.content}">
+                        
+                        <div class="flex items-center space-x-4 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                            <div class="h-16 w-16 bg-white rounded border flex items-center justify-center overflow-hidden shrink-0">
+                                ${isCustomUrl ? 
+                                    `<img src="${block.content}" class="max-h-full max-w-full object-contain" onerror="this.src='https://placehold.co/100x100?text=Error+Url'">` :
+                                    `<div class="text-[9px] text-slate-400 text-center px-1 font-mono">Foto de App: ${block.content.split('/').pop()}</div>`
+                                }
+                            </div>
+                            <div class="text-xs text-slate-500 leading-normal">
+                                <span class="font-bold text-slate-600 block">${block.type === 'IMAGE' ? 'Imagen de Obra / Fotografías' : 'Firma Digitalizada'}</span>
+                                <p class="text-[10px]">Si el reporte fue sincro de la app móvil, conserva la ruta local de tu celular Android.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (block.type === 'TABLE') {
+                editContent = `
+                    <textarea oninput="updateBlockContent(${idx}, this.value)" rows="3" class="w-full px-3 py-1.5 border border-slate-150 rounded-lg text-xs font-mono bg-slate-50 focus:bg-white text-slate-700" placeholder='[{ "campo": "Valor" }]'>${block.content}</textarea>
+                    <span class="text-[10px] text-slate-450 block">Formato estructurado JSON de tabla.</span>
+                `;
+            } else if (block.type === 'CHECKLIST') {
+                // Renders custom interactive checklist manager fields
+                let itemsListHtml = "";
+                try {
+                    // Try parsing checklist items from content (e.g. format: " [x] Item 1\n [ ] Item 2")
+                    const lines = block.content.split('\n');
+                    lines.forEach((line, lineIdx) => {
+                        if (line.trim() === "") return;
+                        const isChecked = line.includes('[x]');
+                        const rawText = line.replace(/\[\s?x?\s?\]/, "").trim();
+                        
+                        itemsListHtml += `
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" onchange="toggleChecklistItem(${idx}, ${lineIdx}, this.checked)" ${isChecked ? 'checked' : ''} class="rounded text-indigo-600 focus:ring-indigo-500">
+                                <input type="text" oninput="updateChecklistItemText(${idx}, ${lineIdx}, this.value)" class="flex-1 px-3 py-1 border border-slate-200 rounded-md text-xs bg-slate-50 focus:bg-white text-slate-755" value="${rawText}">
+                                <button onclick="deleteChecklistItem(${idx}, ${lineIdx})" class="text-red-500 hover:text-red-700 text-xs px-2 py-1">➔ Quitar</button>
+                            </div>
+                        `;
+                    });
+                } catch (e) {
+                    itemsListHtml = `<p class="text-xs text-red-500">Fallo parseando checklist lines: ${e.message}</p>`;
+                }
+
+                editContent = `
+                    <div class="space-y-2 border border-amber-200/50 bg-amber-50/10 p-3 rounded-lg">
+                        <label class="block text-[11px] font-bold text-amber-800">Filas de Inspección Checklist:</label>
+                        <div class="space-y-1.5" id="checklistContainerInner_${idx}">
+                            ${itemsListHtml}
+                        </div>
+                        <button onclick="addChecklistItem(${idx})" class="mt-2 text-xs text-indigo-700 font-extrabold flex items-center space-x-0.5 hover:text-indigo-600">
+                            <span>+ Añadir fila de inspección</span>
+                        </button>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <!-- Block settings row -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-bold text-slate-400 font-mono">#${idx + 1}</span>
+                        ${typeBadge}
+                    </div>
+                    
+                    <!-- Quick actions: Re-order, toggles and Delete -->
+                    <div class="flex items-center space-x-1.5">
+                        <button onclick="toggleBlockWidth(${idx})" class="text-slate-500 hover:text-slate-800 border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded p-1 text-xs" title="Ancho del bloque en PDF (Completo o Mitad)">
+                            ${block.isHalfWidth ? 'Mitad de línea ½' : 'Completo 1/1'}
+                        </button>
+                        <button onclick="moveBlock(${idx}, 'up')" ${idx === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-indigo-600 border border-slate-200 bg-slate-50 rounded p-1.5 disabled:opacity-30 disabled:pointer-events-none transition-all">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
+                        </button>
+                        <button onclick="moveBlock(${idx}, 'down')" ${idx === activeProject.blocks.length - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-indigo-600 border border-slate-200 bg-slate-50 rounded p-1.5 disabled:opacity-30 disabled:pointer-events-none transition-all">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        <button onclick="deleteBlock(${idx})" class="text-rose-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 bg-rose-50/40 rounded p-1.5 transition-all">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Main editing content -->
+                ${editContent}
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // UPDATE MODEL CONTENT ON BLOCK
+    function updateBlockContent(idx, value) {
+        if (!activeProject) return;
+        activeProject.blocks[idx].content = value;
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+    }
+
+    // TOGGLE WIDTH DECORATION HALF OR FULL WIDTH
+    function toggleBlockWidth(idx) {
+        if (!activeProject) return;
+        activeProject.blocks[idx].isHalfWidth = !activeProject.blocks[idx].isHalfWidth;
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+        renderBlocksForm();
+    }
+
+    // DELETE BLOCK AT SPECIFIC INDEX
+    function deleteBlock(idx) {
+        if (!activeProject) return;
+        activeProject.blocks.splice(idx, 1);
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+        renderBlocksForm();
+    }
+
+    // ADD NEW EMPTY BLOCK DECORATOR
+    function addNewBlock(type) {
+        if (!activeProject) return;
+        
+        let initialContent = "Inserte el contenido aquí...";
+        if (type === 'CHECKLIST') {
+            initialContent = " [ ] Elemento de inspección 1\n [ ] Elemento de inspección 2";
+        } else if (type === 'TITLE') {
+            initialContent = "Sección nueva del informe";
+        } else if (type === 'IMAGE' || type === 'SIGNATURE') {
+            initialContent = "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=600";
+        } else if (type === 'FOOTER') {
+            initialContent = "Fin de la inspección e informe técnico.";
+        }
+
+        const newBlock = {
+            type: type,
+            content: initialContent,
+            sequence: activeProject.blocks.length,
+            isHalfWidth: false
+        };
+
+        activeProject.blocks.push(newBlock);
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+        renderBlocksForm();
+        showToast(`✓ Bloque ${type} añadido.`, "success");
+    }
+
+    // REARRANGE BLOCK SEQUENCE SEQUENCE CODES
+    function moveBlock(idx, direction) {
+        if (!activeProject) return;
+        
+        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= activeProject.blocks.length) return;
+
+        // Swap Blocks in array
+        const temp = activeProject.blocks[idx];
+        activeProject.blocks[idx] = activeProject.blocks[targetIdx];
+        activeProject.blocks[targetIdx] = temp;
+
+        // Reset sequence keys properly
+        activeProject.blocks.forEach((b, pos) => {
+            b.sequence = pos;
+        });
+
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+        renderBlocksForm();
+    }
+
+    // CHECK_LIST CUSTOM EDIT CONTROLS MANAGER METHODS
+    function addChecklistItem(blockIdx) {
+        if (!activeProject) return;
+        const block = activeProject.blocks[blockIdx];
+        const lines = block.content.split('\n');
+        lines.push(" [ ] Nueva línea de inspección");
+        block.content = lines.join('\n');
+        
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+        renderBlocksForm();
+    }
+
+    function deleteChecklistItem(blockIdx, lineIdx) {
+        if (!activeProject) return;
+        const block = activeProject.blocks[blockIdx];
+        const lines = block.content.split('\n');
+        lines.splice(lineIdx, 1);
+        block.content = lines.join('\n');
+        
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+        renderBlocksForm();
+    }
+
+    function toggleChecklistItem(blockIdx, lineIdx, checked) {
+        if (!activeProject) return;
+        const block = activeProject.blocks[blockIdx];
+        const lines = block.content.split('\n');
+        
+        const rawText = lines[lineIdx].replace(/\[\s?x?\s?\]/, "").trim();
+        lines[lineIdx] = checked ? ` [x] ${rawText}` : ` [ ] ${rawText}`;
+        block.content = lines.join('\n');
+
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+    }
+
+    function updateChecklistItemText(blockIdx, lineIdx, newText) {
+        if (!activeProject) return;
+        const block = activeProject.blocks[blockIdx];
+        const lines = block.content.split('\n');
+        
+        const isChecked = lines[lineIdx].includes('[x]');
+        lines[lineIdx] = isChecked ? ` [x] ${newText}` : ` [ ] ${newText}`;
+        block.content = lines.join('\n');
+
+        document.getElementById('activeProjectUnsavedBadge').classList.remove('hidden');
+    }
+
+    // RENDER TAB 2: PDF RENDERED MOCKUP DESIGN
+    function renderPDFMockView() {
+        if (!activeProject) return;
+        
+        // Populate standard headers
+        const headerBox = document.getElementById('previewHeaderBox');
+        if (activeProject.project.showHeaderBox === false) {
+            headerBox.className = "p-4 mb-6 flex justify-between items-start gap-4 border-b border-slate-300";
+        } else {
+            headerBox.className = "border-2 border-slate-800 p-4 mb-6 flex flex-col md:flex-row justify-between items-start gap-4";
+        }
+
+        const reportLabelContainer = document.getElementById('previewReportLabelContainer');
+        if (activeProject.project.showHeaderLabel === false) {
+            reportLabelContainer.classList.add('hidden');
+        } else {
+            reportLabelContainer.classList.remove('hidden');
+            document.getElementById('previewReportLabel').innerText = activeProject.project.reportLabel || 'REPORTE DE PROYECTO';
+        }
+
+        document.getElementById('previewHeaderCompany').innerText = activeProject.project.headerCompany || 'JAVIER MARTÍNEZ PARRA';
+        document.getElementById('previewHeaderCompanySub').innerText = activeProject.project.headerCompanySub || '';
+        document.getElementById('previewHeaderTitle').innerText = activeProject.project.headerTitle || 'INFORME DE VISITA A OBRA';
+        
+        const dateStr = new Date(activeProject.project.createdAt).toLocaleDateString('es-ES', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        });
+        document.getElementById('previewHeaderDate').innerText = activeProject.project.showHeaderDate === false ? "" : `Fecha de Visita: ${dateStr}`;
+
+        // Blocks container
+        const blocksContainer = document.getElementById('previewBlocksContainer');
+        blocksContainer.innerHTML = "";
+
+        activeProject.blocks.sort((a,b) => a.sequence - b.sequence).forEach(block => {
+            const blockEl = document.createElement('div');
+            blockEl.className = block.isHalfWidth ? "col-span-1 border border-slate-100 p-3 rounded-lg" : "col-span-2 border border-slate-100 p-3 rounded-lg";
+            
+            let blockInnerHtml = "";
+            switch (block.type) {
+                case 'TITLE':
+                    blockInnerHtml = `
+                        <h3 class="text-sm font-extrabold text-indigo-900 border-l-4 border-indigo-600 pl-2 py-0.5 my-1 uppercase tracking-wide bg-slate-50">${block.content}</h3>
+                    `;
+                    break;
+                case 'TEXT':
+                    blockInnerHtml = `
+                        <p class="text-xs text-slate-800 leading-relaxed font-sans whitespace-pre-line">${block.content}</p>
+                    `;
+                    break;
+                case 'FOOTER':
+                    blockInnerHtml = `
+                        <p class="text-[10px] text-slate-400 italic text-center mt-3 border-t border-slate-100 pt-1">${block.content}</p>
+                    `;
+                    break;
+                case 'IMAGE':
+                case 'SIGNATURE':
+                    const isCustomUrl = block.content.startsWith('http') || block.content.startsWith('data:image');
+                    const imgUrl = isCustomUrl ? block.content : 'https://placehold.co/400x250?text=Viendo+Foto+M%C3%B3vil';
+                    blockInnerHtml = `
+                        <div class="my-2 bg-slate-50 rounded border border-slate-200 overflow-hidden text-center flex flex-col justify-center items-center p-1 relative">
+                            <img src="${imgUrl}" class="max-h-[300px] w-full object-contain mb-1 rounded">
+                            <span class="text-[10px] font-bold text-slate-500">${block.type === 'IMAGE' ? 'Imagen Ajustada / Registro Fotográfico' : 'Firma de Conformidad Técnica'}</span>
+                        </div>
+                    `;
+                    break;
+                case 'CHECKLIST':
+                    let listLinesHtml = "";
+                    const lines = block.content.split('\n');
+                    lines.forEach(line => {
+                        if (line.trim() === "") return;
+                        const isChecked = line.includes('[x]');
+                        const rawText = line.replace(/\[\s?x?\s?\]/, "").trim();
+                        listLinesHtml += `
+                            <div class="flex items-start space-x-1.5 py-0.5 text-xs text-slate-750">
+                                <span class="text-base select-none">${isChecked ? '☑' : '☐'}</span>
+                                <span class="${isChecked ? 'line-through text-slate-400' : ''}">${rawText}</span>
+                            </div>
+                        `;
+                    });
+                    
+                    blockInnerHtml = `
+                        <div class="bg-amber-50/20 border border-amber-200/40 p-2 roundedMy space-y-1">
+                            ${listLinesHtml}
+                        </div>
+                    `;
+                    break;
+                default:
+                    blockInnerHtml = `<p class="text-xs text-slate-405 font-mono">${block.content}</p>`;
+            }
+            
+            blockEl.innerHTML = blockInnerHtml;
+            blocksContainer.appendChild(blockEl);
+        });
+    }
+
+    // WRITE MODIFIED DATA TO GITHUB REPOSITORIES
+    async function saveProjectToGithub() {
+        if (!activeProject) return;
+        if (!config.token || !config.owner || !config.repo) {
+            showToast("Configura tus credenciales GitHub antes de sincronizar.", "error");
+            return;
+        }
+
+        const loader = document.getElementById('syncLoaderBar');
+        const btn = document.getElementById('btnSaveToGit');
+
+        loader.classList.remove('hidden');
+        btn.disabled = true;
+        btn.classList.add('opacity-50');
+
+        // Refresh modification timestamp
+        activeProject.project.updatedAt = Date.now();
+
+        const cleanBlocks = activeProject.blocks.map((b, idx) => ({
+            type: b.type,
+            content: b.content,
+            sequence: idx,
+            isHalfWidth: b.isHalfWidth || false
+        }));
+
+        const finalPayload = {
+            project: {
+                name: activeProject.project.name,
+                createdAt: activeProject.project.createdAt,
+                updatedAt: activeProject.project.updatedAt,
+                reportLabel: activeProject.project.reportLabel || "REPORTE DE PROYECTO",
+                showHeaderLabel: activeProject.project.showHeaderLabel !== false,
+                showHeaderDate: activeProject.project.showHeaderDate !== false,
+                headerCompany: activeProject.project.headerCompany || "JAVIER MARTÍNEZ PARRA",
+                headerCompanySub: activeProject.project.headerCompanySub || "",
+                headerTitle: activeProject.project.headerTitle || "INFORME DE VISITA A OBRA",
+                showHeaderBox: activeProject.project.showHeaderBox !== false
+            },
+            blocks: cleanBlocks
+        };
+
+        // GitHub API URLs Configs
+        const fileName = `project_${activeProject.project.createdAt}.json`;
+        const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/projects/${fileName}`;
+        const headers = {
+            "Authorization": `Bearer ${config.token}`,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json"
+        };
+
+        try {
+            // Find if SHA exists
+            let currentSha = remoteFileShas[fileName] || null;
+            if (!currentSha) {
+                // Fetch directly from github in case loaded externally
+                try {
+                    const infoRes = await fetch(`${url}?ref=${config.branch}`, { headers });
+                    if (infoRes.ok) {
+                        const infoData = await infoRes.json();
+                        currentSha = infoData.sha;
+                    }
+                } catch (e) { console.warn("Fallo obteniendo SHA", e); }
+            }
+
+            // Encode content in Base64 (UTF-8 safe conversion)
+            const jsonString = JSON.stringify(finalPayload, null, 2);
+            const encodedBase64 = btoa(unescape(encodeURIComponent(jsonString)));
+
+            const payloadBody = {
+                message: `Sincronizador Web/Windows: Consolidar cambios para '${activeProject.project.name}'`,
+                content: encodedBase64,
+                branch: config.branch
+            };
+
+            if (currentSha) {
+                payloadBody.sha = currentSha;
+            }
+
+            const putResponse = await fetch(url, {
+                method: "PUT",
+                headers: headers,
+                body: JSON.stringify(payloadBody)
+            });
+
+            if (!putResponse.ok) {
+                const errBody = await putResponse.text();
+                throw new Error(`Detalle de GitHub API: ${errBody}`);
+            }
+
+            const putResData = await putResponse.json();
+            
+            // Cache new updated details
+            remoteFileShas[fileName] = putResData.content.sha;
+            
+            // Find existing cached index and replace, or insert new
+            const cachedIdx = projects.findIndex(p => p.project.createdAt === activeProject.project.createdAt);
+            if (cachedIdx !== -1) {
+                projects[cachedIdx] = finalPayload;
+            } else {
+                projects.unshift(finalPayload);
+            }
+
+            document.getElementById('activeProjectUnsavedBadge').classList.add('hidden');
+            
+            showToast("✓ Cambios consolidados de forma segura en GitHub.", "success");
+            selectProject(finalPayload);
+            renderProjectsList();
+
+        } catch (error) {
+            console.error("Fallo escribiendo archivo remoto", error);
+            showToast(`Fallo Git: ${error.message}`, "error");
+        } finally {
+            loader.classList.add('hidden');
+            btn.disabled = false;
+            btn.classList.remove('opacity-50');
+        }
+    }
+</script>
+</body>
+</html>
