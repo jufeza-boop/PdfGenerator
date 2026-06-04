@@ -1637,10 +1637,28 @@ fun ProjectEditorScreen(
                                                 ) {
                                                     Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                                                 }
-                                                IconButton(
-                                                    onClick = { onExportSingleVisit(visit.id) }
+                                                Button(
+                                                    onClick = { onExportSingleVisit(visit.id) },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.primary,
+                                                        contentColor = Color.White
+                                                    ),
+                                                    shape = RoundedCornerShape(24.dp), // Pill
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
+                                                    modifier = Modifier.height(32.dp)
                                                 ) {
-                                                    Icon(Icons.Default.Print, contentDescription = "Imprimir", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                                    Icon(
+                                                        imageVector = Icons.Default.PictureAsPdf,
+                                                        contentDescription = "Imprimir Visita PDF",
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = "Visita PDF",
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
                                                 }
                                             }
                                         }

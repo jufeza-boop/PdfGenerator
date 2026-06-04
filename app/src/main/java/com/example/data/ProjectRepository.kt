@@ -626,10 +626,16 @@ class ProjectRepository(val context: Context, val projectDao: ProjectDao) {
                 project.blocks.filter { it.visitId == null || it.visitId == 0L }.sortedBy { it.sequence }
             }
             PdfExportMode.SINGLE_VISIT -> {
+                val list = mutableListOf<ContentBlockEntity>()
+                // 1. Add common blocks (datos generales)
+                val commonBlocks = project.blocks.filter { it.visitId == null || it.visitId == 0L }.sortedBy { it.sequence }
+                list.addAll(commonBlocks)
+                
+                // 2. Add the specific visit header and notes
                 val visit = project.visits.find { it.id == singleVisitId }
-                val visitHeader = if (visit != null) {
+                if (visit != null) {
                     val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                    listOf(
+                    list.add(
                         ContentBlockEntity(
                             id = -999,
                             projectId = project.project.id,
@@ -638,8 +644,22 @@ class ProjectRepository(val context: Context, val projectDao: ProjectDao) {
                             sequence = -1
                         )
                     )
-                } else emptyList()
-                visitHeader + project.blocks.filter { it.visitId == singleVisitId }.sortedBy { it.sequence }
+                    if (visit.notes.isNotBlank()) {
+                        list.add(
+                            ContentBlockEntity(
+                                id = -200L - visit.id,
+                                projectId = project.project.id,
+                                type = BlockType.TEXT,
+                                content = "Notas de reunión o incidencias:\n" + visit.notes,
+                                sequence = -1
+                            )
+                        )
+                    }
+                    // 3. Add visit blocks
+                    val visitBlocks = project.blocks.filter { it.visitId == singleVisitId }.sortedBy { it.sequence }
+                    list.addAll(visitBlocks)
+                }
+                list
             }
             PdfExportMode.FULL_REPORT -> {
                 val list = mutableListOf<ContentBlockEntity>()
