@@ -19,11 +19,29 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
+enum class PdfExportMode {
+    FULL_REPORT,
+    COMMON_ONLY,
+    SINGLE_VISIT
+}
+
 class ProjectRepository(val context: Context, val projectDao: ProjectDao) {
 
     val allProjects: Flow<List<ProjectWithBlocks>> = projectDao.getAllProjectsFlow()
 
     fun getProjectById(id: Long): Flow<ProjectWithBlocks?> = projectDao.getProjectByIdFlow(id)
+
+    suspend fun insertVisit(visit: VisitEntity): Long = withContext(Dispatchers.IO) {
+        projectDao.insertVisit(visit)
+    }
+
+    suspend fun updateVisit(visit: VisitEntity) = withContext(Dispatchers.IO) {
+        projectDao.updateVisit(visit)
+    }
+
+    suspend fun deleteVisit(visit: VisitEntity) = withContext(Dispatchers.IO) {
+        projectDao.deleteVisit(visit)
+    }
 
     suspend fun createProject(name: String, templateType: String = "NONE"): Long = withContext(Dispatchers.IO) {
         val newProj = when (templateType) {
@@ -293,7 +311,11 @@ class ProjectRepository(val context: Context, val projectDao: ProjectDao) {
     }
 
     // PDF Generation Logic utilizing native A4 drawing
-    suspend fun generatePdf(project: ProjectWithBlocks): File = withContext(Dispatchers.IO) {
+    suspend fun generatePdf(
+        project: ProjectWithBlocks,
+        exportMode: PdfExportMode = PdfExportMode.FULL_REPORT,
+        singleVisitId: Long? = null
+    ): File = withContext(Dispatchers.IO) {
         val pdfFile = File(context.cacheDir, "project_report_${project.project.id}.pdf")
         if (pdfFile.exists()) {
             pdfFile.delete()
@@ -599,7 +621,65 @@ class ProjectRepository(val context: Context, val projectDao: ProjectDao) {
             return y
         }
 
-        val sortedBlocks = project.blocks.sortedBy { it.sequence }
+        val sortedBlocks = when (exportMode) {
+            PdfExportMode.COMMON_ONLY -> {
+                project.blocks.filter { it.visitId == null || it.visitId == 0L }.sortedBy { it.sequence }
+            }
+            PdfExportMode.SINGLE_VISIT -> {
+                val visit = project.visits.find { it.id == singleVisitId }
+                val visitHeader = if (visit != null) {
+                    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                    listOf(
+                        ContentBlockEntity(
+                            id = -999,
+                            projectId = project.project.id,
+                            type = BlockType.TITLE,
+                            content = "VISITA: ${visit.title} (${sdf.format(Date(visit.date))})",
+                            sequence = -1
+                        )
+                    )
+                } else emptyList()
+                visitHeader + project.blocks.filter { it.visitId == singleVisitId }.sortedBy { it.sequence }
+            }
+            PdfExportMode.FULL_REPORT -> {
+                val list = mutableListOf<ContentBlockEntity>()
+                // 1. Add common blocks
+                val commonBlocks = project.blocks.filter { it.visitId == null || it.visitId == 0L }.sortedBy { it.sequence }
+                list.addAll(commonBlocks)
+                
+                // 2. Sort visits by date/id
+                val sortedVisits = project.visits.sortedBy { it.date }
+                sortedVisits.forEach { v ->
+                    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                    // Add visit section separator title
+                    list.add(
+                        ContentBlockEntity(
+                            id = -100L - v.id,
+                            projectId = project.project.id,
+                            type = BlockType.TITLE,
+                            content = "VISITA: ${v.title.uppercase(Locale.getDefault())} (${sdf.format(Date(v.date))})",
+                            sequence = -1
+                        )
+                    )
+                    // Add visit notes if present as text block
+                    if (v.notes.isNotBlank()) {
+                        list.add(
+                            ContentBlockEntity(
+                                id = -200L - v.id,
+                                projectId = project.project.id,
+                                type = BlockType.TEXT,
+                                content = "Notas de reunión o incidencias:\n" + v.notes,
+                                sequence = -1
+                            )
+                        )
+                    }
+                    // Add visit blocks
+                    val visitBlocks = project.blocks.filter { it.visitId == v.id }.sortedBy { it.sequence }
+                    list.addAll(visitBlocks)
+                }
+                list
+            }
+        }
 
         // --- 1. DRY RUN PASS (To calculate total page count) ---
         var dryPageCount = 1

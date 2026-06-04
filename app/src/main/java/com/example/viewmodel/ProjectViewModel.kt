@@ -126,7 +126,7 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addTextBlock(text: String) {
+    fun addTextBlock(text: String, visitId: Long? = null) {
         val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.toMutableList()
         val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
@@ -137,13 +137,14 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             projectId = projectId,
             type = BlockType.TEXT,
             content = text,
-            sequence = nextSequence
+            sequence = nextSequence,
+            visitId = visitId
         )
         currentDraft.add(newBlock)
         _draftBlocks.value = currentDraft
     }
 
-    fun addImageBlock(inputStream: InputStream) {
+    fun addImageBlock(inputStream: InputStream, visitId: Long? = null) {
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             try {
@@ -157,7 +158,8 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                     projectId = projectId,
                     type = BlockType.IMAGE,
                     content = filePath,
-                    sequence = nextSequence
+                    sequence = nextSequence,
+                    visitId = visitId
                 )
                 currentDraft.add(newBlock)
                 _draftBlocks.value = currentDraft
@@ -167,7 +169,7 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addSignatureBlock(signatureBitmap: Bitmap) {
+    fun addSignatureBlock(signatureBitmap: Bitmap, visitId: Long? = null) {
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             try {
@@ -181,7 +183,8 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                     projectId = projectId,
                     type = BlockType.SIGNATURE,
                     content = filePath,
-                    sequence = nextSequence
+                    sequence = nextSequence,
+                    visitId = visitId
                 )
                 currentDraft.add(newBlock)
                 _draftBlocks.value = currentDraft
@@ -191,7 +194,7 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addTitleBlock(text: String) {
+    fun addTitleBlock(text: String, visitId: Long? = null) {
         val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.toMutableList()
         val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
@@ -202,13 +205,14 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             projectId = projectId,
             type = BlockType.TITLE,
             content = text,
-            sequence = nextSequence
+            sequence = nextSequence,
+            visitId = visitId
         )
         currentDraft.add(newBlock)
         _draftBlocks.value = currentDraft
     }
 
-    fun addFooterBlock(text: String) {
+    fun addFooterBlock(text: String, visitId: Long? = null) {
         val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.toMutableList()
         val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
@@ -219,13 +223,14 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             projectId = projectId,
             type = BlockType.FOOTER,
             content = text,
-            sequence = nextSequence
+            sequence = nextSequence,
+            visitId = visitId
         )
         currentDraft.add(newBlock)
         _draftBlocks.value = currentDraft
     }
 
-    fun addTableBlock(initialRowsAndCols: String = "Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2") {
+    fun addTableBlock(initialRowsAndCols: String = "Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2", visitId: Long? = null) {
         val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.toMutableList()
         val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
@@ -236,13 +241,14 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             projectId = projectId,
             type = BlockType.TABLE,
             content = initialRowsAndCols,
-            sequence = nextSequence
+            sequence = nextSequence,
+            visitId = visitId
         )
         currentDraft.add(newBlock)
         _draftBlocks.value = currentDraft
     }
 
-    fun addChecklistBlock(initialItems: String = "false|Elemento checklist 1\nfalse|Elemento checklist 2") {
+    fun addChecklistBlock(initialItems: String = "false|Elemento checklist 1\nfalse|Elemento checklist 2", visitId: Long? = null) {
         val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.toMutableList()
         val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
@@ -253,7 +259,8 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             projectId = projectId,
             type = BlockType.CHECKLIST,
             content = initialItems,
-            sequence = nextSequence
+            sequence = nextSequence,
+            visitId = visitId
         )
         currentDraft.add(newBlock)
         _draftBlocks.value = currentDraft
@@ -389,7 +396,8 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                         type = updatedBlock.type,
                         content = updatedBlock.content,
                         sequence = updatedBlock.sequence,
-                        isHalfWidth = updatedBlock.isHalfWidth
+                        isHalfWidth = updatedBlock.isHalfWidth,
+                        visitId = updatedBlock.visitId
                     )
                     repository.insertBlock(newBlock)
                 } else {
@@ -416,14 +424,34 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         _draftBlocks.value = _originalBlocks.value
     }
 
-    fun exportPdf() {
+    fun createVisit(title: String, notes: String, date: Long = System.currentTimeMillis()) {
+        val projectId = _selectedProjectId.value ?: return
+        viewModelScope.launch {
+            val visit = VisitEntity(projectId = projectId, title = title, notes = notes, date = date)
+            repository.insertVisit(visit)
+        }
+    }
+
+    fun deleteVisit(visit: VisitEntity) {
+        viewModelScope.launch {
+            repository.deleteVisit(visit)
+        }
+    }
+
+    fun updateVisit(visit: VisitEntity) {
+        viewModelScope.launch {
+            repository.updateVisit(visit)
+        }
+    }
+
+    fun exportPdf(exportMode: PdfExportMode = PdfExportMode.FULL_REPORT, singleVisitId: Long? = null) {
         val project = selectedProject.value ?: return
         val currentDraft = _draftBlocks.value
-        val draftProject = ProjectWithBlocks(project = project.project, blocks = currentDraft)
+        val draftProject = ProjectWithBlocks(project = project.project, blocks = currentDraft, visits = project.visits)
         viewModelScope.launch {
             _isGeneratingPdf.value = true
             try {
-                val pdfFile = repository.generatePdf(draftProject)
+                val pdfFile = repository.generatePdf(draftProject, exportMode, singleVisitId)
                 _generatedPdfFile.value = pdfFile
             } catch (e: Exception) {
                 e.printStackTrace()

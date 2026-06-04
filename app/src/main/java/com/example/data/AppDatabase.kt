@@ -24,6 +24,26 @@ data class ProjectEntity(
 )
 
 @Entity(
+    tableName = "visits",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProjectEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["projectId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["projectId"])]
+)
+data class VisitEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val projectId: Long,
+    val title: String,
+    val date: Long = System.currentTimeMillis(),
+    val notes: String = ""
+)
+
+@Entity(
     tableName = "content_blocks",
     foreignKeys = [
         ForeignKey(
@@ -41,7 +61,8 @@ data class ContentBlockEntity(
     val type: BlockType,
     val content: String, // String value for Text OR local filepath for Image / Signature
     val sequence: Int,
-    val isHalfWidth: Boolean = false
+    val isHalfWidth: Boolean = false,
+    val visitId: Long? = null
 )
 
 data class ProjectWithBlocks(
@@ -50,7 +71,12 @@ data class ProjectWithBlocks(
         parentColumn = "id",
         entityColumn = "projectId"
     )
-    val blocks: List<ContentBlockEntity>
+    val blocks: List<ContentBlockEntity>,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "projectId"
+    )
+    val visits: List<VisitEntity>
 )
 
 @Dao
@@ -83,9 +109,21 @@ interface ProjectDao {
 
     @Query("DELETE FROM content_blocks WHERE projectId = :projectId")
     suspend fun deleteBlocksForProject(projectId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVisit(visit: VisitEntity): Long
+
+    @Update
+    suspend fun updateVisit(visit: VisitEntity)
+
+    @Delete
+    suspend fun deleteVisit(visit: VisitEntity)
+
+    @Query("DELETE FROM visits WHERE projectId = :projectId")
+    suspend fun deleteVisitsForProject(projectId: Long)
 }
 
-@Database(entities = [ProjectEntity::class, ContentBlockEntity::class], version = 5, exportSchema = false)
+@Database(entities = [ProjectEntity::class, ContentBlockEntity::class, VisitEntity::class], version = 6, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
 

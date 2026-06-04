@@ -52,6 +52,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.data.*
 import com.example.ui.theme.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import com.example.viewmodel.ProjectViewModel
 import java.io.File
 import java.io.InputStream
@@ -82,6 +86,7 @@ fun ProjectApp(
     var showSignatureDialog by remember { mutableStateOf(false) }
     var showSyncDialog by remember { mutableStateOf(false) }
     var activeSignatureBlockForDrawing by remember { mutableStateOf<ContentBlockEntity?>(null) }
+    var activeSignatureVisitId by remember { mutableStateOf<Long?>(null) }
 
     // Observe mock upload status
     LaunchedEffect(Unit) {
@@ -128,23 +133,30 @@ fun ProjectApp(
                             onBack = { viewModel.selectProject(null) },
                             onSave = { viewModel.saveDraft() },
                             onUndo = { viewModel.discardChanges() },
-                            onAddTextBlock = { text -> viewModel.addTextBlock(text) },
+                            onAddTextBlock = { text, visitId -> viewModel.addTextBlock(text, visitId) },
                             onSaveTextBlockEdit = { block, text -> viewModel.updateBlockText(block, text) },
                             onDeleteBlock = { block -> viewModel.deleteBlock(block) },
-                            onImageSelected = { stream -> viewModel.addImageBlock(stream) },
-                            onAddSignatureClick = { showSignatureDialog = true },
+                            onImageSelected = { stream, visitId -> viewModel.addImageBlock(stream, visitId) },
+                            onAddSignatureClick = { visitId -> 
+                                activeSignatureVisitId = visitId
+                                showSignatureDialog = true 
+                            },
                             onDrawSignatureClick = { block -> activeSignatureBlockForDrawing = block },
                             onUpdateProjectInfo = { name, label, showLabel, showDate, comp, compSub, headerTitle, showHeaderBox ->
                                 viewModel.updateProjectInfo(name, label, showLabel, showDate, comp, compSub, headerTitle, showHeaderBox)
                             },
-                            onExportPdf = { viewModel.exportPdf() },
+                            onExportPdf = { viewModel.exportPdf(exportMode = PdfExportMode.FULL_REPORT) },
                             onMoveBlockUp = { block -> viewModel.moveBlockUp(block) },
                             onMoveBlockDown = { block -> viewModel.moveBlockDown(block) },
                             onToggleBlockWidth = { block -> viewModel.toggleBlockWidth(block) },
-                            onAddTitleBlock = { text -> viewModel.addTitleBlock(text) },
-                            onAddFooterBlock = { text -> viewModel.addFooterBlock(text) },
-                            onAddTableBlock = { text -> viewModel.addTableBlock(text) },
-                            onAddChecklistBlock = { text -> viewModel.addChecklistBlock(text) }
+                            onAddTitleBlock = { text, visitId -> viewModel.addTitleBlock(text, visitId) },
+                            onAddFooterBlock = { text, visitId -> viewModel.addFooterBlock(text, visitId) },
+                            onAddTableBlock = { text, visitId -> viewModel.addTableBlock(text, visitId) },
+                            onAddChecklistBlock = { text, visitId -> viewModel.addChecklistBlock(text, visitId) },
+                            onAddVisit = { title, notes -> viewModel.createVisit(title, notes) },
+                            onDeleteVisit = { visit -> viewModel.deleteVisit(visit) },
+                            onUpdateVisit = { visit -> viewModel.updateVisit(visit) },
+                            onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) }
                         )
                     } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -178,7 +190,7 @@ fun ProjectApp(
             SignatureDialog(
                 onDismiss = { showSignatureDialog = false },
                 onConfirm = { signatureBitmap ->
-                    viewModel.addSignatureBlock(signatureBitmap)
+                    viewModel.addSignatureBlock(signatureBitmap, activeSignatureVisitId)
                     showSignatureDialog = false
                 }
             )
@@ -489,21 +501,25 @@ fun ProjectEditorScreen(
     onBack: () -> Unit,
     onSave: () -> Unit,
     onUndo: () -> Unit,
-    onAddTextBlock: (String) -> Unit,
+    onAddTextBlock: (String, Long?) -> Unit,
     onSaveTextBlockEdit: (ContentBlockEntity, String) -> Unit,
     onDeleteBlock: (ContentBlockEntity) -> Unit,
-    onImageSelected: (InputStream) -> Unit,
-    onAddSignatureClick: () -> Unit,
+    onImageSelected: (InputStream, Long?) -> Unit,
+    onAddSignatureClick: (Long?) -> Unit,
     onDrawSignatureClick: (ContentBlockEntity) -> Unit,
     onUpdateProjectInfo: (String, String, Boolean, Boolean, String, String, String, Boolean) -> Unit,
     onExportPdf: () -> Unit,
     onMoveBlockUp: (ContentBlockEntity) -> Unit,
     onMoveBlockDown: (ContentBlockEntity) -> Unit,
     onToggleBlockWidth: (ContentBlockEntity) -> Unit,
-    onAddTitleBlock: (String) -> Unit,
-    onAddFooterBlock: (String) -> Unit,
-    onAddTableBlock: (String) -> Unit,
-    onAddChecklistBlock: (String) -> Unit
+    onAddTitleBlock: (String, Long?) -> Unit,
+    onAddFooterBlock: (String, Long?) -> Unit,
+    onAddTableBlock: (String, Long?) -> Unit,
+    onAddChecklistBlock: (String, Long?) -> Unit,
+    onAddVisit: (String, String) -> Unit,
+    onDeleteVisit: (VisitEntity) -> Unit,
+    onUpdateVisit: (VisitEntity) -> Unit,
+    onExportSingleVisit: (Long) -> Unit
 ) {
     val context = LocalContext.current
     var textInputToInsert by remember { mutableStateOf("") }
@@ -580,6 +596,9 @@ fun ProjectEditorScreen(
         )
     }
 
+    // Prepare target visit state for images
+    var targetVisitIdForImage by remember { mutableStateOf<Long?>(null) }
+
     // Prepare contracts for Pick Image
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -588,7 +607,7 @@ fun ProjectEditorScreen(
             try {
                 val stream = context.contentResolver.openInputStream(uri)
                 if (stream != null) {
-                    onImageSelected(stream)
+                    onImageSelected(stream, targetVisitIdForImage)
                 }
             } catch (e: Exception) {
                 Toast.makeText(context, "Error cargando imagen de galería", Toast.LENGTH_SHORT).show()
@@ -605,7 +624,7 @@ fun ProjectEditorScreen(
             try {
                 val stream = context.contentResolver.openInputStream(tempCameraUri!!)
                 if (stream != null) {
-                    onImageSelected(stream)
+                    onImageSelected(stream, targetVisitIdForImage)
                 }
             } catch (e: Exception) {
                 Toast.makeText(context, "Error cargando foto de cámara", Toast.LENGTH_SHORT).show()
@@ -698,12 +717,36 @@ fun ProjectEditorScreen(
                         if (isGeneratingPdf) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(end = 12.dp))
                         } else {
-                            IconButton(onClick = onExportPdf) {
-                                Icon(
-                                    imageVector = Icons.Default.PictureAsPdf,
-                                    contentDescription = "Generar PDF",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
+                            var showPdfDropdown by remember { mutableStateOf(false) }
+                            Box {
+                                IconButton(onClick = { showPdfDropdown = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.PictureAsPdf,
+                                        contentDescription = "Generar PDF",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showPdfDropdown,
+                                    onDismissRequest = { showPdfDropdown = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Reporte Completo (Parte Común + Visitas)", fontSize = 13.sp) },
+                                        leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        onClick = {
+                                            showPdfDropdown = false
+                                            onExportPdf()
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Sólo Parte Común / Configuración", fontSize = 13.sp) },
+                                        leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                        onClick = {
+                                            showPdfDropdown = false
+                                            onExportSingleVisit(0L) // export modeCOMMON_ONLY
+                                        }
+                                    )
+                                }
                             }
                         }
                     },
@@ -752,7 +795,7 @@ fun ProjectEditorScreen(
                         IconButton(
                             onClick = {
                                 if (textInputToInsert.isNotBlank()) {
-                                    onAddTextBlock(textInputToInsert.trim())
+                                    onAddTextBlock(textInputToInsert.trim(), null)
                                     textInputToInsert = ""
                                 }
                             },
@@ -832,35 +875,35 @@ fun ProjectEditorScreen(
                                 ToolbarButton(
                                     icon = Icons.Default.Gesture,
                                     label = "Firma",
-                                    onClick = onAddSignatureClick
+                                    onClick = { onAddSignatureClick(null) }
                                 )
                             }
                             item {
                                 ToolbarButton(
                                     icon = Icons.Default.Subject,
                                     label = "Título",
-                                    onClick = { onAddTitleBlock("Nuevo Título de Sección") }
+                                    onClick = { onAddTitleBlock("Nuevo Título de Sección", null) }
                                 )
                             }
                             item {
                                 ToolbarButton(
                                     icon = Icons.Default.Info,
                                     label = "Footer",
-                                    onClick = { onAddFooterBlock("Pie de página y observaciones finales.") }
+                                    onClick = { onAddFooterBlock("Pie de página y observaciones finales.", null) }
                                 )
                             }
                             item {
                                 ToolbarButton(
                                     icon = Icons.Default.List,
                                     label = "Tabla",
-                                    onClick = { onAddTableBlock("Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2") }
+                                    onClick = { onAddTableBlock("Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2", null) }
                                 )
                             }
                             item {
                                 ToolbarButton(
                                     icon = Icons.Default.CheckBox,
                                     label = "Checklist",
-                                    onClick = { onAddChecklistBlock("false|Elemento checklist 1\nfalse|Elemento checklist 2") }
+                                    onClick = { onAddChecklistBlock("false|Elemento checklist 1\nfalse|Elemento checklist 2", null) }
                                 )
                             }
                         }
@@ -894,14 +937,51 @@ fun ProjectEditorScreen(
             }
         }
     ) { paddingValues ->
-        Box(
+        var activeTab by remember { mutableStateOf(0) } // 0: Common Part, 1: Visits
+        
+        // State variables for managing visits
+        var showCreateVisitDialog by remember { mutableStateOf(false) }
+        var visitToEdit by remember { mutableStateOf<com.example.data.VisitEntity?>(null) }
+        var visitToDeleteConfirm by remember { mutableStateOf<com.example.data.VisitEntity?>(null) }
+        
+        var visitTitleInput by remember { mutableStateOf("") }
+        var visitNotesInput by remember { mutableStateOf("") }
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(BrandBg)
         ) {
-            val sortedBlocks = remember(blocks) {
-                blocks.sortedBy { it.sequence }
+            TabRow(
+                selectedTabIndex = activeTab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Tab(
+                    selected = activeTab == 0,
+                    onClick = { activeTab = 0 },
+                    text = { Text("Parte Común / Config", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                )
+                Tab(
+                    selected = activeTab == 1,
+                    onClick = { activeTab = 1 },
+                    text = { Text("Visitas de Obra (${project.visits.size})", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                    icon = { Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                )
+            }
+
+            val filteredBlocksByTab = remember(blocks, activeTab) {
+                if (activeTab == 0) {
+                    blocks.filter { it.visitId == null || it.visitId == 0L }
+                } else {
+                    emptyList()
+                }
+            }
+
+            val sortedBlocks = remember(filteredBlocksByTab) {
+                filteredBlocksByTab.sortedBy { it.sequence }
             }
 
             val groupedRows = remember(sortedBlocks) {
@@ -968,8 +1048,14 @@ fun ProjectEditorScreen(
                 )
             }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                if (activeTab == 0) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -1431,6 +1517,375 @@ fun ProjectEditorScreen(
                         }
                     }
                 }
+            }
+        }
+
+                if (activeTab == 1) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                visitTitleInput = ""
+                                visitNotesInput = ""
+                                showCreateVisitDialog = true
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Añadir Nueva Visita")
+                        }
+
+                        if (project.visits.isEmpty()) {
+                            ElevatedCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Event,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        "Aún no hay visitas registradas",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        "Cada visita guardará sus propios bloques, fotos, firmas e informes.",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.outline,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            project.visits.forEach { visit ->
+                                val visitBlocks = remember(blocks) {
+                                    blocks.filter { it.visitId == visit.id }.sortedBy { it.sequence }
+                                }
+                                val formattedDate = remember(visit.date) { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(visit.date)) }
+                                
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surface
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp)
+                                    ) {
+                                        // Visit top header
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = visit.title,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 16.sp,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    text = formattedDate,
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.outline
+                                                )
+                                            }
+
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                IconButton(
+                                                    onClick = {
+                                                        visitToEdit = visit
+                                                        visitTitleInput = visit.title
+                                                        visitNotesInput = visit.notes
+                                                    }
+                                                ) {
+                                                    Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(20.dp))
+                                                }
+                                                IconButton(
+                                                    onClick = { visitToDeleteConfirm = visit }
+                                                ) {
+                                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                                }
+                                                IconButton(
+                                                    onClick = { onExportSingleVisit(visit.id) }
+                                                ) {
+                                                    Icon(Icons.Default.Print, contentDescription = "Imprimir", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                                }
+                                            }
+                                        }
+
+                                        if (visit.notes.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    text = visit.notes,
+                                                    fontSize = 12.sp,
+                                                    modifier = Modifier.padding(8.dp),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        // Display blocks in this visit
+                                        if (visitBlocks.isEmpty()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 12.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    "Sin contenido. Añade bloques usando las opciones de abajo.",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.outline,
+                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                )
+                                            }
+                                        } else {
+                                            Column(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                visitBlocks.forEach { block ->
+                                                    RenderSingleBlock(block)
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        // Quick insert controls for THIS visit
+                                        Text(
+                                            "AÑADIR BLOQUE A ESTA VISITA:",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .horizontalScroll(rememberScrollState()),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            AssistChip(
+                                                onClick = { onAddTextBlock("Nueva nota de visita", visit.id) },
+                                                label = { Text("Nota", fontSize = 11.sp) },
+                                                leadingIcon = { Icon(Icons.Default.Notes, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+                                            AssistChip(
+                                                onClick = {
+                                                    targetVisitIdForImage = visit.id
+                                                    val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                                    if (hasPermission) {
+                                                        try {
+                                                            val tempFile = File(context.cacheDir, "temp_camera_${System.currentTimeMillis()}.jpg")
+                                                            if (tempFile.exists()) tempFile.delete()
+                                                            tempFile.createNewFile()
+                                                            tempCameraUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
+                                                            tempCameraUri?.let { takePictureLauncher.launch(it) }
+                                                        } catch (e: Exception) {
+                                                            e.printStackTrace()
+                                                        }
+                                                    } else {
+                                                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                                    }
+                                                },
+                                                label = { Text("Cámara", fontSize = 11.sp) },
+                                                leadingIcon = { Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+                                            AssistChip(
+                                                onClick = {
+                                                    targetVisitIdForImage = visit.id
+                                                    pickImageLauncher.launch("image/*")
+                                                },
+                                                label = { Text("Galería", fontSize = 11.sp) },
+                                                leadingIcon = { Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+                                            AssistChip(
+                                                onClick = { onAddSignatureClick(visit.id) },
+                                                label = { Text("Firma", fontSize = 11.sp) },
+                                                leadingIcon = { Icon(Icons.Default.Gesture, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+                                            AssistChip(
+                                                onClick = { onAddTitleBlock("Subtítulo de Visita", visit.id) },
+                                                label = { Text("Título", fontSize = 11.sp) },
+                                                leadingIcon = { Icon(Icons.Default.Subject, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+                                            AssistChip(
+                                                onClick = { onAddTableBlock("Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2", visit.id) },
+                                                label = { Text("Tabla", fontSize = 11.sp) },
+                                                leadingIcon = { Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+                                            AssistChip(
+                                                onClick = { onAddChecklistBlock("false|Actividad pendiente 1\nfalse|Actividad pendiente 2", visit.id) },
+                                                label = { Text("Checklist", fontSize = 11.sp) },
+                                                leadingIcon = { Icon(Icons.Default.CheckBox, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } // Closes Box
+
+            // Dialogs for managing visits
+            if (showCreateVisitDialog) {
+                AlertDialog(
+                    onDismissRequest = { showCreateVisitDialog = false },
+                    title = { Text("Crear Nueva Visita", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = visitTitleInput,
+                                onValueChange = { visitTitleInput = it },
+                                label = { Text("Título de Visita") },
+                                placeholder = { Text("Ej. Visita de Cimentación") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = visitNotesInput,
+                                onValueChange = { visitNotesInput = it },
+                                label = { Text("Notas / Observaciones") },
+                                placeholder = { Text("Describe brevemente el estado de la obra...") },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 4
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (visitTitleInput.isNotBlank()) {
+                                    onAddVisit(visitTitleInput.trim(), visitNotesInput.trim())
+                                    showCreateVisitDialog = false
+                                }
+                            },
+                            enabled = visitTitleInput.isNotBlank()
+                        ) {
+                            Text("Crear")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showCreateVisitDialog = false }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
+            }
+
+            if (visitToEdit != null) {
+                AlertDialog(
+                    onDismissRequest = { visitToEdit = null },
+                    title = { Text("Editar Visita", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = visitTitleInput,
+                                onValueChange = { visitTitleInput = it },
+                                label = { Text("Título de Visita") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = visitNotesInput,
+                                onValueChange = { visitNotesInput = it },
+                                label = { Text("Notas / Observaciones") },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 4
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                visitToEdit?.let { current ->
+                                    if (visitTitleInput.isNotBlank()) {
+                                        onUpdateVisit(current.copy(title = visitTitleInput.trim(), notes = visitNotesInput.trim()))
+                                        visitToEdit = null
+                                    }
+                                }
+                            },
+                            enabled = visitTitleInput.isNotBlank()
+                        ) {
+                            Text("Guardar")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { visitToEdit = null }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
+            }
+
+            if (visitToDeleteConfirm != null) {
+                AlertDialog(
+                    onDismissRequest = { visitToDeleteConfirm = null },
+                    title = { Text("¿Eliminar esta visita?", fontWeight = FontWeight.Bold) },
+                    text = { Text("Se eliminará esta visita permanentemente junto con todo su contenido asociado.") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                visitToDeleteConfirm?.let { current ->
+                                    onDeleteVisit(current)
+                                }
+                                visitToDeleteConfirm = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("Eliminar", color = Color.White)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { visitToDeleteConfirm = null }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
             }
         }
     }
