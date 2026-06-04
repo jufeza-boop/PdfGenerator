@@ -153,7 +153,7 @@ fun ProjectApp(
                             onAddFooterBlock = { text, visitId -> viewModel.addFooterBlock(text, visitId) },
                             onAddTableBlock = { text, visitId -> viewModel.addTableBlock(text, visitId) },
                             onAddChecklistBlock = { text, visitId -> viewModel.addChecklistBlock(text, visitId) },
-                            onAddVisit = { title, notes -> viewModel.createVisit(title, notes) },
+                            onAddVisit = { title, notes, templateType -> viewModel.createVisit(title, notes, templateType) },
                             onDeleteVisit = { visit -> viewModel.deleteVisit(visit) },
                             onUpdateVisit = { visit -> viewModel.updateVisit(visit) },
                             onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) }
@@ -516,7 +516,7 @@ fun ProjectEditorScreen(
     onAddFooterBlock: (String, Long?) -> Unit,
     onAddTableBlock: (String, Long?) -> Unit,
     onAddChecklistBlock: (String, Long?) -> Unit,
-    onAddVisit: (String, String) -> Unit,
+    onAddVisit: (String, String, String) -> Unit,
     onDeleteVisit: (VisitEntity) -> Unit,
     onUpdateVisit: (VisitEntity) -> Unit,
     onExportSingleVisit: (Long) -> Unit
@@ -946,6 +946,7 @@ fun ProjectEditorScreen(
         
         var visitTitleInput by remember { mutableStateOf("") }
         var visitNotesInput by remember { mutableStateOf("") }
+        var selectedVisitTemplate by remember { mutableStateOf("NONE") }
 
         Column(
             modifier = Modifier
@@ -1532,6 +1533,7 @@ fun ProjectEditorScreen(
                             onClick = {
                                 visitTitleInput = ""
                                 visitNotesInput = ""
+                                selectedVisitTemplate = "NONE"
                                 showCreateVisitDialog = true
                             },
                             modifier = Modifier
@@ -1797,7 +1799,7 @@ fun ProjectEditorScreen(
                     onDismissRequest = { showCreateVisitDialog = false },
                     title = { Text("Crear Nueva Visita", fontWeight = FontWeight.Bold) },
                     text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(
                                 value = visitTitleInput,
                                 onValueChange = { visitTitleInput = it },
@@ -1813,13 +1815,49 @@ fun ProjectEditorScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 maxLines = 4
                             )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Text(
+                                text = "Instanciar plantilla para esta visita:",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            
+                            // Option 1: Empty
+                            TemplateOptionCard(
+                                title = "Visita Vacía",
+                                description = "Agregar visita sin secciones predefinidas.",
+                                icon = Icons.Default.Add,
+                                isSelected = selectedVisitTemplate == "NONE",
+                                onClick = { selectedVisitTemplate = "NONE" }
+                            )
+                            
+                            // Option 2: Acta de Visita
+                            TemplateOptionCard(
+                                title = "Acta de Visita",
+                                description = "Asistentes, estado de obra, checklist de control y firmas conformes.",
+                                icon = Icons.Default.Assignment,
+                                isSelected = selectedVisitTemplate == "ACTA_VISITA",
+                                onClick = { selectedVisitTemplate = "ACTA_VISITA" }
+                            )
+                            
+                            // Option 3: Control de Hormigón
+                            TemplateOptionCard(
+                                title = "Control de Recepción de Hormigón",
+                                description = "Registro de probetas de resistencia, checklist de verificaciones y firmas.",
+                                icon = Icons.Default.Science,
+                                isSelected = selectedVisitTemplate == "CONTROL_CALIDAD",
+                                onClick = { selectedVisitTemplate = "CONTROL_CALIDAD" }
+                            )
                         }
                     },
                     confirmButton = {
                         Button(
                             onClick = {
                                 if (visitTitleInput.isNotBlank()) {
-                                    onAddVisit(visitTitleInput.trim(), visitNotesInput.trim())
+                                    onAddVisit(visitTitleInput.trim(), visitNotesInput.trim(), selectedVisitTemplate)
                                     showCreateVisitDialog = false
                                 }
                             },

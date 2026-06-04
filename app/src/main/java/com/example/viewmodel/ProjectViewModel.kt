@@ -424,11 +424,53 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         _draftBlocks.value = _originalBlocks.value
     }
 
-    fun createVisit(title: String, notes: String, date: Long = System.currentTimeMillis()) {
+    fun createVisit(title: String, notes: String, templateType: String = "NONE", date: Long = System.currentTimeMillis()) {
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             val visit = VisitEntity(projectId = projectId, title = title, notes = notes, date = date)
-            repository.insertVisit(visit)
+            val visitId = repository.insertVisit(visit)
+            
+            val currentMaxSeq = _draftBlocks.value.maxOfOrNull { it.sequence } ?: -1
+            var nextSeq = currentMaxSeq + 1
+            
+            val blocksToInsert = mutableListOf<ContentBlockEntity>()
+            if (templateType == "ACTA_VISITA") {
+                blocksToInsert.addAll(listOf(
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ASISTENTES A LA VISITA", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Entidad / Parte | Representantes Asistentes\nDe la parte promotora | [Asistentes de la propiedad]\nDe la parte constructora | [Asistentes del contratista / Jefe de Obra]\nDe la Dirección Facultativa | -\nOtros | -", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "DATOS DE LA VISITA", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "DÍA DE LA VISITA: [DD/MM/AAAA]", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ESTADO DE LA OBRA, TEMAS TRATADOS Y OBSERVACIONES", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.CHECKLIST, content = "false|Hormigonado de elements estructurales por tongadas\nfalse|Levantamiento de cerramientos y muros perimetrales\nfalse|Colocación de red de saneamiento separativa en PVC\nfalse|Verificación y medición de la toma de tierra", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "- Se ha comenzado con los trabajos de hormigonado según lo previsto, realizándose por tongadas conforme a las indicaciones de la Dirección Facultativa.\n- Se preparan las armaduras para la cimentación de la estructura, comprobándose su correcta colocación según plano de cimentación.\n- Se realiza la instalación de la red de saneamiento separativa empleando tuberías de PVC corrugado para pluviales y fecales.\n- Se encuentra pendiente la ejecución y verificación de la toma de tierra general del edificio.", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "REPORTAJE FOTOGRÁFICO DE LA VISITA", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "[Añada imágenes usando el botón de captura de foto para registrar el avance de los trabajos]", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ENTERADO Y CONFORME", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.O.|Dirección de Obra", sequence = nextSeq++, isHalfWidth = true, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.E.O. / CSS|Dir. Ejecución / Seg. y Salud", sequence = nextSeq++, isHalfWidth = true, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|P|Promotor", sequence = nextSeq++, isHalfWidth = true, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|C|Contratista", sequence = nextSeq++, isHalfWidth = true, visitId = visitId)
+                ))
+            } else if (templateType == "CONTROL_CALIDAD") {
+                blocksToInsert.addAll(listOf(
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "REGISTRO DE PROBETAS Y RESISTENCIA", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Identificador | Fecha Confección | Plazo Ensayo (Días) | Resistencia Obtenida\nProbeta P-1 (Cimiento) | [Fecha] | 7 días | Pendiente de ensayo\nProbeta P-2 (Cimiento) | [Fecha] | 28 días | Pendiente de ensayo\nProbeta P-3 (Muro Sótano) | [Fecha] | 28 días | Pendiente de ensayo", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "CHECKLIST DE VERIFICACIONES PREVIAS", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.CHECKLIST, content = "false|Verificación y cotejo del documento de suministro (Albarán)\nfalse|Medición del tiempo máximo transcurrido desde adición de agua en planta\nfalse|Prueba de docilidad mediante Cono de Abrams en obra\nfalse|Toma de muestras por probetas cilíndricas\nfalse|Vibrado correcto por inmersión de la masa y curado posterior", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "INSTRUCCIONES DE LA DIRECCIÓN DE EJECUCIÓN (D.E.O.)", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "- Se autoriza la descarga del hormigón tras realizar los controles de consistencia.\n- Ensayar las probetas a los 7 y 28 días según especificaciones de la norma conforme al Código Estructural.\n- Queda prohibida la adición de agua en obra para aumentar la docilidad sin consentimiento explícito.\n- Extremar las precauciones de curado humedeciendo la superficie expuesta durante al menos los 3 primeros días.", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "DOCUMENTO DE VALIDACIÓN", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.E.O.|Dirección de Ejecución de Obra", sequence = nextSeq++, isHalfWidth = true, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|Jefe de Obra|Representante de Suministro", sequence = nextSeq++, isHalfWidth = true, visitId = visitId)
+                ))
+            }
+            
+            blocksToInsert.forEach { repository.insertBlock(it) }
+            
+            val freshProject = repository.getProjectById(projectId).filterNotNull().first()
+            val sorted = freshProject.blocks.sortedBy { it.sequence }
+            _originalBlocks.value = sorted
+            _draftBlocks.value = sorted
         }
     }
 

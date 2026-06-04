@@ -66,21 +66,7 @@ class ProjectRepository(val context: Context, val projectDao: ProjectDao) {
                 var seq = 0
                 val blocks = listOf(
                     ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ACTA DE VISITA - DIRECCIÓN FACULTATIVA", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Dato General | Información del Proyecto\nNombre de la obra | [Nombre de la Obra]\nDirección de la obra | [Dirección / Localización]\nPromotor | [Nombre del Promotor]\nContratista principal | [Nombre de la Constructora / Contratista]\nDirección de la obra (DO) | -\nDirección de la Ejecución (DEO) | -\nCoordinación de Seguridad y Salud (CSS) | -", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ASISTENTES A LA VISITA", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Entidad / Parte | Representantes Asistentes\nDe la parte promotora | [Asistentes de la propiedad]\nDe la parte constructora | [Asistentes del contratista / Jefe de Obra]\nDe la Dirección Facultativa | -\nOtros | -", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "DATOS DE LA VISITA", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "DÍA DE LA VISITA: [DD/MM/AAAA]", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ESTADO DE LA OBRA, TEMAS TRATADOS Y OBSERVACIONES", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.CHECKLIST, content = "false|Hormigonado de elementos estructurales por tongadas\nfalse|Levantamiento de cerramientos y muros perimetrales\nfalse|Colocación de red de saneamiento separativa en PVC\nfalse|Verificación y medición de la toma de tierra", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "- Se ha comenzado con los trabajos de hormigonado según lo previsto, realizándose por tongadas conforme a las indicaciones de la Dirección Facultativa.\n- Se preparan las armaduras para la cimentación de la estructura, comprobándose su correcta colocación según plano de cimentación.\n- Se realiza la instalación de la red de saneamiento separativa empleando tuberías de PVC corrugado para pluviales y fecales.\n- Se encuentra pendiente la ejecución y verificación de la toma de tierra general del edificio.", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "REPORTAJE FOTOGRÁFICO DE LA VISITA", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "[Añada imágenes usando el botón de captura de foto para registrar el avance de los trabajos]", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ENTERADO Y CONFORME", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.O.|Dirección de Obra", sequence = seq++, isHalfWidth = true),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.E.O. / CSS|Dir. Ejecución / Seg. y Salud", sequence = seq++, isHalfWidth = true),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|P|Promotor", sequence = seq++, isHalfWidth = true),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|C|Contratista", sequence = seq++, isHalfWidth = true)
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Dato General | Información del Proyecto\nNombre de la obra | [Nombre de la Obra]\nDirección de la obra | [Dirección / Localización]\nPromotor | [Nombre del Promotor]\nContratista principal | [Nombre de la Constructora / Contratista]\nDirección de la obra (DO) | -\nDirección de la Ejecución (DEO) | -\nCoordinación de Seguridad y Salud (CSS) | -", sequence = seq++)
                 )
                 blocks.forEach { projectDao.insertBlock(it) }
             }
@@ -88,16 +74,7 @@ class ProjectRepository(val context: Context, val projectDao: ProjectDao) {
                 var seq = 0
                 val blocks = listOf(
                     ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "CONTROL DE CALIDAD Y RECEPCIÓN DE HORMIGÓN", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Ensayo y Control | Especificación del Proyecto\nTipo de Hormigón | HA-25 / B / 20 / IIa (Fck = 25 N/mm²)\nTipo de Cemento | CEM II/A-L 42.5R (Uso general)\nConsistencia / Cono | Consistencia Blanda (Asentamiento Cono: 6-9 cm)\nTamaño Máximo Árido | 20 mm de piedra de machaqueo\nAditivos incorporados | Plastificantes homologados", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "REGISTRO DE PROBETAS Y RESISTENCIA", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Identificador | Fecha Confección | Plazo Ensayo (Días) | Resistencia Obtenida\nProbeta P-1 (Cimiento) | [Fecha] | 7 días | Pendiente de ensayo\nProbeta P-2 (Cimiento) | [Fecha] | 28 días | Pendiente de ensayo\nProbeta P-3 (Muro Sótano) | [Fecha] | 28 días | Pendiente de ensayo", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "CHECKLIST DE VERIFICACIONES PREVIAS", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.CHECKLIST, content = "false|Verificación y cotejo del documento de suministro (Albarán)\nfalse|Medición del tiempo máximo transcurrido desde adición de agua en planta\nfalse|Prueba de docilidad mediante Cono de Abrams en obra\nfalse|Toma de muestras por probetas cilíndricas\nfalse|Vibrado correcto por inmersión de la masa y curado posterior", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "INSTRUCCIONES DE LA DIRECCIÓN DE EJECUCIÓN (D.E.O.)", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "- Se autoriza la descarga del hormigón tras realizar los controles de consistencia.\n- Ensayar las probetas a los 7 y 28 días según especificaciones de la norma conforme al Código Estructural.\n- Queda prohibida la adición de agua en obra para aumentar la docilidad sin consentimiento explícito.\n- Extremar las precauciones de curado humedeciendo la superficie expuesta durante al menos los 3 primeros días.", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "DOCUMENTO DE VALIDACIÓN", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.E.O.|Dirección de Ejecución de Obra", sequence = seq++, isHalfWidth = true),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|Jefe de Obra|Representante de Suministro", sequence = seq++, isHalfWidth = true)
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Ensayo y Control | Especificación del Proyecto\nTipo de Hormigón | HA-25 / B / 20 / IIa (Fck = 25 N/mm²)\nTipo de Cemento | CEM II/A-L 42.5R (Uso general)\nConsistencia / Cono | Consistencia Blanda (Asentamiento Cono: 6-9 cm)\nTamaño Máximo Árido | 20 mm de piedra de machaqueo\nAditivos incorporados | Plastificantes homologados", sequence = seq++)
                 )
                 blocks.forEach { projectDao.insertBlock(it) }
             }
