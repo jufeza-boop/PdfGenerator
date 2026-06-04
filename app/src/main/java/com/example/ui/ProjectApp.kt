@@ -1834,22 +1834,22 @@ fun ProjectEditorScreen(
                                 onClick = { selectedVisitTemplate = "NONE" }
                             )
                             
-                            // Option 2: Acta de Visita
+                            // Option 2: Direcciones de Obra
                             TemplateOptionCard(
-                                title = "Acta de Visita",
-                                description = "Asistentes, estado de obra, checklist de control y firmas conformes.",
+                                title = "Dirección de Obra",
+                                description = "Asistentes de obra, estado actual de los trabajos, reportaje fotográfico y firmas.",
                                 icon = Icons.Default.Assignment,
-                                isSelected = selectedVisitTemplate == "ACTA_VISITA",
-                                onClick = { selectedVisitTemplate = "ACTA_VISITA" }
+                                isSelected = selectedVisitTemplate == "DIRECCION_OBRA",
+                                onClick = { selectedVisitTemplate = "DIRECCION_OBRA" }
                             )
                             
-                            // Option 3: Control de Hormigón
+                            // Option 3: Coordinación de Seguridad y Salud
                             TemplateOptionCard(
-                                title = "Control de Recepción de Hormigón",
-                                description = "Registro de probetas de resistencia, checklist de verificaciones y firmas.",
-                                icon = Icons.Default.Science,
-                                isSelected = selectedVisitTemplate == "CONTROL_CALIDAD",
-                                onClick = { selectedVisitTemplate = "CONTROL_CALIDAD" }
+                                title = "Coordinación de Seguridad y Salud",
+                                description = "Tabla de control de acceso, checklist completo de seguridad colectiva/EPIs y medidas correctivas.",
+                                icon = Icons.Default.Security,
+                                isSelected = selectedVisitTemplate == "COORDINACION_CSS",
+                                onClick = { selectedVisitTemplate = "COORDINACION_CSS" }
                             )
                         }
                     },
@@ -2739,20 +2739,11 @@ fun CreateProjectDialog(
                 
                 // Option 2: ACTA_VISITA
                 TemplateOptionCard(
-                    title = "Acta de Visita (Dirección de Obra)",
-                    description = "Datos generales, tabla de asistentes, observaciones predefinidas de hormigonado y 4 firmas de validación (D.O., DEO, Promotor, Contratista).",
+                    title = "Plantilla de Actas",
+                    description = "Inicializa el proyecto con el encabezado general y los datos principales de la obra.",
                     icon = Icons.Default.Assignment,
                     isSelected = selectedTemplate == "ACTA_VISITA",
                     onClick = { selectedTemplate = "ACTA_VISITA" }
-                )
-                
-                // Option 3: CONTROL_CALIDAD
-                TemplateOptionCard(
-                    title = "Recepción y Control de Hormigón",
-                    description = "Especificación de materiales/amasas, registro de probetas, checklist de vertido y firmas de recepción de obra.",
-                    icon = Icons.Default.DoneAll,
-                    isSelected = selectedTemplate == "CONTROL_CALIDAD",
-                    onClick = { selectedTemplate = "CONTROL_CALIDAD" }
                 )
             }
         },
