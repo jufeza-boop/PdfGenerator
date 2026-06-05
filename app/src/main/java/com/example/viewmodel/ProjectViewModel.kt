@@ -15,10 +15,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 class ProjectViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: ProjectRepository
-    val syncManager: GithubSyncManager
+    val syncManager: FolderSyncManager
 
-    private val _syncConfig = MutableStateFlow<SyncConfig?>(null)
-    val syncConfig: StateFlow<SyncConfig?> = _syncConfig.asStateFlow()
+    private val _syncConfig = MutableStateFlow<FolderSyncConfig?>(null)
+    val syncConfig: StateFlow<FolderSyncConfig?> = _syncConfig.asStateFlow()
 
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
@@ -66,7 +66,7 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
     init {
         val database = AppDatabase.getDatabase(application)
         repository = ProjectRepository(application, database.projectDao())
-        syncManager = GithubSyncManager(application, repository)
+        syncManager = FolderSyncManager(application, repository)
         _syncConfig.value = syncManager.getConfig()
         
         allProjects = repository.allProjects
@@ -77,12 +77,12 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             )
     }
 
-    fun updateSyncConfig(githubToken: String, githubOwner: String, githubRepo: String, githubBranch: String, isAutoSync: Boolean) {
-        syncManager.saveConfig(githubToken, githubOwner, githubRepo, githubBranch, isAutoSync)
+    fun updateSyncConfig(rootFolderUri: String, isAutoSync: Boolean) {
+        syncManager.saveConfig(rootFolderUri, isAutoSync)
         _syncConfig.value = syncManager.getConfig()
     }
 
-    fun runGithubSync(realSync: Boolean) {
+    fun runFolderSync(realSync: Boolean) {
         viewModelScope.launch {
             syncManager.runSync(realSync).collect { state ->
                 _syncState.value = state

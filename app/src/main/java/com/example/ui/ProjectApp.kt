@@ -100,6 +100,14 @@ fun ProjectApp(
         }
     }
 
+    var hasAutoShownSync by remember { mutableStateOf(false) }
+    LaunchedEffect(syncConfig) {
+        if (syncConfig != null && syncConfig?.rootFolderUri?.isEmpty() == true && !hasAutoShownSync) {
+            hasAutoShownSync = true
+            showSyncDialog = true
+        }
+    }
+
     // Dynamic Navigation states based on active bindings
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -117,6 +125,7 @@ fun ProjectApp(
                 AppScreen.Dashboard -> {
                     DashboardScreen(
                         projects = allProjects,
+                        syncConfig = syncConfig,
                         onProjectSelected = { id -> viewModel.selectProject(id) },
                         onCreateProjectClick = { showCreateDialog = true },
                         onDeleteProject = { project -> viewModel.deleteProject(project) },
@@ -209,14 +218,14 @@ fun ProjectApp(
         }
 
         if (showSyncDialog) {
-            GithubSyncDialog(
+            FolderSyncDialog(
                 config = syncConfig,
                 state = syncState,
-                onSaveConfig = { token, owner, repo, branch, auto ->
-                    viewModel.updateSyncConfig(token, owner, repo, branch, auto)
+                onSaveConfig = { uri, auto ->
+                    viewModel.updateSyncConfig(uri, auto)
                 },
                 onRunSync = { real ->
-                    viewModel.runGithubSync(real)
+                    viewModel.runFolderSync(real)
                 },
                 onDismiss = { showSyncDialog = false },
                 onResetState = { viewModel.resetSyncState() }
@@ -233,6 +242,7 @@ enum class AppScreen {
 @Composable
 fun DashboardScreen(
     projects: List<ProjectWithBlocks>,
+    syncConfig: FolderSyncConfig?,
     onProjectSelected: (Long) -> Unit,
     onCreateProjectClick: () -> Unit,
     onDeleteProject: (ProjectEntity) -> Unit,
@@ -295,60 +305,112 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (projects.isEmpty()) {
-                // Empty state card
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (syncConfig?.rootFolderUri.isNullOrBlank()) {
+                    Card(
                         modifier = Modifier
-                            .size(100.dp)
-                            .background(
-                                MaterialTheme.colorScheme.primaryContainer,
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.NoteAdd,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(48.dp)
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.FolderOff,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "¡Sincronización deshabilitada!",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Elige la carpeta de tu dispositivo para estructurar tus datos. Los proyectos se guardarán en carpetas individuales con su JSON y fotos correspondientes.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                lineHeight = 16.sp
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = onSyncClick,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                ),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                                modifier = Modifier.align(Alignment.End),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Vincular Carpeta Ahora", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+
+                if (projects.isEmpty()) {
+                    // Empty state card
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.NoteAdd,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Sin proyectos todavía",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Presiona el botón + para empezar un nuevo reporte de proyecto.",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.outline,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "Sin proyectos todavía",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Presiona el botón + para empezar un nuevo reporte de proyecto.",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.outline,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 160.dp),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(projects, key = { it.project.id }) { item ->
-                        ProjectGridCard(
-                            item = item,
-                            onClick = { onProjectSelected(item.project.id) },
-                            onDelete = { onDeleteProject(item.project) }
-                        )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 160.dp),
+                        contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                    ) {
+                        items(projects, key = { it.project.id }) { item ->
+                            ProjectGridCard(
+                                item = item,
+                                onClick = { onProjectSelected(item.project.id) },
+                                onDelete = { onDeleteProject(item.project) }
+                            )
+                        }
                     }
                 }
             }
