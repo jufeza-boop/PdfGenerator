@@ -51,6 +51,24 @@ class FolderSyncManager(
         }
     }
 
+    fun deleteProjectFolder(createdAt: Long): Boolean {
+        if (!isConfigured()) return false
+        return try {
+            val uri = Uri.parse(getConfig().rootFolderUri)
+            val rootDir = DocumentFile.fromTreeUri(context, uri) ?: return false
+            val suffix = "_$createdAt"
+            val projDir = rootDir.listFiles().find { it.isDirectory && it.name?.endsWith(suffix) == true }
+            if (projDir != null && projDir.exists()) {
+                projDir.delete()
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("FolderSync", "deleteProjectFolder error", e)
+            false
+        }
+    }
+
     private fun sanitizeFolderName(name: String): String {
         return name.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
     }
@@ -58,11 +76,11 @@ class FolderSyncManager(
     fun runSync(realSync: Boolean): Flow<SyncState> = flow {
         val config = getConfig()
 
-        emit(SyncState.Syncing("Iniciando Sincronización Local", 0.05f, "Preparando el gestor de carpetas compartidas..."))
+        emit(SyncState.Syncing("Accediendo a Carpeta", 0.05f, "Conectando con la carpeta de trabajo seleccionada..."))
         delay(400)
 
         // Read SQLite data
-        emit(SyncState.Syncing("Leyendo base de datos local", 0.12f, "Buscando tus obras y reportes en el dispositivo..."))
+        emit(SyncState.Syncing("Cargando base de datos", 0.12f, "Buscando tus obras y reportes en el dispositivo..."))
         val localProjects: List<ProjectWithBlocks>
         try {
             localProjects = repository.allProjects.first()
@@ -98,7 +116,7 @@ class FolderSyncManager(
         }
 
         try {
-            emit(SyncState.Syncing("Sincronizando Archivos", 0.25f, "Explorando subcarpetas en el directorio compartido..."))
+            emit(SyncState.Syncing("Leyendo Archivos", 0.25f, "Explorando subcarpetas en tu carpeta de trabajo..."))
             delay(400)
 
             val remoteSubDirs = rootDir.listFiles().filter { it.isDirectory }
@@ -371,16 +389,16 @@ class FolderSyncManager(
                 updatesRemoteCount++
             }
 
-            emit(SyncState.Syncing("Finalizando Sincronización", 0.98f, "Completando transacciones y refrescando visualmente..."))
+            emit(SyncState.Syncing("Guardando Cambios", 0.98f, "Guardando datos directamente en los archivos de tu carpeta..."))
             delay(400)
 
             val summaryLines = mutableListOf<String>()
-            summaryLines.add("Sincronización finalizada exitosamente:")
-            if (downloadsCount > 0) summaryLines.add("• $downloadsCount obras nuevas descargadas de la nube.")
-            if (updatesLocalCount > 0) summaryLines.add("• $updatesLocalCount obras locales actualizadas con la versión más reciente.")
-            if (updatesRemoteCount > 0) summaryLines.add("• $updatesRemoteCount obras locales guardadas/actualizadas en la carpeta compartida.")
+            summaryLines.add("Carpeta de trabajo actualizada con éxito:")
+            if (downloadsCount > 0) summaryLines.add("• $downloadsCount obra(s) nueva(s) cargada(s) de la carpeta.")
+            if (updatesLocalCount > 0) summaryLines.add("• $updatesLocalCount copia(s) local(es) actualizada(s) desde la carpeta.")
+            if (updatesRemoteCount > 0) summaryLines.add("• $updatesRemoteCount proyecto(s) guardado(s) directamente en tu carpeta.")
             if (downloadsCount == 0 && updatesLocalCount == 0 && updatesRemoteCount == 0) {
-                summaryLines.add("• Todo al día. Mobile y Carpeta Sincronizada ya estaban en armonía perfecta.")
+                summaryLines.add("• Todo al día. Los proyectos de la app coinciden perfectamente con tu carpeta.")
             }
 
             emit(SyncState.Success(

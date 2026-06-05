@@ -224,7 +224,7 @@ fun FolderSyncDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (currentUriStr.isNotEmpty()) "Cambiar Carpeta Compartida" else "Vincular Carpeta de Trabajo",
+                                text = if (currentUriStr.isNotEmpty()) "Cambiar Carpeta de Trabajo" else "Vincular Carpeta de Trabajo",
                                 fontWeight = FontWeight.Bold
                             )
                         }

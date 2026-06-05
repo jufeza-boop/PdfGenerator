@@ -138,6 +138,11 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             if (_selectedProjectId.value == project.id) {
                 _selectedProjectId.value = null
             }
+            try {
+                syncManager.deleteProjectFolder(project.createdAt)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             triggerSilentSync()
         }
     }

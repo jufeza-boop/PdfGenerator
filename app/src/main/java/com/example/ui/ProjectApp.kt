@@ -275,7 +275,7 @@ fun DashboardScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FolderShared,
-                                contentDescription = "Ajustes de Carpeta Compartida",
+                                contentDescription = "Ajustes de Carpeta de Trabajo",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -289,13 +289,15 @@ fun DashboardScreen(
             }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onCreateProjectClick,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.testTag("create_project_fab")
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Nuevo Proyecto")
+            if (syncConfig != null && !syncConfig.rootFolderUri.isNullOrBlank()) {
+                FloatingActionButton(
+                    onClick = onCreateProjectClick,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.testTag("create_project_fab")
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Nuevo Proyecto")
+                }
             }
         },
         contentWindowInsets = WindowInsets.safeDrawing
