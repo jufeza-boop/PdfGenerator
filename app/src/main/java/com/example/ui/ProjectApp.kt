@@ -274,8 +274,8 @@ fun DashboardScreen(
                             modifier = Modifier.testTag("sync_cloud_button")
                         ) {
                             Icon(
-                                imageVector = Icons.Default.CloudSync,
-                                contentDescription = "Sincronización en la Nube",
+                                imageVector = Icons.Default.FolderShared,
+                                contentDescription = "Ajustes de Carpeta Compartida",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -326,7 +326,7 @@ fun DashboardScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "¡Sincronización deshabilitada!",
+                                    text = "¡Carpeta de Trabajo desvinculada!",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onErrorContainer
@@ -334,7 +334,7 @@ fun DashboardScreen(
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Elige la carpeta de tu dispositivo para estructurar tus datos. Los proyectos se guardarán en carpetas individuales con su JSON y fotos correspondientes.",
+                                text = "Vincule una carpeta de almacenamiento local o compartida de su móvil. Todos sus proyectos de obra, reportes fotográficos y actas se guardarán en carpetas individuales directamente allí en tiempo real.",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 lineHeight = 16.sp
@@ -349,7 +349,7 @@ fun DashboardScreen(
                                 modifier = Modifier.align(Alignment.End),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Vincular Carpeta Ahora", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                Text("Vincular Carpeta de Trabajo", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                             }
                         }
                     }

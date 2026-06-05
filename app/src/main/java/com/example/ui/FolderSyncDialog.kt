@@ -43,12 +43,8 @@ fun FolderSyncDialog(
 ) {
     val context = LocalContext.current
     val currentUriStr = config?.rootFolderUri ?: ""
-    val isAutoSync = config?.isAutoSync ?: false
 
-    // State of the dialog (configuring versus showing main syncing engine UI)
-    var isConfiguringPath by remember { mutableStateOf(currentUriStr.isEmpty()) }
-
-    // Launcher for Android's modern Storage Access Framework folder selection
+    // Launcher for Android's Storage Access Framework folder selection
     val folderSelectorLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
@@ -56,9 +52,10 @@ fun FolderSyncDialog(
             val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             try {
                 context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-                onSaveConfig(uri.toString(), isAutoSync)
-                isConfiguringPath = false
+                onSaveConfig(uri.toString(), true) // Always enable real-time saving
                 Toast.makeText(context, "✓ ¡Carpeta vinculada con éxito!", Toast.LENGTH_SHORT).show()
+                // Automatically run an initial ingestion/synchronization
+                onRunSync(true)
             } catch (e: Exception) {
                 Toast.makeText(context, "Error al guardar permisos: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
             }
@@ -98,7 +95,7 @@ fun FolderSyncDialog(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = if (isConfiguringPath) "Configurar Carpeta Compartida" else "Sincronización Local & Nube",
+                            text = "Carpeta de Almacenamiento",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -106,15 +103,9 @@ fun FolderSyncDialog(
                     }
 
                     if (state !is SyncState.Syncing) {
-                        IconButton(onClick = {
-                            if (isConfiguringPath && currentUriStr.isNotEmpty()) {
-                                isConfiguringPath = false
-                            } else {
-                                onDismiss()
-                            }
-                        }) {
+                        IconButton(onClick = onDismiss) {
                             Icon(
-                                imageVector = if (isConfiguringPath && currentUriStr.isNotEmpty()) Icons.Default.ArrowBack else Icons.Default.Close,
+                                imageVector = Icons.Default.Close,
                                 contentDescription = "Cerrar"
                             )
                         }
@@ -126,436 +117,293 @@ fun FolderSyncDialog(
                     color = MaterialTheme.colorScheme.outlineVariant
                 )
 
-                Box(
+                Column(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    if (isConfiguringPath) {
-                        // Configuration Flow Screen
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                text = "Para eliminar integraciones con plataformas de terceros (como GitHub) y ganar simplicidad, " +
-                                       "ahora puedes sincronizar los reportes e imágenes utilizando una carpeta local o compartida directamente en tu dispositivo.",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 18.sp
-                            )
+                    Text(
+                        text = "Todos tus proyectos, reportes, actas y fotos viven directamente en la carpeta seleccionada de tu dispositivo. Así tienes el control absoluto de tus datos.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
 
-                            // Informational card explaining Cloud providers integration
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.Top
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CloudQueue,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = "Sincroniza con Google Drive / OneDrive",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "Si eliges una carpeta dentro de tu Drive, OneDrive, Dropbox, etc. " +
-                                                   "(mediante el selector que se abrirá), el propio sistema operativo " +
-                                                   "sincronizará automáticamente los datos con tus otros dispositivos y el ordenador.",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                                            lineHeight = 15.sp
-                                        )
-                                    }
-                                }
-                            }
+                    // Directory Selection Detail Card
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Carpeta Vinculada Actual:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                            // Directory Selection Box
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-                                    .padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Text(
-                                    text = "Directorio Raíz Actual:",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                if (currentUriStr.isNotEmpty()) {
-                                    val friendlyPath = try {
-                                        Uri.decode(Uri.parse(currentUriStr).lastPathSegment ?: "Carpeta Seleccionada")
-                                    } catch (e: Exception) {
-                                        "Carpeta Seleccionada"
-                                    }
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.FolderOpen,
-                                            contentDescription = null,
-                                            tint = Color(0xFFF59E0B), // Folder Orange
-                                            modifier = Modifier.size(36.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = friendlyPath,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Text(
-                                                text = "URI: $currentUriStr",
-                                                fontSize = 9.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.FolderOff,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(36.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "Ninguna carpeta seleccionada",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.error
-                                        )
-                                        Text(
-                                            text = "Debes seleccionar una carpeta raíz para continuar.",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-
-                                Button(
-                                    onClick = { folderSelectorLauncher.launch(null) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("select_shared_folder_button"),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.secondary
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.DriveFileMove,
-                                        contentDescription = null
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (currentUriStr.isNotEmpty()) "Cambiar Carpeta Compartida" else "Seleccionar Carpeta en tu Móvil",
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            // Auto sync helper checkbox
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f))
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = isAutoSync,
-                                    onCheckedChange = { onSaveConfig(currentUriStr, it) },
-                                    enabled = currentUriStr.isNotEmpty()
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = "Guardado automático continuo",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (currentUriStr.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                                    )
-                                    Text(
-                                        text = "Exporta automáticamente los reportes modificados.",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(20.dp))
-                        }
-                    } else {
-                        // Main Synchronizer Status Screen
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
+                        if (currentUriStr.isNotEmpty()) {
                             val friendlyPath = try {
                                 Uri.decode(Uri.parse(currentUriStr).lastPathSegment ?: "Carpeta Seleccionada")
                             } catch (e: Exception) {
                                 "Carpeta Seleccionada"
                             }
 
-                            // Current Folder badge info card
-                            Card(
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                                ),
-                                shape = RoundedCornerShape(16.dp)
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(14.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.FolderSpecial,
-                                        contentDescription = null,
-                                        tint = Color(0xFF10B981), // Green Color
-                                        modifier = Modifier.size(34.dp)
+                                Icon(
+                                    imageVector = Icons.Default.FolderOpen,
+                                    contentDescription = null,
+                                    tint = Color(0xFFF59E0B), // Folder Orange
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = friendlyPath,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = friendlyPath,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "Vinculada correctamente para exportar cada obra en su propia carpeta.",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                    Text(
+                                        text = "Ubicación: $friendlyPath",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
-
-                            // SYNC ENGINE STATUS / ACTIONS CONTROLLER
-                            AnimatedVisibility(
-                                visible = state is SyncState.Idle,
-                                enter = fadeIn() + expandVertically(),
-                                exit = fadeOut() + shrinkVertically()
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
+                                Icon(
+                                    imageVector = Icons.Default.FolderOff,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Ninguna carpeta seleccionada",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "Debes vincular una carpeta para poder gestionar tus proyectos de obra.",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { folderSelectorLauncher.launch(null) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("select_shared_folder_button"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FolderShared,
+                                contentDescription = null
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (currentUriStr.isNotEmpty()) "Cambiar Carpeta Compartida" else "Vincular Carpeta de Trabajo",
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Cloud Auto Sync Benefit Info Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudQueue,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Sincronización multi-dispositivo",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Si seleccionas una carpeta que esté en el almacenamiento de Google Drive, OneDrive o Dropbox en tu móvil, el propio sistema operativo sincronizará automáticamente los datos con tu PC o tablet.",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Dynamic Live Progress Section (If background sync is active)
+                    AnimatedVisibility(
+                        visible = state !is SyncState.Idle,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            when (state) {
+                                is SyncState.Syncing -> {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = state.step,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+
+                                    LinearProgressIndicator(
+                                        progress = { state.progress },
+                                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
+                                    )
+
                                     Text(
-                                        text = "La aplicación creará de forma inteligente una carpeta individual por proyecto/obra " +
-                                               "dentro del directorio raiz sincronizado, guardando los datos estructurados en 'project_data.json' " +
-                                               "y las imágenes o reportes fotográficos en la misma ruta.",
-                                        fontSize = 12.sp,
+                                        text = state.log,
+                                        fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        lineHeight = 17.sp
+                                        lineHeight = 15.sp
+                                    )
+                                }
+
+                                is SyncState.Success -> {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = Color(0xFF10B981),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Datos actualizados",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF047857)
+                                        )
+                                    }
+
+                                    Text(
+                                        text = state.summary,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        lineHeight = 15.sp
+                                    )
+
+                                    Button(
+                                        onClick = { onResetState() },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    ) {
+                                        Text("Entendido", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                is SyncState.Error -> {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Error,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Error de sincronización",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+
+                                    Text(
+                                        text = state.message,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.error,
+                                        lineHeight = 15.sp
                                     )
 
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
                                         Button(
                                             onClick = { onRunSync(true) },
-                                            modifier = Modifier.weight(1f).testTag("sync_execute_button"),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.primary
-                                            )
-                                        ) {
-                                            Icon(Icons.Default.Sync, contentDescription = null)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Sincronizar Ahora", fontWeight = FontWeight.Bold)
-                                        }
-
-                                        OutlinedButton(
-                                            onClick = { isConfiguringPath = true },
                                             modifier = Modifier.weight(1f)
                                         ) {
-                                            Icon(Icons.Default.Settings, contentDescription = null)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Ajustes Carpeta", fontWeight = FontWeight.Bold)
+                                            Text("Reintentar", fontWeight = FontWeight.Bold)
+                                        }
+                                        OutlinedButton(
+                                            onClick = { onResetState() },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text("Descartar", fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
+                                else -> {}
                             }
-
-                            // Dynamic Live Progress Sync Section
-                            AnimatedVisibility(
-                                visible = state !is SyncState.Idle,
-                                enter = fadeIn() + expandVertically(),
-                                exit = fadeOut() + shrinkVertically()
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-                                        .padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    when (state) {
-                                        is SyncState.Syncing -> {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                    strokeWidth = 2.dp
-                                                )
-                                                Spacer(modifier = Modifier.width(12.dp))
-                                                Text(
-                                                    text = state.step,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 13.sp,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-
-                                            LinearProgressIndicator(
-                                                progress = { state.progress },
-                                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
-                                            )
-
-                                            Text(
-                                                text = state.log,
-                                                fontSize = 11.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                lineHeight = 15.sp,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                        }
-
-                                        is SyncState.Success -> {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.CheckCircle,
-                                                    contentDescription = null,
-                                                    tint = Color(0xFF10B981),
-                                                    modifier = Modifier.size(28.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(12.dp))
-                                                Text(
-                                                    text = "¡Sincronizado Correctamente!",
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 14.sp,
-                                                    color = Color(0xFF047857)
-                                                )
-                                            }
-
-                                            Text(
-                                                text = state.summary,
-                                                fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                lineHeight = 16.sp,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-
-                                            Button(
-                                                onClick = { onResetState() },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                                )
-                                            ) {
-                                                Text("Entendido / Volver", fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-
-                                        is SyncState.Error -> {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Error,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.error,
-                                                    modifier = Modifier.size(28.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(12.dp))
-                                                Text(
-                                                    text = "Fallo de Sincronización",
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 14.sp,
-                                                    color = MaterialTheme.colorScheme.error
-                                                )
-                                            }
-
-                                            Text(
-                                                text = state.message,
-                                                fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.error,
-                                                lineHeight = 16.sp,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                            ) {
-                                                Button(
-                                                    onClick = { onRunSync(true) },
-                                                    modifier = Modifier.weight(1f)
-                                                ) {
-                                                    Text("Reintentar", fontWeight = FontWeight.Bold)
-                                                }
-                                                OutlinedButton(
-                                                    onClick = { onResetState() },
-                                                    modifier = Modifier.weight(1f)
-                                                ) {
-                                                    Text("Cancelar", fontWeight = FontWeight.Bold)
-                                                }
-                                            }
-                                        }
-
-                                        else -> {}
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(20.dp))
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
             }
         }

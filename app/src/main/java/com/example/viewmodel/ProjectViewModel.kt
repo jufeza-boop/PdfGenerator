@@ -75,6 +75,20 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                 started = SharingStarted.WhileSubscribed(5000),
                 initialValue = emptyList()
             )
+
+        // Automatically run a silent sync on application startup to ingest any external modifications
+        if (syncManager.isConfigured()) {
+            triggerSilentSync()
+        }
+    }
+
+    fun triggerSilentSync() {
+        if (!syncManager.isConfigured()) return
+        viewModelScope.launch {
+            syncManager.runSync(realSync = true).collect { state ->
+                _syncState.value = state
+            }
+        }
     }
 
     fun updateSyncConfig(rootFolderUri: String, isAutoSync: Boolean) {
@@ -114,6 +128,7 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val id = repository.createProject(name, templateType)
             onCreated(id)
+            triggerSilentSync()
         }
     }
 
@@ -123,6 +138,7 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             if (_selectedProjectId.value == project.id) {
                 _selectedProjectId.value = null
             }
+            triggerSilentSync()
         }
     }
 
@@ -342,6 +358,7 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
                 updatedAt = System.currentTimeMillis()
             )
             repository.updateProject(updated)
+            triggerSilentSync()
         }
     }
 
@@ -417,6 +434,7 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             _originalBlocks.value = sorted
             _draftBlocks.value = sorted
             onSaved()
+            triggerSilentSync()
         }
     }
 
@@ -466,18 +484,21 @@ class ProjectViewModel(application: Application) : AndroidViewModel(application)
             val sorted = freshProject.blocks.sortedBy { it.sequence }
             _originalBlocks.value = sorted
             _draftBlocks.value = sorted
+            triggerSilentSync()
         }
     }
 
     fun deleteVisit(visit: VisitEntity) {
         viewModelScope.launch {
             repository.deleteVisit(visit)
+            triggerSilentSync()
         }
     }
 
     fun updateVisit(visit: VisitEntity) {
         viewModelScope.launch {
             repository.updateVisit(visit)
+            triggerSilentSync()
         }
     }
 
