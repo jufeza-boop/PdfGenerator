@@ -1,0 +1,38 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Construction Tracking Icon Design -->
+    <group
+        android:translateX="24"
+        android:translateY="24">
+        <!-- Helmet Shape (60x60 space) -->
+        <path
+            android:fillColor="#6750A4"
+            android:pathData="M30,10 C15,10 5,20 5,35 L5,40 L55,40 L55,35 C55,20 45,10 30,10 Z" />
+        <path
+            android:fillColor="#6750A4"
+            android:pathData="M2,40 L58,40 L58,45 C58,47 56,48 54,48 L6,48 C4,48 2,47 2,45 Z" />
+        <!-- Top ridge -->
+        <path
+            android:fillColor="#4F378B"
+            android:pathData="M26,10 L34,10 L34,25 L26,25 Z" />
+
+        <!-- Checklist Overlay in corner -->
+        <group
+            android:translateX="35"
+            android:translateY="35">
+            <path
+                android:fillColor="#FFFFFF"
+                android:pathData="M0,0 L20,0 L20,20 L0,20 Z" />
+            <path
+                android:strokeColor="#6750A4"
+                android:strokeWidth="1.5"
+                android:pathData="M3,5 L17,5 M3,10 L17,10 M3,15 L10,15" />
+            <path
+                android:fillColor="#10B981"
+                android:pathData="M13,13 L15,15 L19,11 L18,10 L15,13 L14,12 Z" />
+        </group>
+    </group>
+</vector>
