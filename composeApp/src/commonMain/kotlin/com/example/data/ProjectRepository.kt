@@ -43,7 +43,7 @@ class ProjectRepository(
         val newProj = when (templateType) {
             "ACTA_VISITA" -> ProjectEntity(
                 name = name,
-                headerCompany = "JAVIER MARTÍNEZ PARRA",
+                headerCompany = "Nombre de la empresa",
                 headerCompanySub = "ARQUITECTO TÉCNICO-INGENIERO DE EDIFICACIÓN\nESPECIALISTA EN C.S.S. EN OBRAS DE CONSTRUCCIÓN",
                 headerTitle = "INFORME DE VISITA A OBRA"
             )

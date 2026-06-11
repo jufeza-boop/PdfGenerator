@@ -196,8 +196,8 @@ fun ProjectApp(
                                 showSignatureDialog = true 
                             },
                             onDrawSignatureClick = { block -> activeSignatureBlockForDrawing = block },
-                            onUpdateProjectInfo = { name, label, showLabel, showDate, comp, compSub, headerTitle, showHeaderBox ->
-                                viewModel.updateProjectInfo(name, label, showLabel, showDate, comp, compSub, headerTitle, showHeaderBox)
+                            onUpdateProjectInfo = { name, label, showLabel, showDate, comp, compSub, headerTitle, showHeaderBox, showHeaderTitle ->
+                                viewModel.updateProjectInfo(name, label, showLabel, showDate, comp, compSub, headerTitle, showHeaderBox, showHeaderTitle)
                             },
                             onExportPdf = { viewModel.exportPdf(exportMode = PdfExportMode.FULL_REPORT) },
                             onMoveBlockUp = { block -> viewModel.moveBlockUp(block) },
@@ -606,7 +606,7 @@ fun ProjectEditorScreen(
     onImageSelected: (InputStream, Long?) -> Unit,
     onAddSignatureClick: (Long?) -> Unit,
     onDrawSignatureClick: (ContentBlockEntity) -> Unit,
-    onUpdateProjectInfo: (String, String, Boolean, Boolean, String, String, String, Boolean) -> Unit,
+    onUpdateProjectInfo: (String, String, Boolean, Boolean, String, String, String, Boolean, Boolean) -> Unit,
     onExportPdf: () -> Unit,
     onMoveBlockUp: (ContentBlockEntity) -> Unit,
     onMoveBlockDown: (ContentBlockEntity) -> Unit,
@@ -1160,7 +1160,8 @@ fun ProjectEditorScreen(
                                                 project.project.headerCompany,
                                                 project.project.headerCompanySub,
                                                 project.project.headerTitle,
-                                                isChecked
+                                                isChecked,
+                                                project.project.showHeaderTitle
                                             )
                                         }
                                     )
@@ -1212,7 +1213,7 @@ fun ProjectEditorScreen(
                                                     .padding(6.dp)
                                             ) {
                                                 Text(
-                                                    text = project.project.headerCompany.ifBlank { "JAVIER MARTÍNEZ PARRA" },
+                                                    text = project.project.headerCompany.ifBlank { "Nombre de la empresa" },
                                                     fontSize = 9.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color(0xFF9A6640), // copper brown
@@ -1285,7 +1286,8 @@ fun ProjectEditorScreen(
                                                 it,
                                                 project.project.headerCompanySub,
                                                 project.project.headerTitle,
-                                                project.project.showHeaderBox
+                                                project.project.showHeaderBox,
+                                                project.project.showHeaderTitle
                                             )
                                         },
                                         placeholder = { Text("Nombre o Nombre de Empresa") },
@@ -1311,7 +1313,8 @@ fun ProjectEditorScreen(
                                                 project.project.headerCompany,
                                                 it,
                                                 project.project.headerTitle,
-                                                project.project.showHeaderBox
+                                                project.project.showHeaderBox,
+                                                project.project.showHeaderTitle
                                             )
                                         },
                                         placeholder = { Text("Ej. Especialidades, título, dirección...") },
@@ -1337,7 +1340,8 @@ fun ProjectEditorScreen(
                                                 project.project.headerCompany,
                                                 project.project.headerCompanySub,
                                                 it,
-                                                project.project.showHeaderBox
+                                                project.project.showHeaderBox,
+                                                project.project.showHeaderTitle
                                             )
                                         },
                                         placeholder = { Text("Ej. INFORME DE VISITA A OBRA") },
@@ -1350,8 +1354,45 @@ fun ProjectEditorScreen(
                                     Spacer(modifier = Modifier.height(16.dp))
                                 }
 
-                                // Project Name Editable Field
+                                // Project Name Editable Field con Check de Visibilidad
                                 var projName by remember(project.project.name) { mutableStateOf(project.project.name) }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Checkbox(
+                                        checked = project.project.showHeaderTitle,
+                                        onCheckedChange = { isChecked ->
+                                            onUpdateProjectInfo(
+                                                project.project.name,
+                                                project.project.reportLabel,
+                                                project.project.showHeaderLabel,
+                                                project.project.showHeaderDate,
+                                                project.project.headerCompany,
+                                                project.project.headerCompanySub,
+                                                project.project.headerTitle,
+                                                project.project.showHeaderBox,
+                                                isChecked
+                                            )
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Mostrar título del proyecto",
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            text = "Controla si el nombre del proyecto aparece en el cuerpo del reporte",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
                                 OutlinedTextField(
                                     value = projName,
                                     onValueChange = {
@@ -1364,13 +1405,14 @@ fun ProjectEditorScreen(
                                             project.project.headerCompany,
                                             project.project.headerCompanySub,
                                             project.project.headerTitle,
-                                            project.project.showHeaderBox
+                                            project.project.showHeaderBox,
+                                            project.project.showHeaderTitle
                                         )
                                     },
                                     placeholder = { Text("Nombre del Proyecto") },
                                     label = { Text("Título Principal del Proyecto (Cuerpo)", fontSize = 11.sp) },
                                     singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
                                     shape = RoundedCornerShape(8.dp)
                                 )
                                 
@@ -1393,7 +1435,8 @@ fun ProjectEditorScreen(
                                                 project.project.headerCompany,
                                                 project.project.headerCompanySub,
                                                 project.project.headerTitle,
-                                                project.project.showHeaderBox
+                                                project.project.showHeaderBox,
+                                                project.project.showHeaderTitle
                                             )
                                         }
                                     )
@@ -1426,7 +1469,8 @@ fun ProjectEditorScreen(
                                                 project.project.headerCompany,
                                                 project.project.headerCompanySub,
                                                 project.project.headerTitle,
-                                                project.project.showHeaderBox
+                                                project.project.showHeaderBox,
+                                                project.project.showHeaderTitle
                                             )
                                         },
                                         placeholder = { Text("Ej. REPORTE DE PROYECTO") },
@@ -1454,7 +1498,8 @@ fun ProjectEditorScreen(
                                                 project.project.headerCompany,
                                                 project.project.headerCompanySub,
                                                 project.project.headerTitle,
-                                                project.project.showHeaderBox
+                                                project.project.showHeaderBox,
+                                                project.project.showHeaderTitle
                                             )
                                         }
                                     )

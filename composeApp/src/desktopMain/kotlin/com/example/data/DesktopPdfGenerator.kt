@@ -47,8 +47,10 @@ class DesktopPdfGenerator : PdfGenerator {
         }
 
         // 2. Project Title
-        val titleFont = Font(Font.HELVETICA, 22f, Font.BOLD, Color(31, 41, 55))
-        document.add(Paragraph(project.project.name.uppercase(), titleFont))
+        if (project.project.showHeaderTitle) {
+            val titleFont = Font(Font.HELVETICA, 22f, Font.BOLD, Color(31, 41, 55))
+            document.add(Paragraph(project.project.name.uppercase(), titleFont))
+        }
 
         // 3. Metadata Date
         if (project.project.showHeaderDate) {
@@ -90,7 +92,7 @@ class DesktopPdfGenerator : PdfGenerator {
         leftCell.setPadding(6f)
         
         val compFont = Font(Font.HELVETICA, 10f, Font.BOLD, Color(154, 102, 64))
-        leftCell.addElement(Paragraph(proj.headerCompany.ifBlank { "JAVIER MARTÍNEZ PARRA" }, compFont))
+        leftCell.addElement(Paragraph(proj.headerCompany.ifBlank { "Nombre de la empresa" }, compFont))
         
         val subFont = Font(Font.HELVETICA, 5.5f, Font.NORMAL, Color(107, 114, 128))
         val subLines = proj.headerCompanySub.split("\n")

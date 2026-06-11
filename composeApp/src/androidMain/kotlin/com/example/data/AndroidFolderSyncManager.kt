@@ -125,7 +125,7 @@ class AndroidFolderSyncManager(
                         val matchedLocal = localProjects.find { it.project.createdAt == remoteCreatedAt }
 
                         if (matchedLocal == null) {
-                            val newProjEntity = ProjectEntity(name = remoteName, createdAt = remoteCreatedAt, updatedAt = remoteUpdatedAt, reportLabel = remoteProjJson.optString("reportLabel", "REPORTE DE PROYECTO"), showHeaderLabel = remoteProjJson.optBoolean("showHeaderLabel", true), showHeaderDate = remoteProjJson.optBoolean("showHeaderDate", true), headerCompany = remoteProjJson.optString("headerCompany", "JAVIER MARTÍNEZ PARRA"), headerCompanySub = remoteProjJson.optString("headerCompanySub", ""), headerTitle = remoteProjJson.optString("headerTitle", "INFORME DE VISITA A OBRA"), showHeaderBox = remoteProjJson.optBoolean("showHeaderBox", true))
+                            val newProjEntity = ProjectEntity(name = remoteName, createdAt = remoteCreatedAt, updatedAt = remoteUpdatedAt, reportLabel = remoteProjJson.optString("reportLabel", "REPORTE DE PROYECTO"), showHeaderLabel = remoteProjJson.optBoolean("showHeaderLabel", true), showHeaderDate = remoteProjJson.optBoolean("showHeaderDate", true), headerCompany = remoteProjJson.optString("headerCompany", "Nombre de la empresa"), headerCompanySub = remoteProjJson.optString("headerCompanySub", ""), headerTitle = remoteProjJson.optString("headerTitle", "INFORME DE VISITA A OBRA"), showHeaderBox = remoteProjJson.optBoolean("showHeaderBox", true))
                             val insertedId = repository.projectDao.insertProject(newProjEntity)
                             for (bIdx in 0 until remoteBlocksArr.length()) {
                                 val bObj = remoteBlocksArr.getJSONObject(bIdx)
@@ -143,7 +143,7 @@ class AndroidFolderSyncManager(
                             }
                             downloadsCount++
                         } else if (remoteUpdatedAt > matchedLocal.project.updatedAt) {
-                            repository.projectDao.updateProject(matchedLocal.project.copy(name = remoteName, updatedAt = remoteUpdatedAt, reportLabel = remoteProjJson.optString("reportLabel", "REPORTE DE PROYECTO"), showHeaderLabel = remoteProjJson.optBoolean("showHeaderLabel", true), showHeaderDate = remoteProjJson.optBoolean("showHeaderDate", true), headerCompany = remoteProjJson.optString("headerCompany", "JAVIER MARTÍNEZ PARRA"), headerCompanySub = remoteProjJson.optString("headerCompanySub", ""), headerTitle = remoteProjJson.optString("headerTitle", "INFORME DE VISITA A OBRA"), showHeaderBox = remoteProjJson.optBoolean("showHeaderBox", true)))
+                            repository.projectDao.updateProject(matchedLocal.project.copy(name = remoteName, updatedAt = remoteUpdatedAt, reportLabel = remoteProjJson.optString("reportLabel", "REPORTE DE PROYECTO"), showHeaderLabel = remoteProjJson.optBoolean("showHeaderLabel", true), showHeaderDate = remoteProjJson.optBoolean("showHeaderDate", true), headerCompany = remoteProjJson.optString("headerCompany", "Nombre de la empresa"), headerCompanySub = remoteProjJson.optString("headerCompanySub", ""), headerTitle = remoteProjJson.optString("headerTitle", "INFORME DE VISITA A OBRA"), showHeaderBox = remoteProjJson.optBoolean("showHeaderBox", true)))
                             repository.projectDao.deleteBlocksForProject(matchedLocal.project.id)
                             for (bIdx in 0 until remoteBlocksArr.length()) {
                                 val bObj = remoteBlocksArr.getJSONObject(bIdx)

@@ -172,7 +172,7 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                 textSize = 5.5f
                 isAntiAlias = true
             }
-            canvas.drawText(proj.headerCompany.ifBlank { "JAVIER MARTÍNEZ PARRA" }, startX + 10f, topY + 16f, compTitlePaint)
+            canvas.drawText(proj.headerCompany.ifBlank { "Nombre de la empresa" }, startX + 10f, topY + 16f, compTitlePaint)
             val subLines = proj.headerCompanySub.split("\n")
             var subY = topY + 26f
             for (line in subLines) {
@@ -390,7 +390,7 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
         var dryPageCount = 1
         var dryY = contentStartY
         if (project.project.showHeaderLabel) dryY += 24f
-        dryY += 20f
+        if (project.project.showHeaderTitle) dryY += 20f
         if (project.project.showHeaderDate) dryY += 15f
         dryY += 35f
         var dryIndex = 0
@@ -419,7 +419,7 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
         if (showHeaderBox) drawCompanyHeader(canvas, pageNumber, totalPages, project.project)
         var currentY = contentStartY
         if (project.project.showHeaderLabel) { canvas.drawText(project.project.reportLabel.ifBlank { "REPORTE DE PROYECTO" }.uppercase(Locale.getDefault()), marginX, currentY, labelPaint); currentY += 24f }
-        canvas.drawText(project.project.name.uppercase(Locale.getDefault()), marginX, currentY, titlePaint); currentY += 20f
+        if (project.project.showHeaderTitle) { canvas.drawText(project.project.name.uppercase(Locale.getDefault()), marginX, currentY, titlePaint); currentY += 20f }
         if (project.project.showHeaderDate) { val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault()); canvas.drawText("Fecha de creación: " + sdf.format(Date(project.project.createdAt)), marginX, currentY, subtitlePaint); currentY += 15f }
         canvas.drawLine(marginX, currentY, pageWidth - marginX, currentY, borderPaint); currentY += 35f
 

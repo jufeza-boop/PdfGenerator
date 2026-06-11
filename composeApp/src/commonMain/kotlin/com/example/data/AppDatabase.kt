@@ -19,10 +19,11 @@ data class ProjectEntity(
     val reportLabel: String = "REPORTE DE PROYECTO",
     val showHeaderLabel: Boolean = true,
     val showHeaderDate: Boolean = true,
-    val headerCompany: String = "JAVIER MARTÍNEZ PARRA",
+    val headerCompany: String = "Nombre de la empresa",
     val headerCompanySub: String = "ARQUITECTO TÉCNICO-INGENIERO DE EDIFICACIÓN\nESPECIALISTA EN C.S.S. EN OBRAS DE CONSTRUCCIÓN",
     val headerTitle: String = "INFORME DE VISITA A OBRA",
-    val showHeaderBox: Boolean = true
+    val showHeaderBox: Boolean = true,
+    val showHeaderTitle: Boolean = true
 )
 
 @Entity(
@@ -125,7 +126,7 @@ interface ProjectDao {
     suspend fun deleteVisitsForProject(projectId: Long)
 }
 
-@Database(entities = [ProjectEntity::class, ContentBlockEntity::class, VisitEntity::class], version = 6, exportSchema = false)
+@Database(entities = [ProjectEntity::class, ContentBlockEntity::class, VisitEntity::class], version = 7, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
 }

@@ -342,7 +342,8 @@ class ProjectViewModel(
         headerCompany: String,
         headerCompanySub: String,
         headerTitle: String,
-        showHeaderBox: Boolean
+        showHeaderBox: Boolean,
+        showHeaderTitle: Boolean
     ) {
         val project = selectedProject.value?.project ?: return
         viewModelScope.launch {
@@ -355,6 +356,7 @@ class ProjectViewModel(
                 headerCompanySub = headerCompanySub,
                 headerTitle = headerTitle,
                 showHeaderBox = showHeaderBox,
+                showHeaderTitle = showHeaderTitle,
                 updatedAt = System.currentTimeMillis()
             )
             repository.updateProject(updated)
