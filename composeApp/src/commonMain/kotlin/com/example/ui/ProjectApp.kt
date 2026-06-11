@@ -18,6 +18,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NoteAdd
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Subject
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -739,7 +745,7 @@ fun ProjectEditorScreen(
                             enabled = isDirty
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Undo,
+                                imageVector = Icons.AutoMirrored.Filled.Undo,
                                 contentDescription = "Deshacer cambios",
                                 tint = if (isDirty) MaterialTheme.colorScheme.primary else BrandGreySupport.copy(alpha = 0.5f)
                             )
@@ -853,7 +859,7 @@ fun ProjectEditorScreen(
                                 .size(48.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Send,
+                                imageVector = Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "Añadir nota",
                                 tint = if (textInputToInsert.isNotBlank()) Color.White else BrandGreySupport
                             )
@@ -896,7 +902,7 @@ fun ProjectEditorScreen(
                             }
                             item {
                                 ToolbarButton(
-                                    icon = Icons.Default.Subject,
+                                    icon = Icons.AutoMirrored.Filled.Subject,
                                     label = "Título",
                                     onClick = { onAddTitleBlock("Nuevo Título de Sección", null) }
                                 )
@@ -910,7 +916,7 @@ fun ProjectEditorScreen(
                             }
                             item {
                                 ToolbarButton(
-                                    icon = Icons.Default.List,
+                                    icon = Icons.AutoMirrored.Filled.List,
                                     label = "Tabla",
                                     onClick = { onAddTableBlock("Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2", null) }
                                 )
@@ -1481,7 +1487,7 @@ fun ProjectEditorScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Assignment,
+                                imageVector = Icons.AutoMirrored.Filled.Assignment,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                                 modifier = Modifier.size(64.dp)
@@ -1749,7 +1755,7 @@ fun ProjectEditorScreen(
                                             AssistChip(
                                                 onClick = { onAddTextBlock("Nueva nota de visita", visit.id) },
                                                 label = { Text("Nota", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.Default.Notes, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
                                                 onClick = {
@@ -1767,12 +1773,12 @@ fun ProjectEditorScreen(
                                             AssistChip(
                                                 onClick = { onAddTitleBlock("Subtítulo de Visita", visit.id) },
                                                 label = { Text("Título", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.Default.Subject, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Subject, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
                                                 onClick = { onAddTableBlock("Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2", visit.id) },
                                                 label = { Text("Tabla", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
                                                 onClick = { onAddChecklistBlock("false|Actividad pendiente 1\nfalse|Actividad pendiente 2", visit.id) },
@@ -1833,7 +1839,7 @@ fun ProjectEditorScreen(
                             TemplateOptionCard(
                                 title = "Dirección de Obra",
                                 description = "Asistentes de obra, estado actual de los trabajos, reportaje fotográfico y firmas.",
-                                icon = Icons.Default.Assignment,
+                                icon = Icons.AutoMirrored.Filled.Assignment,
                                 isSelected = selectedVisitTemplate == "DIRECCION_OBRA",
                                 onClick = { selectedVisitTemplate = "DIRECCION_OBRA" }
                             )
@@ -2036,12 +2042,12 @@ fun BlockItemView(
         ) {
             // Header: Block Type Badge & Action Controls (Adaptive for Half Width space constraints)
             val (icon, typeLabel, badgeColor) = when (block.type) {
-                BlockType.TEXT -> Triple(Icons.Default.Notes, "OBSERVACIONES", MaterialTheme.colorScheme.primary)
+                BlockType.TEXT -> Triple(Icons.AutoMirrored.Filled.Notes, "OBSERVACIONES", MaterialTheme.colorScheme.primary)
                 BlockType.IMAGE -> Triple(Icons.Default.Photo, "REGISTRO FOTOGRÁFICO", MaterialTheme.colorScheme.secondary)
                 BlockType.SIGNATURE -> Triple(Icons.Default.Draw, "FIRMA DE VALIDACIÓN", MaterialTheme.colorScheme.tertiary)
-                BlockType.TITLE -> Triple(Icons.Default.Subject, "TÍTULO DE SECCIÓN", MaterialTheme.colorScheme.primary)
+                BlockType.TITLE -> Triple(Icons.AutoMirrored.Filled.Subject, "TÍTULO DE SECCIÓN", MaterialTheme.colorScheme.primary)
                 BlockType.FOOTER -> Triple(Icons.Default.Info, "NOTAS AL PIE", MaterialTheme.colorScheme.outline)
-                BlockType.TABLE -> Triple(Icons.Default.List, "TABLA DE DATOS", MaterialTheme.colorScheme.primary)
+                BlockType.TABLE -> Triple(Icons.AutoMirrored.Filled.List, "TABLA DE DATOS", MaterialTheme.colorScheme.primary)
                 BlockType.CHECKLIST -> Triple(Icons.Default.CheckBox, "CHECKLIST / TAREAS", MaterialTheme.colorScheme.secondary)
             }
 
@@ -2736,7 +2742,7 @@ fun CreateProjectDialog(
                 TemplateOptionCard(
                     title = "Plantilla de Actas",
                     description = "Inicializa el proyecto con el encabezado general y los datos principales de la obra.",
-                    icon = Icons.Default.Assignment,
+                    icon = Icons.AutoMirrored.Filled.Assignment,
                     isSelected = selectedTemplate == "ACTA_VISITA",
                     onClick = { selectedTemplate = "ACTA_VISITA" }
                 )

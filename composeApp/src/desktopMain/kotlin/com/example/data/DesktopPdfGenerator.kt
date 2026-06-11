@@ -10,6 +10,10 @@ import java.util.Date
 import java.util.Locale
 import java.awt.Color
 
+/**
+ * High-fidelity PDF Generator for Desktop using OpenPDF.
+ * This implementation aims for pixel-perfect parity with the Android native drawing logic.
+ */
 class DesktopPdfGenerator : PdfGenerator {
 
     override suspend fun generatePdf(
@@ -20,9 +24,11 @@ class DesktopPdfGenerator : PdfGenerator {
         val tempDir = File(System.getProperty("java.io.tmpdir"))
         val pdfFile = File(tempDir, "project_report_${project.project.id}.pdf")
         
+        // A4 margins matching Android's marginX = 54f
         val document = Document(PageSize.A4, 54f, 54f, 80f, 60f)
         val writer = PdfWriter.getInstance(document, FileOutputStream(pdfFile))
         
+        // Setup Header and Pagination
         if (project.project.showHeaderBox) {
             writer.pageEvent = object : PdfPageEventHelper() {
                 override fun onEndPage(writer: PdfWriter, document: Document) {
@@ -33,31 +39,35 @@ class DesktopPdfGenerator : PdfGenerator {
 
         document.open()
 
+        // 1. Category Label (e.g. "REPORTE DE PROYECTO")
         if (project.project.showHeaderLabel) {
             val label = project.project.reportLabel.ifBlank { "REPORTE DE PROYECTO" }
-            val labelFont = Font(Font.HELVETICA, 9f, Font.NORMAL, Color.LIGHT_GRAY)
+            val labelFont = Font(Font.HELVETICA, 9f, Font.NORMAL, Color(156, 163, 175))
             document.add(Paragraph(label.uppercase(), labelFont))
         }
 
-        val titleFont = Font(Font.HELVETICA, 22f, Font.BOLD, Color.DARK_GRAY)
+        // 2. Project Title
+        val titleFont = Font(Font.HELVETICA, 22f, Font.BOLD, Color(31, 41, 55))
         document.add(Paragraph(project.project.name.uppercase(), titleFont))
 
+        // 3. Metadata Date
         if (project.project.showHeaderDate) {
             val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault())
             val dateText = "Fecha de creación: " + sdf.format(Date(project.project.createdAt))
-            val subFont = Font(Font.HELVETICA, 11f, Font.NORMAL, Color.GRAY)
+            val subFont = Font(Font.HELVETICA, 11f, Font.NORMAL, Color(107, 114, 128))
             document.add(Paragraph(dateText, subFont))
         }
 
         document.add(Paragraph(" "))
         
+        // Horizontal Separator Line
         val line = LineSeparator()
-        line.lineColor = Color.LIGHT_GRAY
+        line.lineColor = Color(229, 231, 235)
         document.add(line)
         document.add(Paragraph(" "))
 
+        // 4. Render Dynamic Blocks
         val sortedBlocks = getSortedBlocks(project, exportMode, singleVisitId)
-        
         for (block in sortedBlocks) {
             addBlockToDocument(document, block)
         }
@@ -74,62 +84,70 @@ class DesktopPdfGenerator : PdfGenerator {
         table.totalWidth = document.right() - document.left()
         table.setWidths(floatArrayOf(0.40f, 0.42f, 0.18f))
         
+        // Left Column: Branding
         val leftCell = PdfPCell()
-        leftCell.borderColor = Color.LIGHT_GRAY
+        leftCell.borderColor = Color(229, 231, 235)
         leftCell.setPadding(6f)
         
         val compFont = Font(Font.HELVETICA, 10f, Font.BOLD, Color(154, 102, 64))
         leftCell.addElement(Paragraph(proj.headerCompany.ifBlank { "JAVIER MARTÍNEZ PARRA" }, compFont))
         
-        val subFont = Font(Font.HELVETICA, 5.5f, Font.NORMAL, Color.GRAY)
-        leftCell.addElement(Paragraph(proj.headerCompanySub, subFont))
+        val subFont = Font(Font.HELVETICA, 5.5f, Font.NORMAL, Color(107, 114, 128))
+        val subLines = proj.headerCompanySub.split("\n")
+        subLines.forEach { if(it.isNotBlank()) leftCell.addElement(Paragraph(it.trim(), subFont)) }
         table.addCell(leftCell)
         
+        // Center Column: Document Title
         val centerCell = PdfPCell()
-        centerCell.borderColor = Color.LIGHT_GRAY
+        centerCell.borderColor = Color(229, 231, 235)
         centerCell.backgroundColor = Color(243, 244, 246)
         centerCell.setPadding(6f)
+        centerCell.verticalAlignment = Element.ALIGN_MIDDLE
         
-        val titleFont = Font(Font.HELVETICA, 10f, Font.BOLD, Color.DARK_GRAY)
+        val titleFont = Font(Font.HELVETICA, 10f, Font.BOLD, Color(17, 24, 39))
         val p = Paragraph(proj.headerTitle.ifBlank { "INFORME DE VISITA A OBRA" }.uppercase(), titleFont)
         p.alignment = Element.ALIGN_CENTER
         centerCell.addElement(p)
         table.addCell(centerCell)
         
+        // Right Column: Pagination
         val rightCell = PdfPCell()
-        rightCell.borderColor = Color.LIGHT_GRAY
+        rightCell.borderColor = Color(229, 231, 235)
         rightCell.setPadding(6f)
+        rightCell.verticalAlignment = Element.ALIGN_MIDDLE
         
-        val pageFont = Font(Font.HELVETICA, 8.5f, Font.NORMAL, Color.DARK_GRAY)
+        val pageFont = Font(Font.HELVETICA, 8.5f, Font.NORMAL, Color(75, 85, 99))
         val pageText = Paragraph("Pág. ${writer.pageNumber}", pageFont)
         pageText.alignment = Element.ALIGN_CENTER
         rightCell.addElement(pageText)
         table.addCell(rightCell)
         
+        // Position at the very top
         table.writeSelectedRows(0, -1, document.left(), document.top() + 65f, cb)
     }
 
     private fun addBlockToDocument(document: Document, block: ContentBlockEntity) {
         when (block.type) {
             BlockType.TITLE -> {
-                val font = Font(Font.HELVETICA, 16f, Font.BOLD, Color.DARK_GRAY)
+                val font = Font(Font.HELVETICA, 16f, Font.BOLD, Color(31, 41, 55))
                 document.add(Paragraph(block.content, font))
                 document.add(Paragraph(" "))
             }
             BlockType.TEXT -> {
-                val font = Font(Font.HELVETICA, 12f, Font.NORMAL, Color.DARK_GRAY)
+                val font = Font(Font.HELVETICA, 12f, Font.NORMAL, Color(55, 65, 81))
                 document.add(Paragraph(block.content, font))
                 document.add(Paragraph(" "))
             }
             BlockType.IMAGE -> {
                 try {
                     val img = Image.getInstance(block.content)
-                    img.scaleToFit(document.right() - document.left(), 300f)
+                    val maxWidth = document.right() - document.left()
+                    img.scaleToFit(if (block.isHalfWidth) maxWidth/2 - 10f else maxWidth, 400f)
                     img.alignment = Image.ALIGN_CENTER
                     document.add(img)
                     document.add(Paragraph(" "))
                 } catch (e: Exception) {
-                    document.add(Paragraph("[Error cargando imagen]"))
+                    document.add(Paragraph("[Error cargando imagen]", Font(Font.HELVETICA, 10f, Font.ITALIC, Color.RED)))
                 }
             }
             BlockType.TABLE -> {
@@ -144,6 +162,7 @@ class DesktopPdfGenerator : PdfGenerator {
                         cells.forEach { cellText ->
                             val cell = PdfPCell(Phrase(cellText.trim(), if (index == 0) Font(Font.HELVETICA, 11f, Font.BOLD) else Font(Font.HELVETICA, 10f)))
                             if (index == 0) cell.backgroundColor = Color(243, 244, 246)
+                            cell.borderColor = Color(229, 231, 235)
                             pdfTable.addCell(cell)
                         }
                     }
@@ -154,17 +173,25 @@ class DesktopPdfGenerator : PdfGenerator {
             BlockType.SIGNATURE -> {
                 val parts = block.content.split("|")
                 val path = parts[0]
-                val label = parts.getOrNull(1) ?: "Firma"
-                val sub = parts.getOrNull(2) ?: ""
+                val label = parts.getOrNull(1) ?: "Firma de Validación"
+                val sub = parts.getOrNull(2) ?: "Firma Autorizada"
                 
                 try {
                     val img = Image.getInstance(path)
                     img.scaleToFit(150f, 80f)
                     document.add(img)
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    // Placeholder for signature line if file missing
+                    val line = LineSeparator()
+                    line.offset = -5f
+                    line.lineWidth = 1f
+                    line.percentage = 30f
+                    line.alignment = Element.ALIGN_LEFT
+                    document.add(line)
+                }
                 
-                document.add(Paragraph(label, Font(Font.HELVETICA, 10f, Font.BOLD)))
-                if (sub.isNotBlank()) document.add(Paragraph(sub, Font(Font.HELVETICA, 9f)))
+                document.add(Paragraph(label, Font(Font.HELVETICA, 11f, Font.BOLD, Color(31, 41, 55))))
+                document.add(Paragraph(sub, Font(Font.HELVETICA, 9f, Font.NORMAL, Color(156, 163, 175))))
                 document.add(Paragraph(" "))
             }
             BlockType.CHECKLIST -> {
@@ -172,13 +199,14 @@ class DesktopPdfGenerator : PdfGenerator {
                 items.forEach { line ->
                     val checked = line.startsWith("true")
                     val text = if (line.contains("|")) line.substringAfter("|") else line
-                    val prefix = if (checked) "[X] " else "[ ] "
-                    document.add(Paragraph(prefix + text, Font(Font.HELVETICA, 11f)))
+                    val prefix = if (checked) "✓ " else "☐ "
+                    val font = if (checked) Font(Font.HELVETICA, 11f, Font.STRIKETHRU, Color.GRAY) else Font(Font.HELVETICA, 11f)
+                    document.add(Paragraph(prefix + text, font))
                 }
                 document.add(Paragraph(" "))
             }
             BlockType.FOOTER -> {
-                document.add(Paragraph(block.content, Font(Font.HELVETICA, 9f, Font.ITALIC, Color.GRAY)))
+                document.add(Paragraph(block.content, Font(Font.HELVETICA, 9f, Font.ITALIC, Color(107, 114, 128))))
             }
         }
     }

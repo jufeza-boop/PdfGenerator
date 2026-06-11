@@ -56,9 +56,10 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)
-                implementation(libs.kotlinx.coroutines.core) // Already in common, but for swing:
+                implementation(libs.kotlinx.coroutines.core)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2")
                 implementation(libs.openpdf)
+                implementation(libs.pdfbox)
             }
         }
     }
@@ -96,7 +97,9 @@ compose.desktop {
             packageVersion = "1.0.0"
             
             windows {
-                iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
+                // iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
+                shortcut = true
+                menu = true
             }
         }
     }
