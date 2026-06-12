@@ -197,15 +197,68 @@ class DesktopPdfGenerator : PdfGenerator {
                 document.add(Paragraph(" "))
             }
             BlockType.CHECKLIST -> {
-                val items = block.content.split("\n").filter { it.isNotBlank() }
-                items.forEach { line ->
-                    val checked = line.startsWith("true")
-                    val text = if (line.contains("|")) line.substringAfter("|") else line
-                    val prefix = if (checked) "✓ " else "☐ "
-                    val font = if (checked) Font(Font.HELVETICA, 11f, Font.STRIKETHRU, Color.GRAY) else Font(Font.HELVETICA, 11f)
-                    document.add(Paragraph(prefix + text, font))
+                if (block.content.startsWith("TABLE|")) {
+                    val lines = block.content.split("\n").filter { it.isNotBlank() }
+                    if (lines.isNotEmpty()) {
+                        val headerParts = lines[0].split("|")
+                        val statusCols = headerParts.drop(1)
+                        val numCols = 1 + statusCols.size
+                        
+                        val pdfTable = PdfPTable(numCols)
+                        pdfTable.widthPercentage = 100f
+                        // Set widths: 60% for text, rest shared
+                        val widths = FloatArray(numCols)
+                        widths[0] = 0.6f
+                        val statusW = 0.4f / statusCols.size
+                        for (i in 1 until numCols) widths[i] = statusW
+                        pdfTable.setWidths(widths)
+                        
+                        // Header
+                        val hCell = PdfPCell(Phrase("Comprobaciones", Font(Font.HELVETICA, 11f, Font.BOLD)))
+                        hCell.backgroundColor = Color(243, 244, 246)
+                        hCell.borderColor = Color(229, 231, 235)
+                        pdfTable.addCell(hCell)
+                        
+                        statusCols.forEach { colName ->
+                            val c = PdfPCell(Phrase(colName, Font(Font.HELVETICA, 10f, Font.BOLD)))
+                            c.backgroundColor = Color(243, 244, 246)
+                            c.borderColor = Color(229, 231, 235)
+                            c.horizontalAlignment = Element.ALIGN_CENTER
+                            pdfTable.addCell(c)
+                        }
+                        
+                        // Rows
+                        lines.drop(1).forEach { line ->
+                            val parts = line.split("|")
+                            val text = parts.getOrNull(0) ?: ""
+                            val selectedIdx = parts.getOrNull(1)?.toIntOrNull() ?: -1
+                            
+                            val tCell = PdfPCell(Phrase(text, Font(Font.HELVETICA, 10f)))
+                            tCell.borderColor = Color(229, 231, 235)
+                            pdfTable.addCell(tCell)
+                            
+                            statusCols.forEachIndexed { idx, _ ->
+                                val check = if (selectedIdx == idx) "X" else ""
+                                val c = PdfPCell(Phrase(check, Font(Font.HELVETICA, 10f, Font.BOLD)))
+                                c.borderColor = Color(229, 231, 235)
+                                c.horizontalAlignment = Element.ALIGN_CENTER
+                                pdfTable.addCell(c)
+                            }
+                        }
+                        document.add(pdfTable)
+                        document.add(Paragraph(" "))
+                    }
+                } else {
+                    val items = block.content.split("\n").filter { it.isNotBlank() }
+                    items.forEach { line ->
+                        val checked = line.startsWith("true")
+                        val text = if (line.contains("|")) line.substringAfter("|") else line
+                        val prefix = if (checked) "✓ " else "☐ "
+                        val font = if (checked) Font(Font.HELVETICA, 11f, Font.STRIKETHRU, Color.GRAY) else Font(Font.HELVETICA, 11f)
+                        document.add(Paragraph(prefix + text, font))
+                    }
+                    document.add(Paragraph(" "))
                 }
-                document.add(Paragraph(" "))
             }
             BlockType.FOOTER -> {
                 document.add(Paragraph(block.content, Font(Font.HELVETICA, 9f, Font.ITALIC, Color(107, 114, 128))))
