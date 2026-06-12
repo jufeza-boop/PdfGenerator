@@ -3,6 +3,8 @@ package com.example.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -14,6 +16,11 @@ class ProjectViewModel(
     private val repository: ProjectRepository,
     val syncManager: FolderSyncManager
 ) : ViewModel() {
+
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private val tableAdapter = moshi.adapter(TableBlockContent::class.java)
+    private val checklistAdapter = moshi.adapter(ChecklistBlockContent::class.java)
+    private val checklistTableAdapter = moshi.adapter(ChecklistTableBlockContent::class.java)
 
     private val _syncConfig = MutableStateFlow<FolderSyncConfig?>(null)
     val syncConfig: StateFlow<FolderSyncConfig?> = _syncConfig.asStateFlow()
@@ -119,12 +126,37 @@ class ProjectViewModel(
         }
     }
 
-    fun createProject(name: String, templateType: String = "NONE", onCreated: (Long) -> Unit = {}) {
-        viewModelScope.launch {
-            val id = repository.createProject(name, templateType)
-            onCreated(id)
-            triggerSilentSync()
+    suspend fun createProject(name: String, templateType: String = "NONE", onCreated: (Long) -> Unit = {}) = viewModelScope.launch {
+        val newProj = when (templateType) {
+            "ACTA_VISITA" -> ProjectEntity(
+                name = name,
+                headerCompany = "Nombre de la empresa",
+                headerCompanySub = "ARQUITECTO TÉCNICO-INGENIERO DE EDIFICACIÓN\nESPECIALISTA EN C.S.S. EN OBRAS DE CONSTRUCCIÓN",
+                headerTitle = "INFORME DE VISITA A OBRA"
+            )
+            else -> ProjectEntity(name = name)
         }
+        val projectId = repository.projectDao.insertProject(newProj)
+        
+        if (templateType == "ACTA_VISITA") {
+            val content = TableBlockContent(
+                title = "DATOS GENERALES DEL PROYECTO",
+                headers = listOf("Concepto", "Información"),
+                rows = listOf(
+                    listOf("Nombre de la obra", "[Nombre]"),
+                    listOf("Promotor", "[Empresa]"),
+                    listOf("Localización", "[Dirección]")
+                )
+            )
+            repository.insertBlock(ContentBlockEntity(
+                projectId = projectId,
+                type = BlockType.TABLE,
+                content = tableAdapter.toJson(content),
+                sequence = 0
+            ))
+        }
+        onCreated(projectId)
+        triggerSilentSync()
     }
 
     fun deleteProject(project: ProjectEntity) {
@@ -246,39 +278,50 @@ class ProjectViewModel(
         _draftBlocks.value = currentDraft
     }
 
-    fun addTableBlock(initialRowsAndCols: String = "Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2", visitId: Long? = null) {
+    fun addTableBlock(visitId: Long? = null) {
         val projectId = _selectedProjectId.value ?: return
+        val content = TableBlockContent(
+            title = "Nueva Tabla",
+            headers = listOf("Columna 1", "Columna 2"),
+            rows = listOf(listOf("", ""))
+        )
+        val json = tableAdapter.toJson(content)
+        
         val currentDraft = _draftBlocks.value.toMutableList()
         val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
-        val newBlock = ContentBlockEntity(
-            id = nextId,
-            projectId = projectId,
-            type = BlockType.TABLE,
-            content = initialRowsAndCols,
-            sequence = nextSequence,
-            visitId = visitId
-        )
-        currentDraft.add(newBlock)
+        currentDraft.add(ContentBlockEntity(id = nextId, projectId = projectId, type = BlockType.TABLE, content = json, sequence = nextSequence, visitId = visitId))
         _draftBlocks.value = currentDraft
     }
 
-    fun addChecklistBlock(initialItems: String = "false|Elemento checklist 1\nfalse|Elemento checklist 2", visitId: Long? = null) {
+    fun addChecklistBlock(visitId: Long? = null) {
         val projectId = _selectedProjectId.value ?: return
+        val content = ChecklistBlockContent(title = "Nuevo Checklist", items = listOf(ChecklistItem("", false)))
+        val json = checklistAdapter.toJson(content)
+        
         val currentDraft = _draftBlocks.value.toMutableList()
         val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
-        val newBlock = ContentBlockEntity(
-            id = nextId,
-            projectId = projectId,
-            type = BlockType.CHECKLIST,
-            content = initialItems,
-            sequence = nextSequence,
-            visitId = visitId
+        currentDraft.add(ContentBlockEntity(id = nextId, projectId = projectId, type = BlockType.CHECKLIST, content = json, sequence = nextSequence, visitId = visitId))
+        _draftBlocks.value = currentDraft
+    }
+
+    fun addChecklistTableBlock(visitId: Long? = null) {
+        val projectId = _selectedProjectId.value ?: return
+        val content = ChecklistTableBlockContent(
+            title = "Nueva Tabla de Chequeo",
+            headers = listOf("SI", "NO", "NP"),
+            rows = listOf(ChecklistTableRow("", -1))
         )
-        currentDraft.add(newBlock)
+        val json = checklistTableAdapter.toJson(content)
+        
+        val currentDraft = _draftBlocks.value.toMutableList()
+        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
+        val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
+        
+        currentDraft.add(ContentBlockEntity(id = nextId, projectId = projectId, type = BlockType.CHECKLIST_TABLE, content = json, sequence = nextSequence, visitId = visitId))
         _draftBlocks.value = currentDraft
     }
 
@@ -455,28 +498,36 @@ class ProjectViewModel(
             
             val blocksToInsert = mutableListOf<ContentBlockEntity>()
             if (templateType == "DIRECCION_OBRA") {
+                val tableContent = TableBlockContent(
+                    title = "ASISTENTES A LA VISITA",
+                    headers = listOf("Entidad / Parte", "Representantes"),
+                    rows = listOf(
+                        listOf("Promotor", ""),
+                        listOf("Constructor", ""),
+                        listOf("Dirección de Obra", "")
+                    )
+                )
                 blocksToInsert.addAll(listOf(
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ASISTENTES A LA VISITA", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Entidad / Parte | Representantes Asistentes\nDe la parte promotora | [Asistentes de la propiedad]\nDe la parte constructora | [Asistentes del contratista / Jefe de Obra]\nDe la Dirección de Obra | [Nombre del Arquitecto]\nOtros | -", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = tableAdapter.toJson(tableContent), sequence = nextSeq++, visitId = visitId),
                     ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "DATOS DE LA VISITA Y ESTADO DE LOS TRABAJOS", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "DÍA DE LA VISITA: [DD/MM/AAAA]\n\nESTADO DE EJECUCIÓN SINTETIZADO:\n- Grado de avance adecuado conforme a la planificación de proyecto.\n- Supervisados los acabados generales de tabiquería y revestimientos interiores.\n- Pendiente de iniciar los trabajos de instalaciones de saneamiento.", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "REPORTAJE FOTOGRÁFICO DE LA VISITA", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "[Añada imágenes para documentar la instrucción del Director de Obra]", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ENTERADO Y CONFORME", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "Estado de ejecución...", sequence = nextSeq++, visitId = visitId),
                     ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.O.|Dirección de Obra", sequence = nextSeq++, isHalfWidth = true, visitId = visitId),
                     ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|C|Constructor / Jefe de Obra", sequence = nextSeq++, isHalfWidth = true, visitId = visitId)
                 ))
             } else if (templateType == "COORDINACION_CSS") {
+                val checklistTable = ChecklistTableBlockContent(
+                    title = "CHECKLIST DE SEGURIDAD Y SALUD",
+                    headers = listOf("SI", "NO", "NP"),
+                    rows = listOf(
+                        ChecklistTableRow("Protecciones colectivas...", -1),
+                        ChecklistTableRow("Uso de EPIs...", -1),
+                        ChecklistTableRow("Maquinaria con marcado CE...", -1)
+                    )
+                )
                 blocksToInsert.addAll(listOf(
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "CENTRO DE TRABAJO - ASISTENCIA Y CONTROL", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Rol / Entidad | Persona / Representante\nCoordinador de Seg. y Salud | [Nombre del Coordinador]\nRecurso Preventivo contrata | [Nombre del Recurso Preventivo]\nOtros asistentes | -", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "CHECKLIST DE SEGURIDAD Y SALUD EN OBRA", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.CHECKLIST, content = "TABLE|SI|NO|NP\nProtecciones colectivas instaladas correcta y operativamente (redes, barandillas)|-1\nUso correcto de Equipos de Protección Individual (casco, calzado, arnés)|-1\nMaquinaria con marcado CE, mantenimiento al día y autorizaciones de operadores|-1\nAcopios de materiales ordenados y accesos/vías de evacuación despejados|-1\nInstalaciones eléctricas provisionales de obra protegidas (cuadros, diferenciales)|-1", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "RECOMENDACIONES Y ÓRDENES DE SEGURIDAD", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "- Se recuerda la obligatoriedad de reponer las barandillas de protección perimetral en la planta superior de forma inmediata.\n- Extremar la limpieza general de la obra para evitar tropiezos y caídas al mismo nivel.\n- No se realizarán trabajos en altura sin el uso obligatorio de arnés de seguridad anclado a línea de vida certificada.", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "DOCUMENTOS DE VALIDACIÓN", sequence = nextSeq++, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|C.S.S.|Coord. Seguridad y Salud", sequence = nextSeq++, isHalfWidth = true, visitId = visitId),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|C|Constructor / Jefe de Obra", sequence = nextSeq++, isHalfWidth = true, visitId = visitId)
+                    ContentBlockEntity(projectId = projectId, type = BlockType.CHECKLIST_TABLE, content = checklistTableAdapter.toJson(checklistTable), sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "Órdenes de seguridad...", sequence = nextSeq++, visitId = visitId),
+                    ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|C.S.S.|Coord. Seguridad y Salud", sequence = nextSeq++, isHalfWidth = true, visitId = visitId)
                 ))
             }
             

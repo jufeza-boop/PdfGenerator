@@ -25,6 +25,8 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,6 +54,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import com.example.viewmodel.ProjectViewModel
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.InputStream
 import java.text.SimpleDateFormat
@@ -205,8 +208,9 @@ fun ProjectApp(
                             onToggleBlockWidth = { block -> viewModel.toggleBlockWidth(block) },
                             onAddTitleBlock = { text, visitId -> viewModel.addTitleBlock(text, visitId) },
                             onAddFooterBlock = { text, visitId -> viewModel.addFooterBlock(text, visitId) },
-                            onAddTableBlock = { text, visitId -> viewModel.addTableBlock(text, visitId) },
-                            onAddChecklistBlock = { text, visitId -> viewModel.addChecklistBlock(text, visitId) },
+                            onAddTableBlock = { visitId -> viewModel.addTableBlock(visitId) },
+                            onAddChecklistBlock = { visitId -> viewModel.addChecklistBlock(visitId) },
+                            onAddChecklistTableBlock = { visitId -> viewModel.addChecklistTableBlock(visitId) },
                             onAddVisit = { title, notes, templateType -> viewModel.createVisit(title, notes, templateType) },
                             onDeleteVisit = { visit -> viewModel.deleteVisit(visit) },
                             onUpdateVisit = { visit -> viewModel.updateVisit(visit) },
@@ -227,13 +231,17 @@ fun ProjectApp(
             }
         }
 
+        val scope = rememberCoroutineScope()
+
         // Global float dialog overlays
         if (showCreateDialog) {
             CreateProjectDialog(
                 onDismiss = { showCreateDialog = false },
                 onConfirm = { name, templateType ->
-                    viewModel.createProject(name, templateType) { id ->
-                        viewModel.selectProject(id)
+                    scope.launch {
+                        viewModel.createProject(name, templateType) { id ->
+                            viewModel.selectProject(id)
+                        }
                     }
                     showCreateDialog = false
                 }
@@ -613,8 +621,9 @@ fun ProjectEditorScreen(
     onToggleBlockWidth: (ContentBlockEntity) -> Unit,
     onAddTitleBlock: (String, Long?) -> Unit,
     onAddFooterBlock: (String, Long?) -> Unit,
-    onAddTableBlock: (String, Long?) -> Unit,
-    onAddChecklistBlock: (String, Long?) -> Unit,
+    onAddTableBlock: (Long?) -> Unit,
+    onAddChecklistBlock: (Long?) -> Unit,
+    onAddChecklistTableBlock: (Long?) -> Unit,
     onAddVisit: (String, String, String) -> Unit,
     onDeleteVisit: (VisitEntity) -> Unit,
     onUpdateVisit: (VisitEntity) -> Unit,
@@ -918,14 +927,21 @@ fun ProjectEditorScreen(
                                 ToolbarButton(
                                     icon = Icons.AutoMirrored.Filled.List,
                                     label = "Tabla",
-                                    onClick = { onAddTableBlock("Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2", null) }
+                                    onClick = { onAddTableBlock(null) }
                                 )
                             }
                             item {
                                 ToolbarButton(
                                     icon = Icons.Default.CheckBox,
                                     label = "Checklist",
-                                    onClick = { onAddChecklistBlock("false|Elemento checklist 1\nfalse|Elemento checklist 2", null) }
+                                    onClick = { onAddChecklistBlock(null) }
+                                )
+                            }
+                            item {
+                                ToolbarButton(
+                                    icon = Icons.Default.GridOn,
+                                    label = "Ch. Tabla",
+                                    onClick = { onAddChecklistTableBlock(null) }
                                 )
                             }
                         }
@@ -1821,14 +1837,19 @@ fun ProjectEditorScreen(
                                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.Subject, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
-                                                onClick = { onAddTableBlock("Columna 1|Columna 2\nFila 1 Col 1|Fila 1 Col 2", visit.id) },
+                                                onClick = { onAddTableBlock(visit.id) },
                                                 label = { Text("Tabla", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
-                                                onClick = { onAddChecklistBlock("false|Actividad pendiente 1\nfalse|Actividad pendiente 2", visit.id) },
+                                                onClick = { onAddChecklistBlock(visit.id) },
                                                 label = { Text("Checklist", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.Default.CheckBox, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+                                            AssistChip(
+                                                onClick = { onAddChecklistTableBlock(visit.id) },
+                                                label = { Text("Ch. Tabla", fontSize = 11.sp) },
+                                                leadingIcon = { Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                         }
                                     }
@@ -2094,6 +2115,7 @@ fun BlockItemView(
                 BlockType.FOOTER -> Triple(Icons.Default.Info, "NOTAS AL PIE", MaterialTheme.colorScheme.outline)
                 BlockType.TABLE -> Triple(Icons.AutoMirrored.Filled.List, "TABLA DE DATOS", MaterialTheme.colorScheme.primary)
                 BlockType.CHECKLIST -> Triple(Icons.Default.CheckBox, "CHECKLIST / TAREAS", MaterialTheme.colorScheme.secondary)
+                BlockType.CHECKLIST_TABLE -> Triple(Icons.Default.GridOn, "TABLA DE CHEQUEO", MaterialTheme.colorScheme.primary)
             }
 
             if (block.isHalfWidth) {
@@ -2221,6 +2243,8 @@ fun BlockItemView(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Body rendering based on block type
+            val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+            
             when (block.type) {
                 BlockType.TEXT -> {
                     if (isEditing) {
@@ -2328,44 +2352,16 @@ fun BlockItemView(
                     }
                 }
                 BlockType.TABLE -> {
+                    val adapter = moshi.adapter(TableBlockContent::class.java)
+                    val content = remember(block.content) { try { adapter.fromJson(block.content) ?: TableBlockContent() } catch(e: Exception) { TableBlockContent() } }
+                    
                     if (isEditing) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = "Edita las celdas de la tabla (Soporta múltiples columnas y filas)",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = editValue,
-                                onValueChange = onEditValueChange,
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Cabecera A|Cabecera B\nCelda 1|Celda 2") },
-                                label = { Text("Contenido de la Tabla (Separado por '|')") },
-                                maxLines = 8,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "💡 Formato: Escribe cada fila en una nueva línea y separa las columnas con el carácter '|'. Ejemplo:\nItem|Estado\nInspección|Completado",
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.outline,
-                                lineHeight = 13.sp
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TextButton(onClick = onCancelEdit) { Text("Cancelar") }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(onClick = onSaveEdit) { Text("Guardar") }
-                            }
-                        }
+                        TableEditorForm(
+                            content = content,
+                            onSave = { onSaveDirectEdit?.invoke(adapter.toJson(it)) },
+                            onCancel = onCancelEdit
+                        )
                     } else {
-                        val rows = block.content.split("\n").filter { it.isNotBlank() }
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2373,223 +2369,114 @@ fun BlockItemView(
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable { onStartEdit() }
                         ) {
-                            rows.forEachIndexed { rowIndex, rowText ->
-                                val cells = rowText.split("|")
-                                val isHeader = rowIndex == 0
+                            if (content.title.isNotBlank()) {
+                                Text(
+                                    text = content.title,
+                                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(8.dp),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            content.rows.forEachIndexed { rowIndex, cells ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(if (isHeader) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.White)
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        .background(if (rowIndex == 0 && content.headers.isNotEmpty()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.White)
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
                                 ) {
                                     cells.forEach { cellText ->
                                         Text(
-                                            text = cellText.trim(),
-                                            fontWeight = if (isHeader) FontWeight.Bold else FontWeight.Normal,
+                                            text = cellText,
                                             fontSize = 12.sp,
                                             modifier = Modifier.weight(1f),
-                                            color = if (isHeader) MaterialTheme.colorScheme.onPrimaryContainer else BrandGreySupport
+                                            color = BrandGreySupport
                                         )
                                     }
                                 }
-                                if (rowIndex < rows.lastIndex) {
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                }
+                                if (rowIndex < content.rows.lastIndex) HorizontalDivider()
                             }
                         }
                     }
                 }
                 BlockType.CHECKLIST -> {
+                    val adapter = moshi.adapter(ChecklistBlockContent::class.java)
+                    val content = remember(block.content) { try { adapter.fromJson(block.content) ?: ChecklistBlockContent() } catch(e: Exception) { ChecklistBlockContent() } }
+
                     if (isEditing) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = "Edita el Checklist. Soporta formato simple o Tabla.",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = editValue,
-                                onValueChange = onEditValueChange,
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Para Tabla: TABLE|SI|NO|NP\nTarea 1|0") },
-                                label = { Text("Contenido del Checklist") },
-                                maxLines = 8,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "💡 Formato Tabla: Primera línea 'TABLE|COL1|COL2...'. Siguientes líneas 'Texto|IndiceSeleccionado'.\n💡 Formato Simple: 'true|Tarea' o 'false|Tarea'.",
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.outline,
-                                lineHeight = 13.sp
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TextButton(onClick = onCancelEdit) { Text("Cancelar") }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(onClick = onSaveEdit) { Text("Guardar") }
+                        ChecklistEditorForm(
+                            content = content,
+                            onSave = { onSaveDirectEdit?.invoke(adapter.toJson(it)) },
+                            onCancel = onCancelEdit
+                        )
+                    } else {
+                        Column(modifier = Modifier.fillMaxWidth().clickable { onStartEdit() }) {
+                            if (content.title.isNotBlank()) {
+                                Text(content.title, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+                            }
+                            content.items.forEachIndexed { idx, item ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                ) {
+                                    Checkbox(
+                                        checked = item.checked,
+                                        onCheckedChange = { checked ->
+                                            val newItems = content.items.toMutableList()
+                                            newItems[idx] = item.copy(checked = checked)
+                                            onSaveDirectEdit?.invoke(adapter.toJson(content.copy(items = newItems)))
+                                        }
+                                    )
+                                    Text(item.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                }
                             }
                         }
+                    }
+                }
+                BlockType.CHECKLIST_TABLE -> {
+                    val adapter = moshi.adapter(ChecklistTableBlockContent::class.java)
+                    val content = remember(block.content) { try { adapter.fromJson(block.content) ?: ChecklistTableBlockContent() } catch(e: Exception) { ChecklistTableBlockContent() } }
+
+                    if (isEditing) {
+                        ChecklistTableEditorForm(
+                            content = content,
+                            onSave = { onSaveDirectEdit?.invoke(adapter.toJson(it)) },
+                            onCancel = onCancelEdit
+                        )
                     } else {
-                        val isTableChecklist = block.content.startsWith("TABLE|")
-                        if (isTableChecklist) {
-                            val lines = block.content.split("\n").filter { it.isNotBlank() }
-                            if (lines.isNotEmpty()) {
-                                val headerParts = lines[0].split("|")
-                                val statusCols = headerParts.drop(1)
-                                
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
-                                        .clip(RoundedCornerShape(8.dp))
-                                ) {
-                                    // Header Row
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
-                                            .padding(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Comprobaciones",
-                                            modifier = Modifier.weight(1f),
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        statusCols.forEach { colName ->
-                                            Text(
-                                                text = colName,
-                                                modifier = Modifier.width(40.dp),
-                                                textAlign = TextAlign.Center,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                        
-                                        // Edit Button for Table Structure
-                                        IconButton(
-                                            onClick = onStartEdit,
-                                            modifier = Modifier.size(24.dp).padding(start = 4.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Edit,
-                                                contentDescription = "Editar estructura tabla",
-                                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                    
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                    
-                                    // Data Rows
-                                    lines.drop(1).forEachIndexed { lineIdx, line ->
-                                        val parts = line.split("|")
-                                        val rowText = parts.getOrNull(0) ?: ""
-                                        val selectedIdx = parts.getOrNull(1)?.toIntOrNull() ?: -1
-                                        
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 8.dp, vertical = 6.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = rowText,
-                                                modifier = Modifier.weight(1f),
-                                                fontSize = 12.sp,
-                                                color = BrandGreySupport
-                                            )
-                                            
-                                            statusCols.forEachIndexed { colIdx, _ ->
-                                                Box(
-                                                    modifier = Modifier
-                                                        .width(40.dp)
-                                                        .clickable {
-                                                            val newLines = lines.toMutableList()
-                                                            val currentParts = newLines[lineIdx + 1].split("|")
-                                                            val newSelected = if (selectedIdx == colIdx) -1 else colIdx
-                                                            newLines[lineIdx + 1] = "${currentParts[0]}|$newSelected"
-                                                            onSaveDirectEdit?.invoke(newLines.joinToString("\n"))
-                                                        },
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (selectedIdx == colIdx) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                                                        contentDescription = null,
-                                                        tint = if (selectedIdx == colIdx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        if (lineIdx < lines.size - 2) {
-                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                        }
-                                    }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onStartEdit() }
+                        ) {
+                            if (content.title.isNotBlank()) {
+                                Text(content.title, modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(8.dp), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                            // Header
+                            Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer.copy(0.2f)).padding(8.dp)) {
+                                Text("Comprobación", modifier = Modifier.weight(1f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                content.headers.forEach { h ->
+                                    Text(h, modifier = Modifier.width(35.dp), textAlign = TextAlign.Center, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
-                        } else {
-                            val items = block.content.split("\n").filter { it.isNotBlank() }
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                items.forEachIndexed { idx, itemLine ->
-                                    val checked = itemLine.startsWith("true")
-                                    val label = if (itemLine.contains("|")) itemLine.substringAfter("|") else itemLine
-                                    
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                val updatedItems = items.toMutableList()
-                                                updatedItems[idx] = "${!checked}|$label"
-                                                val newContent = updatedItems.joinToString("\n")
-                                                onSaveDirectEdit?.invoke(newContent)
-                                            }
-                                            .padding(vertical = 6.dp, horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = if (checked) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
-                                            contentDescription = if (checked) "Completado" else "Pendiente",
-                                            tint = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                            modifier = Modifier.size(22.dp)
+                            // Rows
+                            content.rows.forEachIndexed { rowIdx, row ->
+                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(row.text, modifier = Modifier.weight(1f), fontSize = 12.sp)
+                                    content.headers.forEachIndexed { colIdx, _ ->
+                                        RadioButton(
+                                            selected = row.selectedIndex == colIdx,
+                                            onClick = {
+                                                val newRows = content.rows.toMutableList()
+                                                newRows[rowIdx] = row.copy(selectedIndex = if (row.selectedIndex == colIdx) -1 else colIdx)
+                                                onSaveDirectEdit?.invoke(adapter.toJson(content.copy(rows = newRows)))
+                                            },
+                                            modifier = Modifier.size(35.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Text(
-                                            text = label,
-                                            fontSize = 14.sp,
-                                            color = if (checked) MaterialTheme.colorScheme.outline else BrandGreySupport,
-                                            style = if (checked) androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough) else androidx.compose.ui.text.TextStyle.Default,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        IconButton(
-                                            onClick = onStartEdit,
-                                            modifier = Modifier.size(28.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Edit,
-                                                contentDescription = "Editar texto checklist",
-                                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
                                     }
                                 }
+                                if (rowIdx < content.rows.lastIndex) HorizontalDivider()
                             }
                         }
                     }

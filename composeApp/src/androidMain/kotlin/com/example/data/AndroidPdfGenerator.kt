@@ -7,6 +7,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -14,6 +16,11 @@ import java.util.Date
 import java.util.Locale
 
 class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
+
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private val tableAdapter = moshi.adapter(TableBlockContent::class.java)
+    private val checklistAdapter = moshi.adapter(ChecklistBlockContent::class.java)
+    private val checklistTableAdapter = moshi.adapter(ChecklistTableBlockContent::class.java)
 
     override suspend fun generatePdf(
         project: ProjectWithBlocks,
@@ -234,12 +241,16 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                     } else 115f
                 }
                 BlockType.TABLE -> {
-                    val rows = currBlock.content.split("\n").filter { it.isNotBlank() }
-                    rows.size * 22f + 15f
+                    val content = try { tableAdapter.fromJson(currBlock.content) ?: TableBlockContent() } catch(e: Exception) { TableBlockContent() }
+                    (content.rows.size + (if (content.headers.isNotEmpty()) 1 else 0)) * 22f + (if (content.title.isNotBlank()) 25f else 0f) + 15f
                 }
                 BlockType.CHECKLIST -> {
-                    val items = currBlock.content.split("\n").filter { it.isNotBlank() }
-                    items.size * 20f + 15f
+                    val content = try { checklistAdapter.fromJson(currBlock.content) ?: ChecklistBlockContent() } catch(e: Exception) { ChecklistBlockContent() }
+                    content.items.size * 20f + (if (content.title.isNotBlank()) 25f else 0f) + 15f
+                }
+                BlockType.CHECKLIST_TABLE -> {
+                    val content = try { checklistTableAdapter.fromJson(currBlock.content) ?: ChecklistTableBlockContent() } catch(e: Exception) { ChecklistTableBlockContent() }
+                    (content.rows.size + 1) * 22f + (if (content.title.isNotBlank()) 25f else 0f) + 15f
                 }
             }
         }
@@ -316,17 +327,23 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                     }
                 }
                 BlockType.TABLE -> {
-                    val rows = currBlock.content.split("\n").filter { it.isNotBlank() }
-                    if (rows.isNotEmpty()) {
-                        val numCols = rows[0].split("|").count()
+                    val content = try { tableAdapter.fromJson(currBlock.content) ?: TableBlockContent() } catch(e: Exception) { TableBlockContent() }
+                    if (content.rows.isNotEmpty()) {
+                        val numCols = if (content.headers.isNotEmpty()) content.headers.size else content.rows[0].size
                         val colW = colWidth / numCols.toFloat()
+                        
                         var cellY = y
-                        rows.forEachIndexed { rowIndex, rowText ->
-                            val cells = rowText.split("|")
-                            val isHeader = rowIndex == 0
+                        if (content.title.isNotBlank()) {
+                            canvas.drawText(content.title, x, cellY + 15f, tableHeadPaint)
+                            cellY += 32f // Aumentado de 25f para dar más espacio bajo el título
+                        }
+
+                        content.rows.forEachIndexed { rowIndex, row ->
+                            val isHeader = rowIndex == 0 && content.headers.isNotEmpty()
                             if (isHeader) canvas.drawRect(x, cellY, x + colWidth, cellY + 22f, tableBgPaint)
                             canvas.drawRect(x, cellY, x + colWidth, cellY + 22f, borderPaint)
-                            cells.forEachIndexed { colIndex, cellText ->
+                            
+                            row.forEachIndexed { colIndex, cellText ->
                                 if (colIndex < numCols) {
                                     val cellX = x + colIndex * colW
                                     if (colIndex > 0) canvas.drawLine(cellX, cellY, cellX, cellY + 22f, borderPaint)
@@ -340,71 +357,108 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                     }
                 }
                 BlockType.CHECKLIST -> {
-                    if (currBlock.content.startsWith("TABLE|")) {
-                        val lines = currBlock.content.split("\n").filter { it.isNotBlank() }
-                        if (lines.isNotEmpty()) {
-                            val headerParts = lines[0].split("|")
-                            val statusCols = headerParts.drop(1)
-                            val numStatus = statusCols.size
-                            
-                            val textColW = colWidth * 0.6f
-                            val statusColW = (colWidth * 0.4f) / numStatus.coerceAtLeast(1)
-                            
-                            var cellY = y
-                            // Header
-                            canvas.drawRect(x, cellY, x + colWidth, cellY + 22f, tableBgPaint)
+                    val content = try { checklistAdapter.fromJson(currBlock.content) ?: ChecklistBlockContent() } catch(e: Exception) { ChecklistBlockContent() }
+                    var cellY = y
+                    if (content.title.isNotBlank()) {
+                        canvas.drawText(content.title, x, cellY + 15f, tableHeadPaint)
+                        cellY += 32f // Aumentado de 25f
+                    }
+                    
+                    val boxPaint = Paint().apply {
+                        color = Color.BLACK
+                        style = Paint.Style.STROKE
+                        strokeWidth = 0.5f // Thin professional border
+                        isAntiAlias = true
+                    }
+                    
+                    content.items.forEach { item ->
+                        val boxSize = 8.5f // Proportional to text
+                        val boxX = x + 2f
+                        val boxY = cellY + 4f
+                        
+                        // Draw thin black square box
+                        canvas.drawRect(boxX, boxY, boxX + boxSize, boxY + boxSize, boxPaint)
+                        
+                        if (item.checked) {
+                            // Clean black centered X
+                            canvas.drawText("X", boxX + boxSize/2f, boxY + boxSize - 1.5f, Paint().apply {
+                                color = Color.BLACK
+                                textAlign = Paint.Align.CENTER
+                                textSize = 8f
+                                isFakeBoldText = true
+                                isAntiAlias = true
+                            })
+                        }
+                        
+                        canvas.drawText(item.text, x + 16f, cellY + 13f, checklistTextPaint.apply {
+                            color = Color.rgb(55, 65, 81)
+                        })
+                        cellY += 18f
+                    }
+                    y = cellY + 10f
+                }
+                BlockType.CHECKLIST_TABLE -> {
+                    val content = try { checklistTableAdapter.fromJson(currBlock.content) ?: ChecklistTableBlockContent() } catch(e: Exception) { ChecklistTableBlockContent() }
+                    if (content.rows.isNotEmpty()) {
+                        val statusCols = content.headers
+                        val numStatus = statusCols.size
+                        val textColW = colWidth * 0.65f
+                        val statusColW = (colWidth * 0.35f) / numStatus.coerceAtLeast(1)
+                        
+                        var cellY = y
+                        if (content.title.isNotBlank()) {
+                            canvas.drawText(content.title, x, cellY + 15f, tableHeadPaint)
+                            cellY += 32f // Aumentado de 25f
+                        }
+
+                        // Header
+                        canvas.drawRect(x, cellY, x + colWidth, cellY + 22f, tableBgPaint)
+                        canvas.drawRect(x, cellY, x + colWidth, cellY + 22f, borderPaint)
+                        canvas.drawText("Comprobaciones", x + 6f, cellY + 15f, tableHeadPaint.apply { textAlign = Paint.Align.LEFT })
+                        
+                        statusCols.forEachIndexed { idx, colName ->
+                            val statusX = x + textColW + idx * statusColW
+                            canvas.drawLine(statusX, cellY, statusX, cellY + 22f, borderPaint)
+                            canvas.drawText(colName, statusX + statusColW/2, cellY + 15f, tableHeadPaint.apply { textAlign = Paint.Align.CENTER })
+                        }
+                        cellY += 22f
+                        
+                        // Rows
+                        content.rows.forEach { row ->
                             canvas.drawRect(x, cellY, x + colWidth, cellY + 22f, borderPaint)
-                            canvas.drawText("Comprobaciones", x + 6f, cellY + 15f, tableHeadPaint.apply { textAlign = Paint.Align.LEFT })
+                            canvas.drawText(row.text, x + 6f, cellY + 15f, tableCellPaint.apply { textAlign = Paint.Align.LEFT })
                             
-                            statusCols.forEachIndexed { idx, colName ->
+                            statusCols.forEachIndexed { idx, _ ->
                                 val statusX = x + textColW + idx * statusColW
                                 canvas.drawLine(statusX, cellY, statusX, cellY + 22f, borderPaint)
-                                canvas.drawText(colName, statusX + statusColW/2, cellY + 15f, tableHeadPaint.apply { textAlign = Paint.Align.CENTER })
+                                
+                                val centerX = statusX + statusColW/2
+                                val centerY = cellY + 11f
+                                val boxSize = 8f // Proportional to text
+                                
+                                // Draw thin black square box
+                                val boxPaint = Paint().apply {
+                                    color = Color.BLACK
+                                    style = Paint.Style.STROKE
+                                    strokeWidth = 0.5f // Thin border
+                                    isAntiAlias = true
+                                }
+                                canvas.drawRect(centerX - boxSize/2, centerY - boxSize/2, centerX + boxSize/2, centerY + boxSize/2, boxPaint)
+                                
+                                if (row.selectedIndex == idx) {
+                                    // Clean black centered X
+                                    canvas.drawText("X", centerX, centerY + 3f, Paint().apply { 
+                                        textAlign = Paint.Align.CENTER
+                                        color = Color.BLACK
+                                        textSize = 7f
+                                        isFakeBoldText = true
+                                        isAntiAlias = true
+                                    })
+                                }
                             }
                             cellY += 22f
-                            
-                            // Rows
-                            lines.drop(1).forEach { line ->
-                                val parts = line.split("|")
-                                val text = parts.getOrNull(0) ?: ""
-                                val selectedIdx = parts.getOrNull(1)?.toIntOrNull() ?: -1
-                                
-                                canvas.drawRect(x, cellY, x + colWidth, cellY + 22f, borderPaint)
-                                canvas.drawText(text, x + 6f, cellY + 15f, tableCellPaint.apply { textAlign = Paint.Align.LEFT })
-                                
-                                statusCols.forEachIndexed { idx, _ ->
-                                    val statusX = x + textColW + idx * statusColW
-                                    canvas.drawLine(statusX, cellY, statusX, cellY + 22f, borderPaint)
-                                    
-                                    val centerX = statusX + statusColW/2
-                                    val centerY = cellY + 11f
-                                    if (selectedIdx == idx) {
-                                        // Draw "X" inside box
-                                        canvas.drawText("X", centerX, centerY + 4f, tableHeadPaint.apply { textAlign = Paint.Align.CENTER })
-                                    }
-                                    canvas.drawRect(centerX - 6f, centerY - 6f, centerX + 6f, centerY + 6f, borderPaint)
-                                }
-                                cellY += 22f
-                            }
-                            y = cellY + 10f
                         }
-                    } else {
-                        val items = currBlock.content.split("\n").filter { it.isNotBlank() }
-                        items.forEach { itemLine ->
-                            val checked = itemLine.startsWith("true")
-                            val label = if (itemLine.contains("|")) itemLine.substringAfter("|") else itemLine
-                            val boxSize = 10f
-                            val boxX = x + 4f
-                            val boxY = y + 4f
-                            canvas.drawRect(boxX, boxY, boxX + boxSize, boxY + boxSize, checkboxPaint)
-                            if (checked) {
-                                val insidePaint = Paint().apply { color = Color.rgb(37, 99, 235); style = Paint.Style.FILL; isAntiAlias = true }
-                                canvas.drawRect(boxX + 2f, boxY + 2f, boxX + boxSize - 2f, boxY + boxSize - 2f, insidePaint)
-                            }
-                            canvas.drawText(label, x + 20f, y + 13f, checklistTextPaint)
-                            y += 20f
-                        }
-                        y += 10f
+                        y = cellY + 10f
                     }
                 }
             }

@@ -7,7 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
 enum class BlockType {
-    TEXT, IMAGE, SIGNATURE, TITLE, FOOTER, TABLE, CHECKLIST
+    TEXT, IMAGE, SIGNATURE, TITLE, FOOTER, TABLE, CHECKLIST, CHECKLIST_TABLE
 }
 
 @Entity(tableName = "projects")
@@ -126,7 +126,7 @@ interface ProjectDao {
     suspend fun deleteVisitsForProject(projectId: Long)
 }
 
-@Database(entities = [ProjectEntity::class, ContentBlockEntity::class, VisitEntity::class], version = 7, exportSchema = false)
+@Database(entities = [ProjectEntity::class, ContentBlockEntity::class, VisitEntity::class], version = 8, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
 }

@@ -3,6 +3,8 @@ package com.example.data
 import com.lowagie.text.*
 import com.lowagie.text.pdf.*
 import com.lowagie.text.pdf.draw.LineSeparator
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -15,6 +17,11 @@ import java.awt.Color
  * This implementation aims for pixel-perfect parity with the Android native drawing logic.
  */
 class DesktopPdfGenerator : PdfGenerator {
+
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private val tableAdapter = moshi.adapter(TableBlockContent::class.java)
+    private val checklistAdapter = moshi.adapter(ChecklistBlockContent::class.java)
+    private val checklistTableAdapter = moshi.adapter(ChecklistTableBlockContent::class.java)
 
     override suspend fun generatePdf(
         project: ProjectWithBlocks,
@@ -153,19 +160,131 @@ class DesktopPdfGenerator : PdfGenerator {
                 }
             }
             BlockType.TABLE -> {
-                val rows = block.content.split("\n").filter { it.isNotBlank() }
-                if (rows.isNotEmpty()) {
-                    val cols = rows[0].split("|").size
-                    val pdfTable = PdfPTable(cols)
+                val content = try { tableAdapter.fromJson(block.content) ?: TableBlockContent() } catch(e: Exception) { TableBlockContent() }
+                if (content.rows.isNotEmpty()) {
+                    if (content.title.isNotBlank()) {
+                        val t = Paragraph(content.title, Font(Font.HELVETICA, 12f, Font.BOLD, Color(31, 41, 55)))
+                        t.spacingAfter = 10f // Añadido espacio después del título
+                        document.add(t)
+                    }
+                    val numCols = if (content.headers.isNotEmpty()) content.headers.size else content.rows[0].size
+                    val pdfTable = PdfPTable(numCols)
                     pdfTable.widthPercentage = 100f
                     
-                    rows.forEachIndexed { index, rowText ->
-                        val cells = rowText.split("|")
-                        cells.forEach { cellText ->
-                            val cell = PdfPCell(Phrase(cellText.trim(), if (index == 0) Font(Font.HELVETICA, 11f, Font.BOLD) else Font(Font.HELVETICA, 10f)))
-                            if (index == 0) cell.backgroundColor = Color(243, 244, 246)
+                    content.rows.forEachIndexed { index, row ->
+                        val isHeader = index == 0 && content.headers.isNotEmpty()
+                        row.forEach { cellText ->
+                            val cell = PdfPCell(Phrase(cellText.trim(), if (isHeader) Font(Font.HELVETICA, 11f, Font.BOLD) else Font(Font.HELVETICA, 10f)))
+                            if (isHeader) cell.backgroundColor = Color(243, 244, 246)
                             cell.borderColor = Color(229, 231, 235)
                             pdfTable.addCell(cell)
+                        }
+                    }
+                    document.add(pdfTable)
+                    document.add(Paragraph(" "))
+                }
+            }
+            BlockType.CHECKLIST -> {
+                val content = try { checklistAdapter.fromJson(block.content) ?: ChecklistBlockContent() } catch(e: Exception) { ChecklistBlockContent() }
+                if (content.title.isNotBlank()) {
+                    val t = Paragraph(content.title, Font(Font.HELVETICA, 12f, Font.BOLD, Color(31, 41, 55)))
+                    t.spacingAfter = 10f // Añadido espacio
+                    document.add(t)
+                }
+                
+                content.items.forEach { item ->
+                    val itemTable = PdfPTable(2)
+                    itemTable.widthPercentage = 100f
+                    itemTable.setWidths(floatArrayOf(0.03f, 0.97f))
+                    
+                    // Small Professional Black Box Cell
+                    val boxCell = PdfPCell()
+                    boxCell.fixedHeight = 8.5f
+                    boxCell.border = Rectangle.BOX
+                    boxCell.borderWidth = 0.5f // Thin border
+                    boxCell.borderColor = Color.BLACK
+                    boxCell.horizontalAlignment = Element.ALIGN_CENTER
+                    boxCell.verticalAlignment = Element.ALIGN_MIDDLE
+                    boxCell.setPadding(0f)
+                    
+                    if (item.checked) {
+                        val checkFont = Font(Font.HELVETICA, 7f, Font.BOLD, Color.BLACK)
+                        boxCell.phrase = Phrase("X", checkFont)
+                    }
+                    itemTable.addCell(boxCell)
+                    
+                    val font = Font(Font.HELVETICA, 11f, Font.NORMAL, Color(55, 65, 81))
+                    val textCell = PdfPCell(Phrase(item.text, font))
+                    textCell.border = Rectangle.NO_BORDER
+                    textCell.paddingLeft = 8f
+                    textCell.paddingBottom = 4f
+                    textCell.verticalAlignment = Element.ALIGN_MIDDLE
+                    itemTable.addCell(textCell)
+                    
+                    document.add(itemTable)
+                }
+                document.add(Paragraph(" "))
+            }
+            BlockType.CHECKLIST_TABLE -> {
+                val content = try { checklistTableAdapter.fromJson(block.content) ?: ChecklistTableBlockContent() } catch(e: Exception) { ChecklistTableBlockContent() }
+                if (content.rows.isNotEmpty()) {
+                    if (content.title.isNotBlank()) {
+                        val t = Paragraph(content.title, Font(Font.HELVETICA, 12f, Font.BOLD, Color(31, 41, 55)))
+                        t.spacingAfter = 10f // Añadido espacio
+                        document.add(t)
+                    }
+                    val statusCols = content.headers
+                    val numCols = 1 + statusCols.size
+                    val pdfTable = PdfPTable(numCols)
+                    pdfTable.widthPercentage = 100f
+                    val widths = FloatArray(numCols); widths[0] = 0.65f; val sw = 0.35f/statusCols.size; for(i in 1 until numCols) widths[i] = sw
+                    pdfTable.setWidths(widths)
+
+                    // Header
+                    val hFont = Font(Font.HELVETICA, 10f, Font.BOLD, Color.BLACK)
+                    val hCell = PdfPCell(Phrase("Comprobación", hFont))
+                    hCell.backgroundColor = Color(243, 244, 246); hCell.borderColor = Color(200, 200, 200); hCell.setPadding(5f)
+                    pdfTable.addCell(hCell)
+                    statusCols.forEach { h -> 
+                        val c = PdfPCell(Phrase(h, hFont))
+                        c.backgroundColor = Color(243, 244, 246); c.borderColor = Color(200, 200, 200)
+                        c.horizontalAlignment = Element.ALIGN_CENTER; c.verticalAlignment = Element.ALIGN_MIDDLE
+                        pdfTable.addCell(c)
+                    }
+
+                    // Rows
+                    content.rows.forEach { row ->
+                        val tCell = PdfPCell(Phrase(row.text, Font(Font.HELVETICA, 10f, Font.NORMAL, Color(55, 65, 81))))
+                        tCell.borderColor = Color(200, 200, 200); tCell.setPadding(5f); pdfTable.addCell(tCell)
+                        
+                        statusCols.forEachIndexed { idx, _ ->
+                            val sCell = PdfPCell()
+                            sCell.borderColor = Color(200, 200, 200)
+                            sCell.horizontalAlignment = Element.ALIGN_CENTER
+                            sCell.verticalAlignment = Element.ALIGN_MIDDLE
+                            sCell.setPadding(0f)
+                            
+                            // Nested Table for absolute square centering (8pt)
+                            val innerTable = PdfPTable(1)
+                            innerTable.totalWidth = 8f
+                            innerTable.isLockedWidth = true
+                            
+                            val box = PdfPCell()
+                            box.fixedHeight = 8f
+                            box.border = Rectangle.BOX
+                            box.borderWidth = 0.5f // Thin border
+                            box.borderColor = Color.BLACK
+                            box.horizontalAlignment = Element.ALIGN_CENTER
+                            box.verticalAlignment = Element.ALIGN_MIDDLE
+                            box.setPadding(0f)
+                            
+                            if (row.selectedIndex == idx) {
+                                box.phrase = Phrase("X", Font(Font.HELVETICA, 7f, Font.BOLD, Color.BLACK))
+                            }
+                            
+                            innerTable.addCell(box)
+                            sCell.addElement(innerTable)
+                            pdfTable.addCell(sCell)
                         }
                     }
                     document.add(pdfTable)
@@ -195,70 +314,6 @@ class DesktopPdfGenerator : PdfGenerator {
                 document.add(Paragraph(label, Font(Font.HELVETICA, 11f, Font.BOLD, Color(31, 41, 55))))
                 document.add(Paragraph(sub, Font(Font.HELVETICA, 9f, Font.NORMAL, Color(156, 163, 175))))
                 document.add(Paragraph(" "))
-            }
-            BlockType.CHECKLIST -> {
-                if (block.content.startsWith("TABLE|")) {
-                    val lines = block.content.split("\n").filter { it.isNotBlank() }
-                    if (lines.isNotEmpty()) {
-                        val headerParts = lines[0].split("|")
-                        val statusCols = headerParts.drop(1)
-                        val numCols = 1 + statusCols.size
-                        
-                        val pdfTable = PdfPTable(numCols)
-                        pdfTable.widthPercentage = 100f
-                        // Set widths: 60% for text, rest shared
-                        val widths = FloatArray(numCols)
-                        widths[0] = 0.6f
-                        val statusW = 0.4f / statusCols.size
-                        for (i in 1 until numCols) widths[i] = statusW
-                        pdfTable.setWidths(widths)
-                        
-                        // Header
-                        val hCell = PdfPCell(Phrase("Comprobaciones", Font(Font.HELVETICA, 11f, Font.BOLD)))
-                        hCell.backgroundColor = Color(243, 244, 246)
-                        hCell.borderColor = Color(229, 231, 235)
-                        pdfTable.addCell(hCell)
-                        
-                        statusCols.forEach { colName ->
-                            val c = PdfPCell(Phrase(colName, Font(Font.HELVETICA, 10f, Font.BOLD)))
-                            c.backgroundColor = Color(243, 244, 246)
-                            c.borderColor = Color(229, 231, 235)
-                            c.horizontalAlignment = Element.ALIGN_CENTER
-                            pdfTable.addCell(c)
-                        }
-                        
-                        // Rows
-                        lines.drop(1).forEach { line ->
-                            val parts = line.split("|")
-                            val text = parts.getOrNull(0) ?: ""
-                            val selectedIdx = parts.getOrNull(1)?.toIntOrNull() ?: -1
-                            
-                            val tCell = PdfPCell(Phrase(text, Font(Font.HELVETICA, 10f)))
-                            tCell.borderColor = Color(229, 231, 235)
-                            pdfTable.addCell(tCell)
-                            
-                            statusCols.forEachIndexed { idx, _ ->
-                                val check = if (selectedIdx == idx) "X" else ""
-                                val c = PdfPCell(Phrase(check, Font(Font.HELVETICA, 10f, Font.BOLD)))
-                                c.borderColor = Color(229, 231, 235)
-                                c.horizontalAlignment = Element.ALIGN_CENTER
-                                pdfTable.addCell(c)
-                            }
-                        }
-                        document.add(pdfTable)
-                        document.add(Paragraph(" "))
-                    }
-                } else {
-                    val items = block.content.split("\n").filter { it.isNotBlank() }
-                    items.forEach { line ->
-                        val checked = line.startsWith("true")
-                        val text = if (line.contains("|")) line.substringAfter("|") else line
-                        val prefix = if (checked) "✓ " else "☐ "
-                        val font = if (checked) Font(Font.HELVETICA, 11f, Font.STRIKETHRU, Color.GRAY) else Font(Font.HELVETICA, 11f)
-                        document.add(Paragraph(prefix + text, font))
-                    }
-                    document.add(Paragraph(" "))
-                }
             }
             BlockType.FOOTER -> {
                 document.add(Paragraph(block.content, Font(Font.HELVETICA, 9f, Font.ITALIC, Color(107, 114, 128))))
