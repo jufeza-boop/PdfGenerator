@@ -1,21 +1,76 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# PdfGenerator KMP
 
-# Run and deploy your AI Studio app
+Aplicación multiplataforma (Android/Windows) para la gestión de visitas a obra y generación de informes técnicos profesionales en PDF de alta fidelidad.
 
-This contains everything you need to run your app locally.
+## 🚀 Características Implementadas
 
-View your app in AI Studio: https://ai.studio/apps/7adbcdce-fffc-4688-96f0-5b9c807f514a
+*   **Gestión Multi-Proyecto**: Creación y persistencia local de proyectos de construcción con metadatos personalizados (empresa, cargo, título del informe).
+*   **Sistema de Visitas**: Registro cronológico de visitas por proyecto, incluyendo notas de reunión e incidencias.
+*   **Editor de Bloques Dinámico**: Sistema de construcción de informes mediante bloques modulares con formularios visuales:
+    *   **Texto**: Campos de texto libre con soporte multi-línea.
+    *   **Títulos y Pies de página**: Estructuración visual de secciones.
+    *   **Imágenes**: Captura/selección de fotografías con opción de visualización a media anchura.
+    *   **Firmas Digitales**: Panel interactivo (Skia en Desktop / Native Canvas en Android) para captura de firmas con etiquetas personalizables.
+    *   **Tablas de Datos**: Editor visual interactivo de tablas con filas y columnas dinámicas.
+    *   **Checklists**: Listas de tareas con estado de completado.
+    *   **Tablas de Chequeo (Checklist Table)**: Tablas de inspección multi-columna (ej. SI/NO/NP) con recuadros de 8.5pt y centrado absoluto.
+*   **Generación de PDF de Alta Fidelidad**:
+    *   **Android**: Motor nativo `android.graphics.pdf`.
+    *   **Windows**: Motor `OpenPDF` para paridad visual absoluta.
+    *   Incluye numeración de páginas, cabeceras corporativas encuadradas y estilos técnicos profesionales (negro sobre blanco).
+*   **Previsualización en Tiempo Real**: Visor de PDF integrado en la aplicación (usando PDFBox en Desktop).
+*   **Sincronización en la Nube**: Sistema de backup y exportación hacia Google Drive y Google Sheets (implementado en `FolderSyncManager`).
 
-## Run Locally
+## 🛠️ Stack Tecnológico y Arquitectura
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+### Arquitectura
+El proyecto sigue una arquitectura **MVVM (Model-View-ViewModel)** dentro de un entorno **Kotlin Multiplatform (KMP)**.
+*   **UI Compartida**: Implementada en `commonMain` usando **Compose Multiplatform**.
+*   **Lógica de Datos**: Repositorios centralizados con flujos de datos reactivos (`Kotlin Flows`).
+*   **Implementaciones Nativas**: Lógica específica en `androidMain` y `desktopMain` para renderizado de PDF y gestión de archivos.
 
+### Tecnologías Principales
+| Categoría | Tecnología/Librería |
+| :--- | :--- |
+| **Lenguaje** | Kotlin 2.1.0 |
+| **Framework UI** | Compose Multiplatform 1.7.1 |
+| **Base de Datos** | Room Multiplatform 2.7.0 (v8 schema) |
+| **Serialización** | Moshi (JSON estructurado para bloques) |
+| **Imagen** | Coil 3.0.0-alpha |
+| **PDF (Windows)** | OpenPDF (com.github.librepdf:openpdf) |
+| **PDF Preview** | PDFBox (org.apache.pdfbox:pdfbox) |
+| **Red** | Ktor (Sincronización Drive/Sheets) |
+| **DI** | Koin 4.0.0 |
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+## 📦 Requisitos y Configuración
+
+### Requisitos Mínimos
+*   **Android**: SDK 24 (Android 7.0) o superior.
+*   **Desktop**: Java Runtime Environment (JRE) 17 o 21.
+*   **Entorno de Desarrollo**: Android Studio Meerkat (2026.1.1) o IntelliJ IDEA.
+
+### Configuración y Compilación
+1.  **Clonar el repositorio**:
+    ```bash
+    git clone [url-del-repositorio]
+    ```
+2.  **Sincronizar Gradle**: Se descargarán todas las dependencias multiplataforma necesarias.
+3.  **Ejecutar en Android**:
+    ```bash
+    ./gradlew :composeApp:assembleDebug
+    ```
+4.  **Ejecutar en Windows**:
+    ```bash
+    ./gradlew :composeApp:run
+    ```
+5.  **Generar Instalador Windows (MSI)**:
+    ```bash
+    ./gradlew :composeApp:packageMsi
+    ```
+
+## 📸 Capturas de Pantalla
+
+![Dashboard de Proyectos](url)
+![Editor de Bloques Interactivos](url)
+![Formulario de Tabla de Chequeo](url)
+![Informe PDF Profesional](url)

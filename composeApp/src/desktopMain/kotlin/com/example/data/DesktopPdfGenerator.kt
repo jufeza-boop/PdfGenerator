@@ -264,22 +264,22 @@ class DesktopPdfGenerator : PdfGenerator {
                             sCell.verticalAlignment = Element.ALIGN_MIDDLE
                             sCell.setPadding(0f)
                             
-                            // Nested Table for absolute square centering (8pt)
+                            // Nested Table for absolute square centering (12pt matching Android's -6 to +6)
                             val innerTable = PdfPTable(1)
-                            innerTable.totalWidth = 8f
+                            innerTable.totalWidth = 12f
                             innerTable.isLockedWidth = true
                             
                             val box = PdfPCell()
-                            box.fixedHeight = 8f
+                            box.fixedHeight = 12f
                             box.border = Rectangle.BOX
-                            box.borderWidth = 0.5f // Thin border
-                            box.borderColor = Color.BLACK
+                            box.borderWidth = 1f
+                            box.borderColor = Color(200, 200, 200)
                             box.horizontalAlignment = Element.ALIGN_CENTER
                             box.verticalAlignment = Element.ALIGN_MIDDLE
                             box.setPadding(0f)
                             
                             if (row.selectedIndex == idx) {
-                                box.phrase = Phrase("X", Font(Font.HELVETICA, 7f, Font.BOLD, Color.BLACK))
+                                box.phrase = Phrase("X", Font(Font.HELVETICA, 8f, Font.BOLD, Color.BLACK))
                             }
                             
                             innerTable.addCell(box)

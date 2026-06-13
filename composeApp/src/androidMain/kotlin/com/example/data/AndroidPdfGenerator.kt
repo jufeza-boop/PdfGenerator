@@ -361,7 +361,7 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                     var cellY = y
                     if (content.title.isNotBlank()) {
                         canvas.drawText(content.title, x, cellY + 15f, tableHeadPaint)
-                        cellY += 32f // Aumentado de 25f
+                        cellY += 32f
                     }
                     
                     val boxPaint = Paint().apply {
@@ -434,27 +434,11 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                                 
                                 val centerX = statusX + statusColW/2
                                 val centerY = cellY + 11f
-                                val boxSize = 8f // Proportional to text
-                                
-                                // Draw thin black square box
-                                val boxPaint = Paint().apply {
-                                    color = Color.BLACK
-                                    style = Paint.Style.STROKE
-                                    strokeWidth = 0.5f // Thin border
-                                    isAntiAlias = true
-                                }
-                                canvas.drawRect(centerX - boxSize/2, centerY - boxSize/2, centerX + boxSize/2, centerY + boxSize/2, boxPaint)
                                 
                                 if (row.selectedIndex == idx) {
-                                    // Clean black centered X
-                                    canvas.drawText("X", centerX, centerY + 3f, Paint().apply { 
-                                        textAlign = Paint.Align.CENTER
-                                        color = Color.BLACK
-                                        textSize = 7f
-                                        isFakeBoldText = true
-                                        isAntiAlias = true
-                                    })
+                                    canvas.drawText("X", centerX, centerY + 4f, tableHeadPaint.apply { textAlign = Paint.Align.CENTER })
                                 }
+                                canvas.drawRect(centerX - 6f, centerY - 6f, centerX + 6f, centerY + 6f, borderPaint)
                             }
                             cellY += 22f
                         }
