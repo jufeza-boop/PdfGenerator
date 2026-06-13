@@ -1082,7 +1082,10 @@ fun ProjectEditorScreen(
                     onMoveUp = { onMoveBlockUp(block) },
                     onMoveDown = { onMoveBlockDown(block) },
                     onToggleWidth = { onToggleBlockWidth(block) },
-                    onSaveDirectEdit = { newContent -> onSaveTextBlockEdit(block, newContent) },
+                    onSaveDirectEdit = { newContent -> 
+                        onSaveTextBlockEdit(block, newContent)
+                        focusedBlockIdToEdit = null
+                    },
                     onDrawSignature = { onDrawSignatureClick(block) }
                 )
             }
