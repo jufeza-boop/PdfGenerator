@@ -125,7 +125,19 @@ class AndroidFolderSyncManager(
                         val matchedLocal = localProjects.find { it.project.createdAt == remoteCreatedAt }
 
                         if (matchedLocal == null) {
-                            val newProjEntity = ProjectEntity(name = remoteName, createdAt = remoteCreatedAt, updatedAt = remoteUpdatedAt, reportLabel = remoteProjJson.optString("reportLabel", "REPORTE DE PROYECTO"), showHeaderLabel = remoteProjJson.optBoolean("showHeaderLabel", true), showHeaderDate = remoteProjJson.optBoolean("showHeaderDate", true), headerCompany = remoteProjJson.optString("headerCompany", "Nombre de la empresa"), headerCompanySub = remoteProjJson.optString("headerCompanySub", ""), headerTitle = remoteProjJson.optString("headerTitle", "INFORME DE VISITA A OBRA"), showHeaderBox = remoteProjJson.optBoolean("showHeaderBox", true))
+                            val newProjEntity = ProjectEntity(
+                                name = remoteName,
+                                createdAt = remoteCreatedAt,
+                                updatedAt = remoteUpdatedAt,
+                                reportLabel = remoteProjJson.optString("reportLabel", "REPORTE DE PROYECTO"),
+                                showHeaderLabel = remoteProjJson.optBoolean("showHeaderLabel", true),
+                                showHeaderDate = remoteProjJson.optBoolean("showHeaderDate", true),
+                                headerCompany = remoteProjJson.optString("headerCompany", "Nombre de la empresa"),
+                                headerCompanySub = remoteProjJson.optString("headerCompanySub", ""),
+                                headerTitle = remoteProjJson.optString("headerTitle", "INFORME DE VISITA A OBRA"),
+                                showHeaderBox = remoteProjJson.optBoolean("showHeaderBox", true),
+                                showHeaderTitle = remoteProjJson.optBoolean("showHeaderTitle", true)
+                            )
                             val insertedId = repository.projectDao.insertProject(newProjEntity)
                             for (bIdx in 0 until remoteBlocksArr.length()) {
                                 val bObj = remoteBlocksArr.getJSONObject(bIdx)
@@ -143,7 +155,18 @@ class AndroidFolderSyncManager(
                             }
                             downloadsCount++
                         } else if (remoteUpdatedAt > matchedLocal.project.updatedAt) {
-                            repository.projectDao.updateProject(matchedLocal.project.copy(name = remoteName, updatedAt = remoteUpdatedAt, reportLabel = remoteProjJson.optString("reportLabel", "REPORTE DE PROYECTO"), showHeaderLabel = remoteProjJson.optBoolean("showHeaderLabel", true), showHeaderDate = remoteProjJson.optBoolean("showHeaderDate", true), headerCompany = remoteProjJson.optString("headerCompany", "Nombre de la empresa"), headerCompanySub = remoteProjJson.optString("headerCompanySub", ""), headerTitle = remoteProjJson.optString("headerTitle", "INFORME DE VISITA A OBRA"), showHeaderBox = remoteProjJson.optBoolean("showHeaderBox", true)))
+                            repository.projectDao.updateProject(matchedLocal.project.copy(
+                                name = remoteName,
+                                updatedAt = remoteUpdatedAt,
+                                reportLabel = remoteProjJson.optString("reportLabel", "REPORTE DE PROYECTO"),
+                                showHeaderLabel = remoteProjJson.optBoolean("showHeaderLabel", true),
+                                showHeaderDate = remoteProjJson.optBoolean("showHeaderDate", true),
+                                headerCompany = remoteProjJson.optString("headerCompany", "Nombre de la empresa"),
+                                headerCompanySub = remoteProjJson.optString("headerCompanySub", ""),
+                                headerTitle = remoteProjJson.optString("headerTitle", "INFORME DE VISITA A OBRA"),
+                                showHeaderBox = remoteProjJson.optBoolean("showHeaderBox", true),
+                                showHeaderTitle = remoteProjJson.optBoolean("showHeaderTitle", true)
+                            ))
                             repository.projectDao.deleteBlocksForProject(matchedLocal.project.id)
                             for (bIdx in 0 until remoteBlocksArr.length()) {
                                 val bObj = remoteBlocksArr.getJSONObject(bIdx)
@@ -176,7 +199,9 @@ class AndroidFolderSyncManager(
                     if ((block.type == BlockType.IMAGE || block.type == BlockType.SIGNATURE) && block.content.startsWith("/")) {
                         val localFile = File(block.content)
                         if (localFile.exists()) {
-                            val sfMediaFile = projDir!!.findFile(localFile.name) ?: projDir!!.createFile("image/jpeg", localFile.name)
+                            // Delete existing remote file to prevent (1) duplicates
+                            projDir!!.findFile(localFile.name)?.delete()
+                            val sfMediaFile = projDir!!.createFile("image/jpeg", localFile.name)
                             sfMediaFile?.let { copyLocalFileToDocument(localFile, it) }
                             block.copy(content = localFile.name)
                         } else block
@@ -184,10 +209,36 @@ class AndroidFolderSyncManager(
                 }
 
                 val finalJson = JSONObject().apply {
-                    put("project", JSONObject().apply { put("name", projWithBlocks.project.name); put("createdAt", projWithBlocks.project.createdAt); put("updatedAt", projWithBlocks.project.updatedAt); put("reportLabel", projWithBlocks.project.reportLabel); put("showHeaderLabel", projWithBlocks.project.showHeaderLabel); put("showHeaderDate", projWithBlocks.project.showHeaderDate); put("headerCompany", projWithBlocks.project.headerCompany); put("headerCompanySub", projWithBlocks.project.headerCompanySub); put("headerTitle", projWithBlocks.project.headerTitle); put("showHeaderBox", projWithBlocks.project.showHeaderBox) })
-                    put("blocks", JSONArray().apply { processedBlocks.forEach { b -> put(JSONObject().apply { put("type", b.type.name); put("content", b.content); put("sequence", b.sequence); put("isHalfWidth", b.isHalfWidth) }) } })
+                    put("project", JSONObject().apply {
+                        put("name", projWithBlocks.project.name)
+                        put("createdAt", projWithBlocks.project.createdAt)
+                        put("updatedAt", projWithBlocks.project.updatedAt)
+                        put("reportLabel", projWithBlocks.project.reportLabel)
+                        put("showHeaderLabel", projWithBlocks.project.showHeaderLabel)
+                        put("showHeaderDate", projWithBlocks.project.showHeaderDate)
+                        put("headerCompany", projWithBlocks.project.headerCompany)
+                        put("headerCompanySub", projWithBlocks.project.headerCompanySub)
+                        put("headerTitle", projWithBlocks.project.headerTitle)
+                        put("showHeaderBox", projWithBlocks.project.showHeaderBox)
+                        put("showHeaderTitle", projWithBlocks.project.showHeaderTitle)
+                    })
+                    put("blocks", JSONArray().apply {
+                        processedBlocks.forEach { b ->
+                            put(JSONObject().apply {
+                                put("type", b.type.name)
+                                put("content", b.content)
+                                put("sequence", b.sequence)
+                                put("isHalfWidth", b.isHalfWidth)
+                            })
+                        }
+                    })
                 }
-                (projDir!!.findFile("project_data.json") ?: projDir!!.createFile("application/json", "project_data.json"))?.let { writeTextToDocument(it, finalJson.toString()) }
+
+                // Delete existing remote project_data.json to prevent (1) duplicates
+                projDir!!.findFile("project_data.json")?.delete()
+                projDir!!.createFile("application/json", "project_data.json")?.let { 
+                    writeTextToDocument(it, finalJson.toString()) 
+                }
                 updatesRemoteCount++
             }
             emit(SyncState.Success("Sync completed: $downloadsCount imported, $updatesLocalCount local updated, $updatesRemoteCount remote updated."))

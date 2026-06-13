@@ -38,3 +38,32 @@ data class ChecklistTableBlockContent(
 
 @JsonClass(generateAdapter = true)
 data class ChecklistTableRow(val text: String, val selectedIndex: Int)
+
+@JsonClass(generateAdapter = true)
+data class ProjectSyncData(
+    val project: ProjectSyncEntity,
+    val blocks: List<BlockSyncEntity>
+)
+
+@JsonClass(generateAdapter = true)
+data class ProjectSyncEntity(
+    val name: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val reportLabel: String = "REPORTE DE PROYECTO",
+    val showHeaderLabel: Boolean = true,
+    val showHeaderDate: Boolean = true,
+    val headerCompany: String = "Nombre de la empresa",
+    val headerCompanySub: String = "",
+    val headerTitle: String = "INFORME DE VISITA A OBRA",
+    val showHeaderBox: Boolean = true,
+    val showHeaderTitle: Boolean = true
+)
+
+@JsonClass(generateAdapter = true)
+data class BlockSyncEntity(
+    val type: String,
+    val content: String,
+    val sequence: Int,
+    val isHalfWidth: Boolean = false
+)

@@ -19,7 +19,7 @@ enum class PdfExportMode {
 class ProjectRepository(
     val projectDao: ProjectDao,
     private val pdfGenerator: PdfGenerator,
-    private val filesDir: File,
+    val filesDir: File,
     private val cacheDir: File
 ) {
 
