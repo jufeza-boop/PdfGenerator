@@ -77,8 +77,58 @@ class DesktopPdfGenerator : PdfGenerator {
 
         // 4. Render Dynamic Blocks
         val sortedBlocks = getSortedBlocks(project, exportMode, singleVisitId)
-        for (block in sortedBlocks) {
-            addBlockToDocument(document, block)
+        val maxWidth = document.right() - document.left()
+        
+        var i = 0
+        while (i < sortedBlocks.size) {
+            val block = sortedBlocks[i]
+            if (block.isHalfWidth) {
+                val nextBlock = sortedBlocks.getOrNull(i + 1)
+                if (nextBlock != null && nextBlock.isHalfWidth) {
+                    // Create 2-column container table
+                    val container = PdfPTable(2)
+                    container.widthPercentage = 100f
+                    container.setWidths(floatArrayOf(0.5f, 0.5f))
+                    
+                    val cell1 = PdfPCell()
+                    cell1.border = Rectangle.NO_BORDER
+                    cell1.setPaddingRight(6f)
+                    addBlockToContainer(cell1, block, maxWidth / 2f - 6f)
+                    container.addCell(cell1)
+                    
+                    val cell2 = PdfPCell()
+                    cell2.border = Rectangle.NO_BORDER
+                    cell2.setPaddingLeft(6f)
+                    addBlockToContainer(cell2, nextBlock, maxWidth / 2f - 6f)
+                    container.addCell(cell2)
+                    
+                    document.add(container)
+                    document.add(Paragraph(" "))
+                    i += 2
+                } else {
+                    // Single half-width block
+                    val container = PdfPTable(2)
+                    container.widthPercentage = 100f
+                    container.setWidths(floatArrayOf(0.5f, 0.5f))
+                    
+                    val cell1 = PdfPCell()
+                    cell1.border = Rectangle.NO_BORDER
+                    cell1.setPaddingRight(6f)
+                    addBlockToContainer(cell1, block, maxWidth / 2f - 6f)
+                    container.addCell(cell1)
+                    
+                    val cell2 = PdfPCell()
+                    cell2.border = Rectangle.NO_BORDER
+                    container.addCell(cell2)
+                    
+                    document.add(container)
+                    document.add(Paragraph(" "))
+                    i += 1
+                }
+            } else {
+                addBlockToContainer(document, block, maxWidth)
+                i += 1
+            }
         }
 
         document.close()
@@ -135,28 +185,35 @@ class DesktopPdfGenerator : PdfGenerator {
         table.writeSelectedRows(0, -1, document.left(), document.top() + 65f, cb)
     }
 
-    private fun addBlockToDocument(document: Document, block: ContentBlockEntity) {
+    private fun addBlockToContainer(container: Any, block: ContentBlockEntity, availableWidth: Float) {
+        fun addToContainer(element: Element) {
+            when (container) {
+                is Document -> container.add(element)
+                is PdfPCell -> container.addElement(element)
+                else -> throw IllegalArgumentException("Unsupported container type: ${container::class.simpleName}")
+            }
+        }
+
         when (block.type) {
             BlockType.TITLE -> {
                 val font = Font(Font.HELVETICA, 16f, Font.BOLD, Color(31, 41, 55))
-                document.add(Paragraph(block.content, font))
-                document.add(Paragraph(" "))
+                addToContainer(Paragraph(block.content, font))
+                addToContainer(Paragraph(" "))
             }
             BlockType.TEXT -> {
                 val font = Font(Font.HELVETICA, 12f, Font.NORMAL, Color(55, 65, 81))
-                document.add(Paragraph(block.content, font))
-                document.add(Paragraph(" "))
+                addToContainer(Paragraph(block.content, font))
+                addToContainer(Paragraph(" "))
             }
             BlockType.IMAGE -> {
                 try {
                     val img = Image.getInstance(block.content)
-                    val maxWidth = document.right() - document.left()
-                    img.scaleToFit(if (block.isHalfWidth) maxWidth/2 - 10f else maxWidth, 400f)
+                    img.scaleToFit(availableWidth, 400f)
                     img.alignment = Image.ALIGN_CENTER
-                    document.add(img)
-                    document.add(Paragraph(" "))
+                    addToContainer(img)
+                    addToContainer(Paragraph(" "))
                 } catch (e: Exception) {
-                    document.add(Paragraph("[Error cargando imagen]", Font(Font.HELVETICA, 10f, Font.ITALIC, Color.RED)))
+                    addToContainer(Paragraph("[Error cargando imagen]", Font(Font.HELVETICA, 10f, Font.ITALIC, Color.RED)))
                 }
             }
             BlockType.TABLE -> {
@@ -164,8 +221,8 @@ class DesktopPdfGenerator : PdfGenerator {
                 if (content.rows.isNotEmpty()) {
                     if (content.title.isNotBlank()) {
                         val t = Paragraph(content.title, Font(Font.HELVETICA, 12f, Font.BOLD, Color(31, 41, 55)))
-                        t.spacingAfter = 10f // Añadido espacio después del título
-                        document.add(t)
+                        t.spacingAfter = 10f
+                        addToContainer(t)
                     }
                     val numCols = if (content.headers.isNotEmpty()) content.headers.size else content.rows[0].size
                     val pdfTable = PdfPTable(numCols)
@@ -180,35 +237,34 @@ class DesktopPdfGenerator : PdfGenerator {
                             pdfTable.addCell(cell)
                         }
                     }
-                    document.add(pdfTable)
-                    document.add(Paragraph(" "))
+                    addToContainer(pdfTable)
+                    addToContainer(Paragraph(" "))
                 }
             }
             BlockType.CHECKLIST -> {
                 val content = try { checklistAdapter.fromJson(block.content) ?: ChecklistBlockContent() } catch(e: Exception) { ChecklistBlockContent() }
                 if (content.title.isNotBlank()) {
                     val t = Paragraph(content.title, Font(Font.HELVETICA, 12f, Font.BOLD, Color(31, 41, 55)))
-                    t.spacingAfter = 10f // Añadido espacio
-                    document.add(t)
+                    t.spacingAfter = 10f
+                    addToContainer(t)
                 }
                 
                 content.items.forEach { item ->
                     val itemTable = PdfPTable(2)
                     itemTable.widthPercentage = 100f
-                    itemTable.setWidths(floatArrayOf(0.03f, 0.97f))
+                    itemTable.setWidths(floatArrayOf(0.08f, 0.92f))
                     
-                    // Small Professional Black Box Cell
                     val boxCell = PdfPCell()
-                    boxCell.fixedHeight = 8.5f
+                    boxCell.fixedHeight = 10f
                     boxCell.border = Rectangle.BOX
-                    boxCell.borderWidth = 0.5f // Thin border
+                    boxCell.borderWidth = 0.5f
                     boxCell.borderColor = Color.BLACK
                     boxCell.horizontalAlignment = Element.ALIGN_CENTER
                     boxCell.verticalAlignment = Element.ALIGN_MIDDLE
                     boxCell.setPadding(0f)
                     
                     if (item.checked) {
-                        val checkFont = Font(Font.HELVETICA, 7f, Font.BOLD, Color.BLACK)
+                        val checkFont = Font(Font.HELVETICA, 8f, Font.BOLD, Color.BLACK)
                         boxCell.phrase = Phrase("X", checkFont)
                     }
                     itemTable.addCell(boxCell)
@@ -221,17 +277,17 @@ class DesktopPdfGenerator : PdfGenerator {
                     textCell.verticalAlignment = Element.ALIGN_MIDDLE
                     itemTable.addCell(textCell)
                     
-                    document.add(itemTable)
+                    addToContainer(itemTable)
                 }
-                document.add(Paragraph(" "))
+                addToContainer(Paragraph(" "))
             }
             BlockType.CHECKLIST_TABLE -> {
                 val content = try { checklistTableAdapter.fromJson(block.content) ?: ChecklistTableBlockContent() } catch(e: Exception) { ChecklistTableBlockContent() }
                 if (content.rows.isNotEmpty()) {
                     if (content.title.isNotBlank()) {
                         val t = Paragraph(content.title, Font(Font.HELVETICA, 12f, Font.BOLD, Color(31, 41, 55)))
-                        t.spacingAfter = 10f // Añadido espacio
-                        document.add(t)
+                        t.spacingAfter = 10f
+                        addToContainer(t)
                     }
                     val statusCols = content.headers
                     val numCols = 1 + statusCols.size
@@ -240,7 +296,6 @@ class DesktopPdfGenerator : PdfGenerator {
                     val widths = FloatArray(numCols); widths[0] = 0.65f; val sw = 0.35f/statusCols.size; for(i in 1 until numCols) widths[i] = sw
                     pdfTable.setWidths(widths)
 
-                    // Header
                     val hFont = Font(Font.HELVETICA, 10f, Font.BOLD, Color.BLACK)
                     val hCell = PdfPCell(Phrase("Comprobación", hFont))
                     hCell.backgroundColor = Color(243, 244, 246); hCell.borderColor = Color(200, 200, 200); hCell.setPadding(5f)
@@ -252,7 +307,6 @@ class DesktopPdfGenerator : PdfGenerator {
                         pdfTable.addCell(c)
                     }
 
-                    // Rows
                     content.rows.forEach { row ->
                         val tCell = PdfPCell(Phrase(row.text, Font(Font.HELVETICA, 10f, Font.NORMAL, Color(55, 65, 81))))
                         tCell.borderColor = Color(200, 200, 200); tCell.setPadding(5f); pdfTable.addCell(tCell)
@@ -264,7 +318,6 @@ class DesktopPdfGenerator : PdfGenerator {
                             sCell.verticalAlignment = Element.ALIGN_MIDDLE
                             sCell.setPadding(0f)
                             
-                            // Nested Table for absolute square centering (12pt matching Android's -6 to +6)
                             val innerTable = PdfPTable(1)
                             innerTable.totalWidth = 12f
                             innerTable.isLockedWidth = true
@@ -287,8 +340,8 @@ class DesktopPdfGenerator : PdfGenerator {
                             pdfTable.addCell(sCell)
                         }
                     }
-                    document.add(pdfTable)
-                    document.add(Paragraph(" "))
+                    addToContainer(pdfTable)
+                    addToContainer(Paragraph(" "))
                 }
             }
             BlockType.SIGNATURE -> {
@@ -299,24 +352,23 @@ class DesktopPdfGenerator : PdfGenerator {
                 
                 try {
                     val img = Image.getInstance(path)
-                    img.scaleToFit(150f, 80f)
-                    document.add(img)
+                    img.scaleToFit(minOf(availableWidth, 150f), 80f)
+                    addToContainer(img)
                 } catch (e: Exception) {
-                    // Placeholder for signature line if file missing
                     val line = LineSeparator()
                     line.offset = -5f
                     line.lineWidth = 1f
                     line.percentage = 30f
                     line.alignment = Element.ALIGN_LEFT
-                    document.add(line)
+                    addToContainer(line)
                 }
                 
-                document.add(Paragraph(label, Font(Font.HELVETICA, 11f, Font.BOLD, Color(31, 41, 55))))
-                document.add(Paragraph(sub, Font(Font.HELVETICA, 9f, Font.NORMAL, Color(156, 163, 175))))
-                document.add(Paragraph(" "))
+                addToContainer(Paragraph(label, Font(Font.HELVETICA, 11f, Font.BOLD, Color(31, 41, 55))))
+                addToContainer(Paragraph(sub, Font(Font.HELVETICA, 9f, Font.NORMAL, Color(156, 163, 175))))
+                addToContainer(Paragraph(" "))
             }
             BlockType.FOOTER -> {
-                document.add(Paragraph(block.content, Font(Font.HELVETICA, 9f, Font.ITALIC, Color(107, 114, 128))))
+                addToContainer(Paragraph(block.content, Font(Font.HELVETICA, 9f, Font.ITALIC, Color(107, 114, 128))))
             }
         }
     }
