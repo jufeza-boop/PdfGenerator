@@ -95,7 +95,7 @@ class DesktopFolderSyncManager(
             var updatesRemoteCount = 0
 
             withContext(Dispatchers.IO) {
-                remoteSubDirs.forEachIndexed { index, subDir ->
+                remoteSubDirs.forEach { subDir ->
                     val jsonFile = File(subDir, "project_data.json")
                     if (jsonFile.exists()) {
                         val fileContents = jsonFile.readText()

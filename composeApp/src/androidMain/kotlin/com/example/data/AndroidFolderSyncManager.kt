@@ -110,7 +110,6 @@ class AndroidFolderSyncManager(
             var updatesRemoteCount = 0
 
             remoteSubDirs.forEachIndexed { index, subDir ->
-                val progressBase = 0.25f + (index.toFloat() / remoteSubDirs.size.coerceAtLeast(1)) * 0.40f
                 val jsonFile = subDir.findFile("project_data.json")
                 if (jsonFile != null && jsonFile.exists()) {
                     val fileContents = readTextFromDocument(jsonFile)
@@ -188,9 +187,24 @@ class AndroidFolderSyncManager(
                 }
             }
 
-            val projectsToExport = localProjects.filter { !handledLocalCreatedAts.contains(it.project.createdAt) || let { _ -> val suffix = "_${it.project.createdAt}"; remoteSubDirs.find { sd -> sd.name?.endsWith(suffix) == true }?.findFile("project_data.json")?.let { fj -> readTextFromDocument(fj)?.let { c -> JSONObject(c).getJSONObject("project").optLong("updatedAt", 0) < it.project.updatedAt } } ?: true } }
+            val projectsToExport = localProjects.filter { localProj ->
+                !handledLocalCreatedAts.contains(localProj.project.createdAt) || run {
+                    val suffix = "_${localProj.project.createdAt}"
+                    val remoteDir = remoteSubDirs.find { it.name?.endsWith(suffix) == true }
+                    if (remoteDir != null) {
+                        val jsonFile = remoteDir.findFile("project_data.json")
+                        if (jsonFile != null && jsonFile.exists()) {
+                            val content = readTextFromDocument(jsonFile)
+                            if (content != null) {
+                                val remoteUpdatedAt = JSONObject(content).getJSONObject("project").optLong("updatedAt", 0)
+                                remoteUpdatedAt < localProj.project.updatedAt
+                            } else true
+                        } else true
+                    } else true
+                }
+            }
+
             projectsToExport.forEachIndexed { exIdx, projWithBlocks ->
-                val progressBase = 0.65f + (exIdx.toFloat() / projectsToExport.size.coerceAtLeast(1)) * 0.30f
                 val folderName = "${projWithBlocks.project.name.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()}_${projWithBlocks.project.createdAt}"
                 var projDir = rootDir.findFile(folderName) ?: rootDir.listFiles().find { it.isDirectory && it.name?.endsWith("_${projWithBlocks.project.createdAt}") == true } ?: rootDir.createDirectory(folderName)
                 if (projDir == null) throw Exception("Failed to create folder $folderName")

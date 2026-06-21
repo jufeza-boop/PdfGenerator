@@ -174,10 +174,12 @@ fun ProjectApp(
                     DashboardScreen(
                         projects = allProjects,
                         syncConfig = syncConfig,
+                        syncState = syncState,
                         onProjectSelected = { id -> viewModel.selectProject(id) },
                         onCreateProjectClick = { showCreateDialog = true },
                         onDeleteProject = { project -> viewModel.deleteProject(project) },
-                        onSyncClick = { showSyncDialog = true }
+                        onSyncClick = { showSyncDialog = true },
+                        onRunSync = { viewModel.runFolderSync(true) }
                     )
                 }
                 AppScreen.Editor -> {
@@ -187,6 +189,7 @@ fun ProjectApp(
                             blocks = draftBlocks,
                             isDirty = isDirty,
                             isGeneratingPdf = isGeneratingPdf,
+                            syncState = syncState,
                             onBack = { viewModel.selectProject(null) },
                             onSave = { viewModel.saveDraft() },
                             onUndo = { viewModel.discardChanges() },
@@ -214,7 +217,8 @@ fun ProjectApp(
                             onAddVisit = { title, notes, templateType -> viewModel.createVisit(title, notes, templateType) },
                             onDeleteVisit = { visit -> viewModel.deleteVisit(visit) },
                             onUpdateVisit = { visit -> viewModel.updateVisit(visit) },
-                            onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) }
+                            onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) },
+                            onRunSync = { viewModel.runFolderSync(true) }
                         )
                     } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -296,10 +300,12 @@ enum class AppScreen {
 fun DashboardScreen(
     projects: List<ProjectWithBlocks>,
     syncConfig: FolderSyncConfig?,
+    syncState: SyncState,
     onProjectSelected: (Long) -> Unit,
     onCreateProjectClick: () -> Unit,
     onDeleteProject: (ProjectEntity) -> Unit,
-    onSyncClick: () -> Unit
+    onSyncClick: () -> Unit,
+    onRunSync: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -317,6 +323,24 @@ fun DashboardScreen(
                         }
                     },
                     actions = {
+                        if (syncConfig != null && syncConfig.rootFolderUri.isNotEmpty()) {
+                            if (syncState is SyncState.Syncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp).padding(4.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                IconButton(onClick = onRunSync) {
+                                    Icon(
+                                        imageVector = Icons.Default.Sync,
+                                        contentDescription = "Sincronizar ahora",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+
                         IconButton(
                             onClick = onSyncClick,
                             modifier = Modifier.testTag("sync_cloud_button")
@@ -605,6 +629,7 @@ fun ProjectEditorScreen(
     blocks: List<ContentBlockEntity>,
     isDirty: Boolean,
     isGeneratingPdf: Boolean,
+    syncState: SyncState,
     onBack: () -> Unit,
     onSave: () -> Unit,
     onUndo: () -> Unit,
@@ -627,7 +652,8 @@ fun ProjectEditorScreen(
     onAddVisit: (String, String, String) -> Unit,
     onDeleteVisit: (VisitEntity) -> Unit,
     onUpdateVisit: (VisitEntity) -> Unit,
-    onExportSingleVisit: (Long) -> Unit
+    onExportSingleVisit: (Long) -> Unit,
+    onRunSync: () -> Unit
 ) {
     var textInputToInsert by remember { mutableStateOf("") }
     var focusedBlockIdToEdit by remember { mutableStateOf<Long?>(null) }
@@ -748,6 +774,22 @@ fun ProjectEditorScreen(
                         }
                     },
                     actions = {
+                        if (syncState is SyncState.Syncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp).padding(4.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            IconButton(onClick = onRunSync) {
+                                Icon(
+                                    imageVector = Icons.Default.Sync,
+                                    contentDescription = "Sincronizar ahora",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
                         // Undo (Deshacer) action
                         IconButton(
                             onClick = onUndo,
@@ -894,7 +936,7 @@ fun ProjectEditorScreen(
                         ) {
                             item {
                                 ToolbarButton(
-                                    icon = Icons.Default.PhotoLibrary,
+                                    icon = Icons.Default.AddAPhoto,
                                     label = "Imágenes",
                                     onClick = { 
                                         targetVisitIdForImage = null
@@ -1827,7 +1869,7 @@ fun ProjectEditorScreen(
                                                     showImagePicker = true
                                                 },
                                                 label = { Text("Fotos", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                leadingIcon = { Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
                                                 onClick = { onAddSignatureClick(visit.id) },

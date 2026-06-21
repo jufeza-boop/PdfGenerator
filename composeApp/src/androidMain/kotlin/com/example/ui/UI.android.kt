@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -18,6 +19,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,10 +32,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -41,9 +46,11 @@ import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
 import com.example.appContext
 import com.example.data.SketchStroke
+import androidx.compose.runtime.saveable.rememberSaveable
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
+import java.util.UUID
 
 @Composable
 actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
@@ -52,17 +59,136 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
 
 @Composable
 actual fun PlatformImagePicker(onImageSelected: (InputStream, Long?) -> Unit, visitId: Long?) {
+    val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(true) }
+    var tempPhotoPath by rememberSaveable { mutableStateOf<String?>(null) }
+
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            val stream = appContext.contentResolver.openInputStream(uri)
-            if (stream != null) onImageSelected(stream, visitId)
+            try {
+                val stream = context.contentResolver.openInputStream(uri)
+                if (stream != null) onImageSelected(stream, visitId)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error al abrir galería: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
+        showDialog = false
+    }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success && tempPhotoPath != null) {
+            val file = File(tempPhotoPath!!)
+            if (file.exists()) {
+                try {
+                    val stream = file.inputStream()
+                    onImageSelected(stream, visitId)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Error al procesar foto: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        showDialog = false
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, now we can launch the camera
+            // We need to re-trigger the camera logic. 
+            // A simple way is to just let the user click again, 
+            // or we can store a 'pending' state.
+            Toast.makeText(context, "Permiso concedido. Pulsa Cámara de nuevo.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
         }
     }
-    
-    LaunchedEffect(Unit) {
-        pickImageLauncher.launch("image/*")
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Añadir Imagen", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text("Selecciona el origen de la imagen:", fontSize = 14.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        PickerOption(
+                            icon = Icons.Default.PhotoCamera,
+                            label = "Cámara",
+                            onClick = {
+                                val permission = android.Manifest.permission.CAMERA
+                                if (context.checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    try {
+                                        val file = File(context.cacheDir, "temp_photo_${UUID.randomUUID()}.jpg")
+                                        tempPhotoPath = file.absolutePath
+                                        val uri = FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            file
+                                        )
+                                        takePictureLauncher.launch(uri)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                                    }
+                                } else {
+                                    permissionLauncher.launch(permission)
+                                }
+                            }
+                        )
+                        PickerOption(
+                            icon = Icons.Default.PhotoLibrary,
+                            label = "Galería",
+                            onClick = {
+                                pickImageLauncher.launch("image/*")
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun PickerOption(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 
