@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!--
+    Añade aquí falsos positivos con formato:
+    <suppress>
+        <notes>Motivo de la supresión</notes>
+        <packageUrl regex="true">^pkg:maven/group\.id/artifact\-id@.*$</packageUrl>
+        <cve>CVE-YYYY-XXXXX</cve>
+    </suppress>
+    -->
+</suppressions>

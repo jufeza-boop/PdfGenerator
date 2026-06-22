@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.devtools.ksp)
     alias(libs.plugins.secrets)
+    alias(libs.plugins.owasp.dependencycheck)
 }
 
 kotlin {
@@ -108,6 +109,29 @@ compose.desktop {
 secrets {
     propertiesFileName = ".env"
     defaultPropertiesFileName = ".env.example"
+}
+
+dependencyCheck {
+    analyzers {
+        assemblyEnabled = false
+        nodeEnabled = false
+        nodeAuditEnabled = false
+        retirejs {
+            enabled = false
+        }
+    }
+    nvd {
+        // Obtén clave gratuita en https://nvd.nist.gov/developers/request-an-api-key
+        // para evitar rate-limiting severo (5 req/30s sin clave vs 50/30s con clave)
+        apiKey = System.getenv("NVD_API_KEY") ?: ""
+    }
+    // Actualiza la BD NVD al ejecutar sin -PnoAutoUpdate. Para CI sin red, pasa -PnoAutoUpdate.
+    autoUpdate = !project.hasProperty("noAutoUpdate")
+    formats = listOf("HTML", "JSON")
+    outputDirectory = layout.buildDirectory.dir("reports/dependency-check").get().asFile.absolutePath
+    // Falla el build solo si hay vulnerabilidades CRÍTICAS (CVSS >= 9.0)
+    failBuildOnCVSS = 9.0f
+    suppressionFile = "dependency-check-suppressions.xml"
 }
 
 dependencies {
