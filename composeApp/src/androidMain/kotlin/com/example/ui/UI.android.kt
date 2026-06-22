@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
+import androidx.core.graphics.createBitmap
 import coil3.compose.AsyncImage
 import com.example.appContext
 import com.example.data.SketchStroke
@@ -217,8 +218,8 @@ actual fun PlatformFolderSelector(onFolderSelected: (String) -> Unit) {
 actual fun SignatureDialog(onDismiss: () -> Unit, onConfirm: (ByteArray) -> Unit) {
     val strokes = remember { mutableStateListOf<SketchStroke>() }
     val currentStrokePoints = remember { mutableStateListOf<Offset>() }
-    var canvasWidth by remember { mutableStateOf(0) }
-    var canvasHeight by remember { mutableStateOf(0) }
+    var canvasWidth by remember { mutableIntStateOf(0) }
+    var canvasHeight by remember { mutableIntStateOf(0) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -255,7 +256,7 @@ actual fun SignatureDialog(onDismiss: () -> Unit, onConfirm: (ByteArray) -> Unit
                     Spacer(modifier = Modifier.width(12.dp))
                     Button(
                         onClick = {
-                            val bitmap = Bitmap.createBitmap(if (canvasWidth > 0) canvasWidth else 600, if (canvasHeight > 0) canvasHeight else 240, Bitmap.Config.ARGB_8888)
+                            val bitmap = createBitmap(if (canvasWidth > 0) canvasWidth else 600, if (canvasHeight > 0) canvasHeight else 240, Bitmap.Config.ARGB_8888)
                             val canvas = Canvas(bitmap)
                             canvas.drawColor(Color.WHITE)
                             val paint = Paint().apply { color = Color.BLACK; strokeWidth = 8f; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND; isAntiAlias = true }
@@ -292,7 +293,7 @@ actual fun PdfPreviewScreen(pdfFile: File, onBack: () -> Unit) {
             val renderer = android.graphics.pdf.PdfRenderer(pfd)
             for (i in 0 until renderer.pageCount) {
                 val page = renderer.openPage(i)
-                val bitmap = Bitmap.createBitmap(800, (800 * 1.414).toInt(), Bitmap.Config.ARGB_8888)
+                val bitmap = createBitmap(800, (800 * 1.414).toInt(), Bitmap.Config.ARGB_8888)
                 bitmap.eraseColor(Color.WHITE)
                 page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 renderPages.add(bitmap)

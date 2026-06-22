@@ -3,6 +3,8 @@ package com.example.data
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -27,17 +29,17 @@ class AndroidFolderSyncManager(
     }
 
     override fun saveConfig(rootFolderUri: String, isAutoSync: Boolean) {
-        sharedPrefs.edit()
-            .putString("root_folder_uri", rootFolderUri.trim())
-            .putBoolean("auto_sync", isAutoSync)
-            .apply()
+        sharedPrefs.edit {
+            putString("root_folder_uri", rootFolderUri.trim())
+            putBoolean("auto_sync", isAutoSync)
+        }
     }
 
     override fun isConfigured(): Boolean {
         val uriStr = getConfig().rootFolderUri
         if (uriStr.isBlank()) return false
         return try {
-            val uri = Uri.parse(uriStr)
+            val uri = uriStr.toUri()
             val doc = DocumentFile.fromTreeUri(context, uri)
             doc != null && doc.exists() && doc.canWrite()
         } catch (e: Exception) {
@@ -48,7 +50,7 @@ class AndroidFolderSyncManager(
     override fun deleteProjectFolder(createdAt: Long): Boolean {
         if (!isConfigured()) return false
         return try {
-            val uri = Uri.parse(getConfig().rootFolderUri)
+            val uri = getConfig().rootFolderUri.toUri()
             val rootDir = DocumentFile.fromTreeUri(context, uri) ?: return false
             val suffix = "_$createdAt"
             val projDir = rootDir.listFiles().find { it.isDirectory && it.name?.endsWith(suffix) == true }
@@ -92,7 +94,7 @@ class AndroidFolderSyncManager(
             return@flow
         }
 
-        val rootUri = Uri.parse(rootUriStr)
+        val rootUri = rootUriStr.toUri()
         val rootDir = try { DocumentFile.fromTreeUri(context, rootUri) } catch (e: Exception) { null }
 
         if (rootDir == null || !rootDir.exists() || !rootDir.canWrite()) {

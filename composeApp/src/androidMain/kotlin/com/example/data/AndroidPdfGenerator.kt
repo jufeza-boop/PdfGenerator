@@ -7,6 +7,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import androidx.core.graphics.scale
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.io.File
@@ -281,7 +282,7 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                         if (originalBitmap != null) {
                             val scaleRatio = colWidth / originalBitmap.width.toFloat()
                             val targetHeight = (originalBitmap.height * scaleRatio).toInt()
-                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, colWidth.toInt(), targetHeight, true)
+                            val scaledBitmap = originalBitmap.scale(colWidth.toInt(), targetHeight, true)
                             canvas.drawBitmap(scaledBitmap, x, y, null)
                             canvas.drawRect(x, y, x + colWidth, y + targetHeight, borderPaint)
                             y += targetHeight + 16f
@@ -300,7 +301,7 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                             val targetWidth = minOf(colWidth, 180f)
                             val scaleRatio = targetWidth / originalBitmap.width.toFloat()
                             val targetHeight = (originalBitmap.height * scaleRatio).toInt()
-                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, targetWidth.toInt(), targetHeight, true)
+                            val scaledBitmap = originalBitmap.scale(targetWidth.toInt(), targetHeight, true)
                             val bgPaint = Paint().apply { color = Color.rgb(249, 250, 251); style = Paint.Style.FILL }
                             canvas.drawRect(x, y, x + targetWidth, y + targetHeight, bgPaint)
                             canvas.drawRect(x, y, x + targetWidth, y + targetHeight, borderPaint)

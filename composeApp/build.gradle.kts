@@ -49,7 +49,7 @@ kotlin {
                 implementation(libs.androidx.core.ktx)
                 implementation(libs.androidx.lifecycle.runtime.ktx)
                 implementation(libs.kotlinx.coroutines.android)
-                implementation("androidx.documentfile:documentfile:1.0.1")
+                implementation(libs.androidx.documentfile)
             }
         }
         
@@ -57,7 +57,7 @@ kotlin {
             dependencies {
                 implementation(compose.desktop.currentOs)
                 implementation(libs.kotlinx.coroutines.core)
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2")
+                implementation(libs.kotlinx.coroutines.swing)
                 implementation(libs.openpdf)
                 implementation(libs.pdfbox)
             }

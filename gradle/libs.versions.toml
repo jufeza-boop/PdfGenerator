@@ -41,6 +41,8 @@ firebaseBom = "34.12.0"
 secretsGradlePlugin = "2.0.1"
 openpdf = "1.3.38"
 pdfbox = "3.0.3"
+documentfile = "1.0.1"
+kotlinxCoroutinesSwing = "1.10.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -93,6 +95,8 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.r
 firebase-ai = { group = "com.google.firebase", name = "firebase-ai" }
 openpdf = { group = "com.github.librepdf", name = "openpdf", version.ref = "openpdf" }
 pdfbox = { group = "org.apache.pdfbox", name = "pdfbox", version.ref = "pdfbox" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinxCoroutinesSwing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
