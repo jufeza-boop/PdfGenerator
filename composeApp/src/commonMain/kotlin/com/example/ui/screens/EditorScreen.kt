@@ -577,11 +577,13 @@ fun ProjectEditorScreen(
                     .fillMaxWidth()
             ) {
                 if (activeTab == 0) {
-                    LazyColumn(
+                    val commonListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    PlatformLazyColumnWithScrollbar(
+                        state = commonListState,
                         modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                 item(key = "header_settings") {
                     var expanded by remember { mutableStateOf(false) }
                     
@@ -1089,13 +1091,15 @@ fun ProjectEditorScreen(
         }
 
                 if (activeTab == 1) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    val visitsScrollState = rememberScrollState()
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(visitsScrollState)
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
                         Button(
                             onClick = {
                                 visitTitleInput = ""
@@ -1341,7 +1345,15 @@ fun ProjectEditorScreen(
                             }
                         }
                     }
+                    PlatformColumnScrollbar(
+                        state = visitsScrollState,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .padding(end = 2.dp)
+                    )
                 }
+            }
             } // Closes Box
 
             // Dialogs for managing visits
@@ -2182,6 +2194,32 @@ fun BlockItemView(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun PlatformLazyColumnWithScrollbar(
+    state: androidx.compose.foundation.lazy.LazyListState,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
+) {
+    Box(modifier = modifier) {
+        LazyColumn(
+            state = state,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+            verticalArrangement = verticalArrangement,
+            content = content
+        )
+        PlatformLazyColumnScrollbar(
+            state = state,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .padding(end = 2.dp)
+        )
     }
 }
 

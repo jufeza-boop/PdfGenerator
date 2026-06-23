@@ -197,20 +197,31 @@ fun DashboardScreen(
                         )
                     }
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 160.dp),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.weight(1f).fillMaxWidth()
-                    ) {
-                        items(projects, key = { it.project.id }) { item ->
-                            ProjectGridCard(
-                                item = item,
-                                onClick = { onProjectSelected(item.project.id) },
-                                onDelete = { onDeleteProject(item.project) }
-                            )
+                    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        LazyVerticalGrid(
+                            state = gridState,
+                            columns = GridCells.Adaptive(minSize = 160.dp),
+                            contentPadding = PaddingValues(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(projects, key = { it.project.id }) { item ->
+                                ProjectGridCard(
+                                    item = item,
+                                    onClick = { onProjectSelected(item.project.id) },
+                                    onDelete = { onDeleteProject(item.project) }
+                                )
+                            }
                         }
+                        PlatformLazyGridScrollbar(
+                            state = gridState,
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight()
+                                .padding(end = 2.dp)
+                        )
                     }
                 }
             }

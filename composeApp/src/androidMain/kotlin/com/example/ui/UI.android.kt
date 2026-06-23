@@ -316,3 +316,22 @@ actual fun PdfPreviewScreen(pdfFile: File, onBack: () -> Unit) {
         }
     }
 }
+
+@Composable
+actual fun PlatformLazyColumnScrollbar(
+    state: androidx.compose.foundation.lazy.LazyListState,
+    modifier: Modifier
+) {}
+
+@Composable
+actual fun PlatformLazyGridScrollbar(
+    state: androidx.compose.foundation.lazy.grid.LazyGridState,
+    modifier: Modifier
+) {}
+
+@Composable
+actual fun PlatformColumnScrollbar(
+    state: androidx.compose.foundation.ScrollState,
+    modifier: Modifier
+) {}
+

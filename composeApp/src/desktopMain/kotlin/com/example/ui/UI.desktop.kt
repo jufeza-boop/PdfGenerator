@@ -267,23 +267,34 @@ actual fun PdfPreviewScreen(pdfFile: File, onBack: () -> Unit) {
                     Text(text = renderError!!, color = MaterialTheme.colorScheme.error)
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(pages) { bitmap ->
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth().aspectRatio(1f / 1.414f),
-                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
-                        ) {
-                            Image(
-                                bitmap = bitmap,
-                                contentDescription = "Página del PDF",
-                                modifier = Modifier.fillMaxSize()
-                            )
+                val previewListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    LazyColumn(
+                        state = previewListState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(pages) { bitmap ->
+                            ElevatedCard(
+                                modifier = Modifier.fillMaxWidth().aspectRatio(1f / 1.414f),
+                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+                            ) {
+                                Image(
+                                    bitmap = bitmap,
+                                    contentDescription = "Página del PDF",
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
+                    androidx.compose.foundation.VerticalScrollbar(
+                        adapter = androidx.compose.foundation.rememberScrollbarAdapter(previewListState),
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .padding(end = 2.dp)
+                    )
                 }
             }
 
@@ -304,3 +315,37 @@ actual fun PdfPreviewScreen(pdfFile: File, onBack: () -> Unit) {
         }
     }
 }
+
+@Composable
+actual fun PlatformLazyColumnScrollbar(
+    state: androidx.compose.foundation.lazy.LazyListState,
+    modifier: Modifier
+) {
+    androidx.compose.foundation.VerticalScrollbar(
+        adapter = androidx.compose.foundation.rememberScrollbarAdapter(state),
+        modifier = modifier
+    )
+}
+
+@Composable
+actual fun PlatformLazyGridScrollbar(
+    state: androidx.compose.foundation.lazy.grid.LazyGridState,
+    modifier: Modifier
+) {
+    androidx.compose.foundation.VerticalScrollbar(
+        adapter = androidx.compose.foundation.rememberScrollbarAdapter(state),
+        modifier = modifier
+    )
+}
+
+@Composable
+actual fun PlatformColumnScrollbar(
+    state: androidx.compose.foundation.ScrollState,
+    modifier: Modifier
+) {
+    androidx.compose.foundation.VerticalScrollbar(
+        adapter = androidx.compose.foundation.rememberScrollbarAdapter(state),
+        modifier = modifier
+    )
+}
+
