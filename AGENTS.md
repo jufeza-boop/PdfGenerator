@@ -53,3 +53,8 @@ Half-width blocks (`isHalfWidth = true`) render side-by-side in pairs (e.g., two
 ## Environment
 
 Requires a `.env` file at the project root with `GEMINI_API_KEY=...` for AI Studio features. Desktop files are stored in `~/.pdfgenerator/files/`.
+
+## Language / Idioma
+
+- **Language of work:** Always interact, document, and communicate in Spanish (español). All responses, comments, code documentation, and chat interactions must be in Spanish.
+- **Idioma de trabajo:** Comunicarse, documentar y responder siempre en español. Todas las respuestas, explicaciones, comentarios de código y chats con el usuario deben ser en español.

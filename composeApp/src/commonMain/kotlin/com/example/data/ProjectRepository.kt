@@ -4,7 +4,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.withContext
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -22,6 +26,10 @@ class ProjectRepository(
     val filesDir: File,
     private val cacheDir: File
 ) {
+    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private val tableAdapter = moshi.adapter(TableBlockContent::class.java)
+    private val checklistAdapter = moshi.adapter(ChecklistBlockContent::class.java)
+    private val checklistTableAdapter = moshi.adapter(ChecklistTableBlockContent::class.java)
 
     val allProjects: Flow<List<ProjectWithBlocks>> = projectDao.getAllProjectsFlow()
 
@@ -60,23 +68,170 @@ class ProjectRepository(
         when (templateType) {
             "ACTA_VISITA" -> {
                 var seq = 0
+                val tableContent = TableBlockContent(
+                    title = "DATOS GENERALES DEL PROYECTO",
+                    headers = listOf("Concepto", "Información"),
+                    rows = listOf(
+                        listOf("Nombre de la obra", "[Nombre]"),
+                        listOf("Promotor", "[Empresa]"),
+                        listOf("Localización", "[Dirección]")
+                    )
+                )
                 val blocks = listOf(
                     ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "ACTA DE VISITA - DIRECCIÓN FACULTATIVA", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Dato General | Información del Proyecto\nNombre de la obra | [Nombre de la Obra]\nDirección de la obra | [Dirección / Localización]\nPromotor | [Nombre del Promotor]\nContratista principal | [Nombre de la Constructora / Contratista]\nDirección de la obra (DO) | -\nDirección de la Ejecución (DEO) | -\nCoordinación de Seguridad y Salud (CSS) | -", sequence = seq++)
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = tableAdapter.toJson(tableContent), sequence = seq++)
                 )
                 blocks.forEach { projectDao.insertBlock(it) }
             }
             "CONTROL_CALIDAD" -> {
                 var seq = 0
+                val tableContent = TableBlockContent(
+                    title = "CONTROL DE CALIDAD Y RECEPCIÓN DE HORMIGÓN",
+                    headers = listOf("Ensayo y Control", "Especificación del Proyecto"),
+                    rows = listOf(
+                        listOf("Tipo de Hormigón", "HA-25 / B / 20 / IIa (Fck = 25 N/mm²)"),
+                        listOf("Tipo de Cemento", "CEM II/A-L 42.5R (Uso general)"),
+                        listOf("Consistencia / Cono", "Consistencia Blanda (Asentamiento Cono: 6-9 cm)"),
+                        listOf("Tamaño Máximo Árido", "20 mm de piedra de machaqueo"),
+                        listOf("Aditivos incorporados", "Plastificantes homologados")
+                    )
+                )
                 val blocks = listOf(
                     ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "CONTROL DE CALIDAD Y RECEPCIÓN DE HORMIGÓN", sequence = seq++),
-                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = "Ensayo y Control | Especificación del Proyecto\nTipo de Hormigón | HA-25 / B / 20 / IIa (Fck = 25 N/mm²)\nTipo de Cemento | CEM II/A-L 42.5R (Uso general)\nConsistencia / Cono | Consistencia Blanda (Asentamiento Cono: 6-9 cm)\nTamaño Máximo Árido | 20 mm de piedra de machaqueo\nAditivos incorporados | Plastificantes homologados", sequence = seq++)
+                    ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = tableAdapter.toJson(tableContent), sequence = seq++)
                 )
                 blocks.forEach { projectDao.insertBlock(it) }
             }
         }
         projectId
     }
+
+    suspend fun createVisit(
+        projectId: Long,
+        title: String,
+        notes: String,
+        templateType: String = "NONE",
+        date: Long = System.currentTimeMillis()
+    ): Long = withContext(Dispatchers.IO) {
+        val visit = VisitEntity(projectId = projectId, title = title, notes = notes, date = date)
+        val visitId = projectDao.insertVisit(visit)
+        
+        val projectWithBlocks = getProjectById(projectId).filterNotNull().first()
+        val currentMaxSeq = projectWithBlocks.blocks.maxOfOrNull { it.sequence } ?: -1
+        var nextSeq = currentMaxSeq + 1
+        
+        val blocksToInsert = mutableListOf<ContentBlockEntity>()
+        if (templateType == "DIRECCION_OBRA") {
+            val tableContent = TableBlockContent(
+                title = "ASISTENTES A LA VISITA",
+                headers = listOf("Entidad / Parte", "Representantes"),
+                rows = listOf(
+                    listOf("Promotor", ""),
+                    listOf("Constructor", ""),
+                    listOf("Dirección de Obra", "")
+                )
+            )
+            blocksToInsert.addAll(listOf(
+                ContentBlockEntity(projectId = projectId, type = BlockType.TABLE, content = tableAdapter.toJson(tableContent), sequence = nextSeq++, visitId = visitId),
+                ContentBlockEntity(projectId = projectId, type = BlockType.TITLE, content = "DATOS DE LA VISITA Y ESTADO DE LOS TRABAJOS", sequence = nextSeq++, visitId = visitId),
+                ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "Estado de ejecución...", sequence = nextSeq++, visitId = visitId),
+                ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|D.O.|Dirección de Obra", sequence = nextSeq++, isHalfWidth = true, visitId = visitId),
+                ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|C|Constructor / Jefe de Obra", sequence = nextSeq++, isHalfWidth = true, visitId = visitId)
+            ))
+        } else if (templateType == "COORDINACION_CSS") {
+            val checklistTable = ChecklistTableBlockContent(
+                title = "CHECKLIST DE SEGURIDAD Y SALUD",
+                headers = listOf("SI", "NO", "NP"),
+                rows = listOf(
+                    ChecklistTableRow("Protecciones colectivas...", -1),
+                    ChecklistTableRow("Uso de EPIs...", -1),
+                    ChecklistTableRow("Maquinaria con marcado CE...", -1)
+                )
+            )
+            blocksToInsert.addAll(listOf(
+                ContentBlockEntity(projectId = projectId, type = BlockType.CHECKLIST_TABLE, content = checklistTableAdapter.toJson(checklistTable), sequence = nextSeq++, visitId = visitId),
+                ContentBlockEntity(projectId = projectId, type = BlockType.TEXT, content = "Órdenes de seguridad...", sequence = nextSeq++, visitId = visitId),
+                ContentBlockEntity(projectId = projectId, type = BlockType.SIGNATURE, content = "|C.S.S.|Coord. Seguridad y Salud", sequence = nextSeq++, isHalfWidth = true, visitId = visitId)
+            ))
+        }
+        
+        blocksToInsert.forEach { projectDao.insertBlock(it) }
+        visitId
+    }
+
+    suspend fun addTableBlock(projectId: Long, visitId: Long?, sequence: Int) = withContext(Dispatchers.IO) {
+        val content = TableBlockContent(
+            title = "Nueva Tabla",
+            headers = listOf("Columna 1", "Columna 2"),
+            rows = listOf(listOf("", ""))
+        )
+        val block = ContentBlockEntity(
+            projectId = projectId,
+            type = BlockType.TABLE,
+            content = tableAdapter.toJson(content),
+            sequence = sequence,
+            visitId = visitId
+        )
+        projectDao.insertBlock(block)
+    }
+
+    suspend fun addChecklistBlock(projectId: Long, visitId: Long?, sequence: Int) = withContext(Dispatchers.IO) {
+        val content = ChecklistBlockContent(
+            title = "Nuevo Checklist",
+            items = listOf(ChecklistItem("", false))
+        )
+        val block = ContentBlockEntity(
+            projectId = projectId,
+            type = BlockType.CHECKLIST,
+            content = checklistAdapter.toJson(content),
+            sequence = sequence,
+            visitId = visitId
+        )
+        projectDao.insertBlock(block)
+    }
+
+    suspend fun addChecklistTableBlock(projectId: Long, visitId: Long?, sequence: Int) = withContext(Dispatchers.IO) {
+        val content = ChecklistTableBlockContent(
+            title = "Nuevo Checklist Tabla",
+            headers = listOf("SI", "NO", "NP"),
+            rows = listOf(ChecklistTableRow("", -1))
+        )
+        val block = ContentBlockEntity(
+            projectId = projectId,
+            type = BlockType.CHECKLIST_TABLE,
+            content = checklistTableAdapter.toJson(content),
+            sequence = sequence,
+            visitId = visitId
+        )
+        projectDao.insertBlock(block)
+    }
+
+    fun getDefaultTableBlockJson(): String {
+        val content = TableBlockContent(
+            title = "Nueva Tabla",
+            headers = listOf("Columna 1", "Columna 2"),
+            rows = listOf(listOf("", ""))
+        )
+        return tableAdapter.toJson(content)
+    }
+
+    fun getDefaultChecklistBlockJson(): String {
+        val content = ChecklistBlockContent(
+            title = "Nuevo Checklist",
+            items = listOf(ChecklistItem("", false))
+        )
+        return checklistAdapter.toJson(content)
+    }
+
+    fun getDefaultChecklistTableBlockJson(): String {
+        val content = ChecklistTableBlockContent(
+            title = "Nueva Tabla de Chequeo",
+            headers = listOf("SI", "NO", "NP"),
+            rows = listOf(ChecklistTableRow("", -1))
+        )
+        return checklistTableAdapter.toJson(content)
+    }
+
 
     suspend fun updateProject(project: ProjectEntity) = withContext(Dispatchers.IO) {
         projectDao.updateProject(project)
