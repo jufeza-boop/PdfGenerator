@@ -140,7 +140,7 @@ fun ProjectApp(
     LaunchedEffect(Unit) {
         viewModel.uploadSuccess.collect { success ->
             val message = if (success) {
-                "Ã‚Â¡Reporte PDF subido con ÃƒÂ©xito a la nube!"
+                "¡Reporte PDF subido con éxito a la nube!"
             } else {
                 "Error al subir el reporte a la nube."
             }
@@ -331,8 +331,8 @@ fun CreateProjectDialog(
                 
                 // Option 1: Empty
                 TemplateOptionCard(
-                    title = "Proyecto VacÃƒÂ­o",
-                    description = "Comenzar el reporte sin bloques predefinidos para diseÃƒÂ±arlo desde cero.",
+                    title = "Proyecto Vacío",
+                    description = "Comenzar el reporte sin bloques predefinidos para diseñarlo desde cero.",
                     icon = Icons.Default.Add,
                     isSelected = selectedTemplate == "NONE",
                     onClick = { selectedTemplate = "NONE" }

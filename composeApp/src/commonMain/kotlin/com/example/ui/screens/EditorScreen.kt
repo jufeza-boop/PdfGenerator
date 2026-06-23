@@ -121,7 +121,7 @@ fun ProjectEditorScreen(
             },
             text = {
                 Text(
-                    text = "Tienes cambios sin guardar en el editor de bloques de este proyecto. Â¿QuÃ© deseas hacer?",
+                    text = "Tienes cambios sin guardar en el editor de bloques de este proyecto. ¿Qué deseas hacer?",
                     fontSize = 14.sp
                 )
             },
@@ -272,7 +272,7 @@ fun ProjectEditorScreen(
                                     onDismissRequest = { showPdfDropdown = false }
                                 ) {
                                     DropdownMenuItem(
-                                        text = { Text("Reporte Completo (Parte ComÃºn + Visitas)", fontSize = 13.sp) },
+                                        text = { Text("Reporte Completo (Parte Común + Visitas)", fontSize = 13.sp) },
                                         leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                         onClick = {
                                             showPdfDropdown = false
@@ -280,7 +280,7 @@ fun ProjectEditorScreen(
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("SÃ³lo Parte ComÃºn / ConfiguraciÃ³n", fontSize = 13.sp) },
+                                        text = { Text("Sólo Parte Común / Configuración", fontSize = 13.sp) },
                                         leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                         onClick = {
                                             showPdfDropdown = false
@@ -322,7 +322,7 @@ fun ProjectEditorScreen(
                         OutlinedTextField(
                             value = textInputToInsert,
                             onValueChange = { textInputToInsert = it },
-                            placeholder = { Text("Escribe una nota rÃ¡pida...") },
+                            placeholder = { Text("Escribe una nota rápida...") },
                             modifier = Modifier
                                 .weight(1f)
                                 .heightIn(max = 120.dp),
@@ -350,7 +350,7 @@ fun ProjectEditorScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "AÃ±adir nota",
+                                contentDescription = "Añadir nota",
                                 tint = if (textInputToInsert.isNotBlank()) Color.White else BrandGreySupport
                             )
                         }
@@ -376,7 +376,7 @@ fun ProjectEditorScreen(
                             item {
                                 ToolbarButton(
                                     icon = Icons.Default.AddAPhoto,
-                                    label = "ImÃ¡genes",
+                                    label = "Imágenes",
                                     onClick = { 
                                         targetVisitIdForImage = null
                                         showImagePicker = true
@@ -393,15 +393,15 @@ fun ProjectEditorScreen(
                             item {
                                 ToolbarButton(
                                     icon = Icons.AutoMirrored.Filled.Subject,
-                                    label = "TÃ­tulo",
-                                    onClick = { onAddTitleBlock("Nuevo TÃ­tulo de SecciÃ³n", null) }
+                                    label = "Título",
+                                    onClick = { onAddTitleBlock("Nuevo Título de Sección", null) }
                                 )
                             }
                             item {
                                 ToolbarButton(
                                     icon = Icons.Default.Info,
                                     label = "Footer",
-                                    onClick = { onAddFooterBlock("Pie de pÃ¡gina y observaciones finales.", null) }
+                                    onClick = { onAddFooterBlock("Pie de página y observaciones finales.", null) }
                                 )
                             }
                             item {
@@ -481,7 +481,7 @@ fun ProjectEditorScreen(
                 Tab(
                     selected = activeTab == 0,
                     onClick = { activeTab = 0 },
-                    text = { Text("Parte ComÃºn / Config", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                    text = { Text("Parte Común / Config", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp)) }
                 )
                 Tab(
@@ -537,7 +537,7 @@ fun ProjectEditorScreen(
                         focusedBlockIdToEdit = block.id
                         if (block.type == BlockType.SIGNATURE) {
                             val parts = block.content.split("|")
-                            val label = parts.getOrNull(1) ?: "Firma de ValidaciÃ³n"
+                            val label = parts.getOrNull(1) ?: "Firma de Validación"
                             val subtitle = parts.getOrNull(2) ?: "Firma Autorizada"
                             runningDraftEditVal = "$label|$subtitle"
                         } else {
@@ -550,7 +550,7 @@ fun ProjectEditorScreen(
                             val parts = block.content.split("|")
                             val filePath = parts[0]
                             val editParts = runningDraftEditVal.split("|")
-                            val labelText = editParts.getOrNull(0)?.trim() ?: "Firma de ValidaciÃ³n"
+                            val labelText = editParts.getOrNull(0)?.trim() ?: "Firma de Validación"
                             val subtitleText = editParts.getOrNull(1)?.trim() ?: "Firma Autorizada"
                             val newContent = "$filePath|$labelText|$subtitleText"
                             onSaveTextBlockEdit(block, newContent)
@@ -619,13 +619,13 @@ fun ProjectEditorScreen(
                                     )
                                     Column {
                                         Text(
-                                            text = "ConfiguraciÃ³n de Cabecera",
+                                            text = "Configuración de Cabecera",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                         Text(
-                                            text = "Edita el logotipo/empresa de cabecera y el diseÃ±o general",
+                                            text = "Edita el logotipo/empresa de cabecera y el diseño general",
                                             fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -673,7 +673,7 @@ fun ProjectEditorScreen(
                                             fontSize = 12.sp
                                         )
                                         Text(
-                                            text = "Muestra una cabecera profesional con Logo/Empresa, TÃ­tulo y PaginaciÃ³n en todas las hojas",
+                                            text = "Muestra una cabecera profesional con Logo/Empresa, Título y Paginación en todas las hojas",
                                             fontSize = 10.sp,
                                             color = MaterialTheme.colorScheme.outline
                                         )
@@ -721,7 +721,7 @@ fun ProjectEditorScreen(
                                                 )
                                                 Spacer(modifier = Modifier.height(1.dp))
                                                 Text(
-                                                    text = project.project.headerCompanySub.ifBlank { "ARQUITECTO TÃ‰CNICO..." },
+                                                    text = project.project.headerCompanySub.ifBlank { "ARQUITECTO TÉCNICO..." },
                                                     fontSize = 5.5.sp,
                                                     lineHeight = 7.sp,
                                                     color = Color(0xFF6B7280),
@@ -761,7 +761,7 @@ fun ProjectEditorScreen(
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    text = "PÃ¡g. 1 de 2",
+                                                    text = "Pág. 1 de 2",
                                                     fontSize = 8.5.sp,
                                                     color = Color(0xFF4B5563),
                                                     fontWeight = FontWeight.Medium
@@ -817,8 +817,8 @@ fun ProjectEditorScreen(
                                                 project.project.showHeaderTitle
                                             )
                                         },
-                                        placeholder = { Text("Ej. Especialidades, tÃ­tulo, direcciÃ³n...") },
-                                        label = { Text("Detalles Corporativos (SubtÃ­tulo Izq.)", fontSize = 11.sp) },
+                                        placeholder = { Text("Ej. Especialidades, título, dirección...") },
+                                        label = { Text("Detalles Corporativos (Subtítulo Izq.)", fontSize = 11.sp) },
                                         maxLines = 3,
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(8.dp)
@@ -845,7 +845,7 @@ fun ProjectEditorScreen(
                                             )
                                         },
                                         placeholder = { Text("Ej. INFORME DE VISITA A OBRA") },
-                                        label = { Text("TÃ­tulo en Centro de Cabecera", fontSize = 11.sp) },
+                                        label = { Text("Título en Centro de Cabecera", fontSize = 11.sp) },
                                         singleLine = true,
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(8.dp)
@@ -879,7 +879,7 @@ fun ProjectEditorScreen(
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Mostrar tÃ­tulo del proyecto",
+                                            text = "Mostrar título del proyecto",
                                             fontWeight = FontWeight.Medium,
                                             fontSize = 12.sp
                                         )
@@ -910,7 +910,7 @@ fun ProjectEditorScreen(
                                         )
                                     },
                                     placeholder = { Text("Nombre del Proyecto") },
-                                    label = { Text("TÃ­tulo Principal del Proyecto (Cuerpo)", fontSize = 11.sp) },
+                                    label = { Text("Título Principal del Proyecto (Cuerpo)", fontSize = 11.sp) },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
                                     shape = RoundedCornerShape(8.dp)
@@ -948,7 +948,7 @@ fun ProjectEditorScreen(
                                             fontSize = 12.sp
                                         )
                                         Text(
-                                            text = "CategorÃ­a o tipo de reporte del cuerpo (Modificable / Ocultable)",
+                                            text = "Categoría o tipo de reporte del cuerpo (Modificable / Ocultable)",
                                             fontSize = 10.sp,
                                             color = MaterialTheme.colorScheme.outline
                                         )
@@ -1011,7 +1011,7 @@ fun ProjectEditorScreen(
                                             fontSize = 12.sp
                                         )
                                         Text(
-                                            text = "RegistrarÃ¡ la fecha de creaciÃ³n del reporte",
+                                            text = "Registrará la fecha de creación del reporte",
                                             fontSize = 10.sp,
                                             color = MaterialTheme.colorScheme.outline
                                         )
@@ -1039,7 +1039,7 @@ fun ProjectEditorScreen(
                                                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Proyecto vacÃ­o",
+                                text = "Proyecto vacío",
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -1110,7 +1110,7 @@ fun ProjectEditorScreen(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("AÃ±adir Nueva Visita")
+                            Text("Añadir Nueva Visita")
                         }
 
                         if (project.visits.isEmpty()) {
@@ -1135,13 +1135,13 @@ fun ProjectEditorScreen(
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Text(
-                                        "AÃºn no hay visitas registradas",
+                                        "Aún no hay visitas registradas",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        "Cada visita guardarÃ¡ sus propios bloques, fotos, firmas e informes.",
+                                        "Cada visita guardará sus propios bloques, fotos, firmas e informes.",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.outline,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1261,7 +1261,7 @@ fun ProjectEditorScreen(
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    "Sin contenido. AÃ±ade bloques usando las opciones de abajo.",
+                                                    "Sin contenido. Añade bloques usando las opciones de abajo.",
                                                     fontSize = 11.sp,
                                                     color = MaterialTheme.colorScheme.outline,
                                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1284,7 +1284,7 @@ fun ProjectEditorScreen(
 
                                         // Quick insert controls for THIS visit
                                         Text(
-                                            "AÃ‘ADIR BLOQUE A ESTA VISITA:",
+                                            "AÑADIR BLOQUE A ESTA VISITA:",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.outline
@@ -1316,8 +1316,8 @@ fun ProjectEditorScreen(
                                                 leadingIcon = { Icon(Icons.Default.Gesture, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
-                                                onClick = { onAddTitleBlock("SubtÃ­tulo de Visita", visit.id) },
-                                                label = { Text("TÃ­tulo", fontSize = 11.sp) },
+                                                onClick = { onAddTitleBlock("Subtítulo de Visita", visit.id) },
+                                                label = { Text("Título", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.Subject, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
@@ -1354,8 +1354,8 @@ fun ProjectEditorScreen(
                             OutlinedTextField(
                                 value = visitTitleInput,
                                 onValueChange = { visitTitleInput = it },
-                                label = { Text("TÃ­tulo de Visita") },
-                                placeholder = { Text("Ej. Visita de CimentaciÃ³n") },
+                                label = { Text("Título de Visita") },
+                                placeholder = { Text("Ej. Visita de Cimentación") },
                                 modifier = Modifier.fillMaxWidth()
                             )
                             OutlinedTextField(
@@ -1378,7 +1378,7 @@ fun ProjectEditorScreen(
                             
                             // Option 1: Empty
                             TemplateOptionCard(
-                                title = "Visita VacÃ­a",
+                                title = "Visita Vacía",
                                 description = "Agregar visita sin secciones predefinidas.",
                                 icon = Icons.Default.Add,
                                 isSelected = selectedVisitTemplate == "NONE",
@@ -1387,16 +1387,16 @@ fun ProjectEditorScreen(
                             
                             // Option 2: Direcciones de Obra
                             TemplateOptionCard(
-                                title = "DirecciÃ³n de Obra",
-                                description = "Asistentes de obra, estado actual de los trabajos, reportaje fotogrÃ¡fico y firmas.",
+                                title = "Dirección de Obra",
+                                description = "Asistentes de obra, estado actual de los trabajos, reportaje fotográfico y firmas.",
                                 icon = Icons.AutoMirrored.Filled.Assignment,
                                 isSelected = selectedVisitTemplate == "DIRECCION_OBRA",
                                 onClick = { selectedVisitTemplate = "DIRECCION_OBRA" }
                             )
                             
-                            // Option 3: CoordinaciÃ³n de Seguridad y Salud
+                            // Option 3: Coordinación de Seguridad y Salud
                             TemplateOptionCard(
-                                title = "CoordinaciÃ³n de Seguridad y Salud",
+                                title = "Coordinación de Seguridad y Salud",
                                 description = "Tabla de control de acceso, checklist completo de seguridad colectiva/EPIs y medidas correctivas.",
                                 icon = Icons.Default.Security,
                                 isSelected = selectedVisitTemplate == "COORDINACION_CSS",
@@ -1434,7 +1434,7 @@ fun ProjectEditorScreen(
                             OutlinedTextField(
                                 value = visitTitleInput,
                                 onValueChange = { visitTitleInput = it },
-                                label = { Text("TÃ­tulo de Visita") },
+                                label = { Text("Título de Visita") },
                                 modifier = Modifier.fillMaxWidth()
                             )
                             OutlinedTextField(
@@ -1472,8 +1472,8 @@ fun ProjectEditorScreen(
             if (visitToDeleteConfirm != null) {
                 AlertDialog(
                     onDismissRequest = { visitToDeleteConfirm = null },
-                    title = { Text("Â¿Eliminar esta visita?", fontWeight = FontWeight.Bold) },
-                    text = { Text("Se eliminarÃ¡ esta visita permanentemente junto con todo su contenido asociado.") },
+                    title = { Text("¿Eliminar esta visita?", fontWeight = FontWeight.Bold) },
+                    text = { Text("Se eliminará esta visita permanentemente junto con todo su contenido asociado.") },
                     confirmButton = {
                         Button(
                             onClick = {
@@ -1593,9 +1593,9 @@ fun BlockItemView(
             // Header: Block Type Badge & Action Controls (Adaptive for Half Width space constraints)
             val (icon, typeLabel, badgeColor) = when (block.type) {
                 BlockType.TEXT -> Triple(Icons.AutoMirrored.Filled.Notes, "OBSERVACIONES", MaterialTheme.colorScheme.primary)
-                BlockType.IMAGE -> Triple(Icons.Default.Photo, "REGISTRO FOTOGRÃFICO", MaterialTheme.colorScheme.secondary)
-                BlockType.SIGNATURE -> Triple(Icons.Default.Draw, "FIRMA DE VALIDACIÃ“N", MaterialTheme.colorScheme.tertiary)
-                BlockType.TITLE -> Triple(Icons.AutoMirrored.Filled.Subject, "TÃTULO DE SECCIÃ“N", MaterialTheme.colorScheme.primary)
+                BlockType.IMAGE -> Triple(Icons.Default.Photo, "REGISTRO FOTOGRÁFICO", MaterialTheme.colorScheme.secondary)
+                BlockType.SIGNATURE -> Triple(Icons.Default.Draw, "FIRMA DE VALIDACIÓN", MaterialTheme.colorScheme.tertiary)
+                BlockType.TITLE -> Triple(Icons.AutoMirrored.Filled.Subject, "TÍTULO DE SECCIÓN", MaterialTheme.colorScheme.primary)
                 BlockType.FOOTER -> Triple(Icons.Default.Info, "NOTAS AL PIE", MaterialTheme.colorScheme.outline)
                 BlockType.TABLE -> Triple(Icons.AutoMirrored.Filled.List, "TABLA DE DATOS", MaterialTheme.colorScheme.primary)
                 BlockType.CHECKLIST -> Triple(Icons.Default.CheckBox, "CHECKLIST / TAREAS", MaterialTheme.colorScheme.secondary)
@@ -1774,7 +1774,7 @@ fun BlockItemView(
                                 value = editValue,
                                 onValueChange = onEditValueChange,
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Texto del TÃ­tulo") },
+                                label = { Text("Texto del Título") },
                                 shape = RoundedCornerShape(8.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -1808,7 +1808,7 @@ fun BlockItemView(
                                 value = editValue,
                                 onValueChange = onEditValueChange,
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Texto del Pie de PÃ¡gina") },
+                                label = { Text("Texto del Pie de Página") },
                                 shape = RoundedCornerShape(8.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -1939,7 +1939,7 @@ fun BlockItemView(
                             }
                             // Header
                             Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer.copy(0.2f)).padding(8.dp)) {
-                                Text("ComprobaciÃ³n", modifier = Modifier.weight(1f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Comprobación", modifier = Modifier.weight(1f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 content.headers.forEach { h ->
                                     Text(h, modifier = Modifier.width(35.dp), textAlign = TextAlign.Center, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
@@ -2007,7 +2007,7 @@ fun BlockItemView(
                                     .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
                                 Text(
-                                    text = "Captura de InspecciÃ³n del Sitio",
+                                    text = "Captura de Inspección del Sitio",
                                     color = Color.White,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
@@ -2015,13 +2015,13 @@ fun BlockItemView(
                             }
                         }
                     } else {
-                        EmptyFilePlaceholder(message = "FotografÃ­a no encontrada localmente")
+                        EmptyFilePlaceholder(message = "Fotografía no encontrada localmente")
                     }
                 }
                 BlockType.SIGNATURE -> {
                     val parts = block.content.split("|")
                     val filePath = parts[0]
-                    val signatureLabel = parts.getOrNull(1)?.ifBlank { null } ?: "Firma de ValidaciÃ³n"
+                    val signatureLabel = parts.getOrNull(1)?.ifBlank { null } ?: "Firma de Validación"
                     val signatureSubtitle = parts.getOrNull(2)?.ifBlank { null } ?: "Firma Autorizada"
                     val file = File(filePath)
                     val hasSignature = file.exists()
@@ -2066,7 +2066,7 @@ fun BlockItemView(
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Text(
-                                        text = "Haz clic aquÃ­ para firmar",
+                                        text = "Haz clic aquí para firmar",
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontSize = 13.sp
@@ -2079,7 +2079,7 @@ fun BlockItemView(
                         
                         if (isEditing) {
                             val editParts = editValue.split("|")
-                            var labelText by remember(editValue) { mutableStateOf(editParts.getOrNull(0) ?: "Firma de ValidaciÃ³n") }
+                            var labelText by remember(editValue) { mutableStateOf(editParts.getOrNull(0) ?: "Firma de Validación") }
                             var subtitleText by remember(editValue) { mutableStateOf(editParts.getOrNull(1) ?: "Firma Autorizada") }
                             
                             Column(
@@ -2092,7 +2092,7 @@ fun BlockItemView(
                                         labelText = it
                                         onEditValueChange("$labelText|$subtitleText")
                                     },
-                                    placeholder = { Text("Firma de ValidaciÃ³n") },
+                                    placeholder = { Text("Firma de Validación") },
                                     label = { Text("Etiqueta principal", fontSize = 11.sp) },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
@@ -2105,7 +2105,7 @@ fun BlockItemView(
                                         onEditValueChange("$labelText|$subtitleText")
                                     },
                                     placeholder = { Text("Firma Autorizada") },
-                                    label = { Text("SubtÃ­tulo aclaratorio", fontSize = 11.sp) },
+                                    label = { Text("Subtítulo aclaratorio", fontSize = 11.sp) },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp)
