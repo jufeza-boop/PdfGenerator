@@ -16,13 +16,14 @@ See [README.md](README.md) for project overview, tech stack, and build/run comma
 
 | Layer | Key Files |
 |---|---|
-| UI | `commonMain/ui/ProjectApp.kt`, `BlockEditorForms.kt` |
+| UI | `commonMain/ui/navigation/AppNavigation.kt`, `commonMain/ui/screens/` |
 | ViewModel | `commonMain/viewmodel/ProjectViewModel.kt` |
 | Repository | `commonMain/data/ProjectRepository.kt` |
 | Database | `commonMain/data/AppDatabase.kt` (Room v8, BundledSQLiteDriver) |
-| PDF (Desktop) | `desktopMain/data/DesktopPdfGenerator.kt` (OpenPDF) |
-| PDF (Android) | `androidMain/data/AndroidPdfGenerator.kt` (android.graphics.pdf) |
-| Sync | `FolderSyncManager` interface + platform implementations |
+| PDF Layout | `commonMain/data/PdfLayoutEngine.kt` (Platform-agnostic layout calculations) |
+| PDF Renderer | `desktopMain/data/DesktopPdfGenerator.kt` & `androidMain/data/AndroidPdfGenerator.kt` (Low-level rendering canvas adapters) |
+| Sync | `FolderSyncOrchestrator.kt`, `FolderAccessor.kt` (common) + platform managers |
+
 
 ## Block System
 
@@ -40,14 +41,22 @@ Half-width blocks (`isHalfWidth = true`) render side-by-side in pairs (e.g., two
 - **Async:** Use `viewModelScope.launch` for all ViewModel operations.
 - **Platform code:** Use `expect/actual`, not runtime `when (platform)` checks.
 - **Database changes:** Bump `AppDatabase` version and add a migration. Dev builds use destructive migration fallback.
-- **New block type:** Add to `ContentBlockEntity` enum, `BlockEditorForms.kt`, and both PDF generators.
+- **New block type:** Add to `ContentBlockEntity` enum, `BlockEditorForms.kt`, and `PdfLayoutEngine.kt`.
+- **Decoupled Business Logic:** All logic regarding layout, data flow, synchronization rules, and template creation must live in `commonMain`. Platform modules are pure adapters.
+- **Decoupled Serialization:** Do not import or use Moshi or other serialization mechanisms directly inside ViewModels. Keep serialization inside orchestrators (`FolderSyncOrchestrator.kt`) or repository classes.
+
+## UI & Layout Modularization Rules
+
+- **Max File Size:** Composable screen files in `ui/` should not exceed 600 lines. If they do, extract subcomponents into smaller helper files or local composables.
+- **AppNavigation as routing source:** Navigation between screens must be orchestrated in `AppNavigation.kt` using routes. Screens must reside under the `screens/` subfolder.
+- **Expect/Actual Screen definitions:** Declaring an `expect fun Screen(...)` must be done in its dedicated file under `commonMain/ui/screens/` and NOT inside `ProjectApp.kt` to avoid duplicate expect overrides.
 
 ## Pitfalls
 
 - **Image/signature paths** are stored as absolute local file paths, not embedded. Always check file existence before PDF export.
-- **Both PDF engines must stay visually in sync.** A change to layout logic in `DesktopPdfGenerator` usually requires a matching change in `AndroidPdfGenerator`.
+- **PDF visual consistency:** Do not implement styling or layouts in `AndroidPdfGenerator` or `DesktopPdfGenerator`. All layout logic is central in `PdfLayoutEngine.kt` to ensure pixel-perfect parity.
+- **Experimental APIs:** Using experimental Jetpack Compose APIs (e.g., `ExperimentalMaterial3Api`) requires tagging screens with `@OptIn(ExperimentalMaterial3Api::class)`. Ensure all internal functions invoke Composable APIs correctly in `@Composable` contexts.
 - **Sync on startup is silent.** `FolderSyncManager` triggers automatically if configured — don't add blocking calls during init.
-- **`ProjectApp.kt` is large (~152 KB).** Prefer editing targeted composables rather than restructuring the file.
 - **Gemini API key** is injected via `.env` (see `.env.example`). Never hardcode it.
 
 ## Environment
@@ -58,3 +67,4 @@ Requires a `.env` file at the project root with `GEMINI_API_KEY=...` for AI Stud
 
 - **Language of work:** Always interact, document, and communicate in Spanish (español). All responses, comments, code documentation, and chat interactions must be in Spanish.
 - **Idioma de trabajo:** Comunicarse, documentar y responder siempre en español. Todas las respuestas, explicaciones, comentarios de código y chats con el usuario deben ser en español.
+
