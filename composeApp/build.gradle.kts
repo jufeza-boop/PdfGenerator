@@ -30,8 +30,7 @@ kotlin {
                 implementation(libs.androidx.lifecycle.viewmodel.compose)
                 implementation(libs.androidx.navigation.compose)
                 
-                implementation(libs.androidx.room.runtime)
-                implementation(libs.androidx.sqlite.bundled)
+
                 implementation(libs.kotlinx.coroutines.core)
                 
                 implementation(libs.moshi.kotlin)
@@ -135,8 +134,7 @@ dependencyCheck {
 }
 
 dependencies {
-    add("kspAndroid", libs.androidx.room.compiler)
-    add("kspDesktop", libs.androidx.room.compiler)
+
     add("kspAndroid", libs.moshi.kotlin.codegen)
     add("kspDesktop", libs.moshi.kotlin.codegen)
 }

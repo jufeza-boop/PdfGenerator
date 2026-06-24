@@ -14,11 +14,11 @@ import java.io.FileOutputStream
 class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
 
     override suspend fun generatePdf(
-        project: ProjectWithBlocks,
+        project: ProjectData,
         exportMode: PdfExportMode,
-        singleVisitId: Long?
+        singleVisitId: String?
     ): String {
-        val pdfFile = File(context.cacheDir, "project_report_${project.project.id}.pdf")
+        val pdfFile = File(context.cacheDir, "project_report_${project.uuid}.pdf")
         if (pdfFile.exists()) {
             pdfFile.delete()
         }

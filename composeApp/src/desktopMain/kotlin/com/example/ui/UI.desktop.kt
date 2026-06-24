@@ -52,7 +52,7 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
 }
 
 @Composable
-actual fun PlatformImagePicker(onImageSelected: (InputStream, Long?) -> Unit, visitId: Long?) {
+actual fun PlatformImagePicker(onImageSelected: (InputStream, String?) -> Unit, visitId: String?) {
     LaunchedEffect(Unit) {
         val chooser = JFileChooser()
         if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
@@ -190,13 +190,15 @@ actual fun SignatureDialog(onDismiss: () -> Unit, onConfirm: (ByteArray) -> Unit
 }
 
 @Composable
-actual fun PlatformFolderSelector(onFolderSelected: (String) -> Unit) {
+actual fun PlatformFolderSelector(onFolderSelected: (String?) -> Unit) {
     LaunchedEffect(Unit) {
         val chooser = JFileChooser().apply {
             fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
         }
         if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
             onFolderSelected(chooser.selectedFile.absolutePath)
+        } else {
+            onFolderSelected(null)
         }
     }
 }

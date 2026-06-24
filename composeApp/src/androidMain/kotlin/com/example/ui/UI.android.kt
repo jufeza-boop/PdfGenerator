@@ -59,7 +59,7 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
 }
 
 @Composable
-actual fun PlatformImagePicker(onImageSelected: (InputStream, Long?) -> Unit, visitId: Long?) {
+actual fun PlatformImagePicker(onImageSelected: (InputStream, String?) -> Unit, visitId: String?) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(true) }
     var tempPhotoPath by rememberSaveable { mutableStateOf<String?>(null) }
@@ -194,7 +194,7 @@ fun PickerOption(icon: ImageVector, label: String, onClick: () -> Unit) {
 }
 
 @Composable
-actual fun PlatformFolderSelector(onFolderSelected: (String) -> Unit) {
+actual fun PlatformFolderSelector(onFolderSelected: (String?) -> Unit) {
     val folderSelectorLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
@@ -205,7 +205,10 @@ actual fun PlatformFolderSelector(onFolderSelected: (String) -> Unit) {
                 onFolderSelected(uri.toString())
             } catch (e: Exception) {
                 Toast.makeText(appContext, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                onFolderSelected(null)
             }
+        } else {
+            onFolderSelected(null)
         }
     }
     

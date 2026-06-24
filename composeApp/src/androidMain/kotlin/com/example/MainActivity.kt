@@ -23,18 +23,17 @@ class MainActivity : ComponentActivity() {
     appContext = applicationContext
     enableEdgeToEdge()
     
-    val database = getRoomDatabase(getDatabaseBuilder())
+    val workspaceManager = WorkspaceManager(applicationContext)
+    val store = JsonProjectStore(workspaceManager)
     val repository = ProjectRepository(
-        projectDao = database.projectDao(),
-        pdfGenerator = AndroidPdfGenerator(applicationContext),
-        filesDir = filesDir,
-        cacheDir = cacheDir
+        store = store,
+        workspaceManager = workspaceManager,
+        pdfGenerator = AndroidPdfGenerator(applicationContext)
     )
-    val syncManager = AndroidFolderSyncManager(applicationContext, repository)
     
     val viewModelFactory = object : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ProjectViewModel(repository, syncManager) as T
+            return ProjectViewModel(repository, workspaceManager, store) as T
         }
     }
 

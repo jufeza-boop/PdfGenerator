@@ -64,38 +64,36 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectEditorScreen(
-    project: ProjectWithBlocks,
-    blocks: List<ContentBlockEntity>,
+    project: ProjectData,
+    blocks: List<BlockData>,
     isDirty: Boolean,
     isGeneratingPdf: Boolean,
-    syncState: SyncState,
     onBack: () -> Unit,
     onSave: () -> Unit,
     onUndo: () -> Unit,
-    onAddTextBlock: (String, Long?) -> Unit,
-    onSaveTextBlockEdit: (ContentBlockEntity, String) -> Unit,
-    onDeleteBlock: (ContentBlockEntity) -> Unit,
-    onImageSelected: (InputStream, Long?) -> Unit,
-    onAddSignatureClick: (Long?) -> Unit,
-    onDrawSignatureClick: (ContentBlockEntity) -> Unit,
+    onAddTextBlock: (String, String?) -> Unit,
+    onSaveTextBlockEdit: (BlockData, String) -> Unit,
+    onDeleteBlock: (BlockData) -> Unit,
+    onImageSelected: (InputStream, String?) -> Unit,
+    onAddSignatureClick: (String?) -> Unit,
+    onDrawSignatureClick: (BlockData) -> Unit,
     onUpdateProjectInfo: (String, String, Boolean, Boolean, String, String, String, Boolean, Boolean) -> Unit,
     onExportPdf: () -> Unit,
-    onMoveBlockUp: (ContentBlockEntity) -> Unit,
-    onMoveBlockDown: (ContentBlockEntity) -> Unit,
-    onToggleBlockWidth: (ContentBlockEntity) -> Unit,
-    onAddTitleBlock: (String, Long?) -> Unit,
-    onAddFooterBlock: (String, Long?) -> Unit,
-    onAddTableBlock: (Long?) -> Unit,
-    onAddChecklistBlock: (Long?) -> Unit,
-    onAddChecklistTableBlock: (Long?) -> Unit,
+    onMoveBlockUp: (BlockData) -> Unit,
+    onMoveBlockDown: (BlockData) -> Unit,
+    onToggleBlockWidth: (BlockData) -> Unit,
+    onAddTitleBlock: (String, String?) -> Unit,
+    onAddFooterBlock: (String, String?) -> Unit,
+    onAddTableBlock: (String?) -> Unit,
+    onAddChecklistBlock: (String?) -> Unit,
+    onAddChecklistTableBlock: (String?) -> Unit,
     onAddVisit: (String, String, String) -> Unit,
-    onDeleteVisit: (VisitEntity) -> Unit,
-    onUpdateVisit: (VisitEntity) -> Unit,
-    onExportSingleVisit: (Long) -> Unit,
-    onRunSync: () -> Unit
+    onDeleteVisit: (VisitData) -> Unit,
+    onUpdateVisit: (VisitData) -> Unit,
+    onExportSingleVisit: (String) -> Unit
 ) {
     var textInputToInsert by remember { mutableStateOf("") }
-    var focusedBlockIdToEdit by remember { mutableStateOf<Long?>(null) }
+    var focusedBlockIdToEdit by remember { mutableStateOf<String?>(null) }
     var runningDraftEditVal by remember { mutableStateOf("") }
     var showExitConfirmation by remember { mutableStateOf(false) }
 
@@ -168,7 +166,7 @@ fun ProjectEditorScreen(
         )
     }
 
-    var targetVisitIdForImage by remember { mutableStateOf<Long?>(null) }
+    var targetVisitIdForImage by remember { mutableStateOf<String?>(null) }
     var showImagePicker by remember { mutableStateOf(false) }
 
     if (showImagePicker) {
@@ -188,7 +186,7 @@ fun ProjectEditorScreen(
                     title = {
                         Column {
                             Text(
-                                text = project.project.name,
+                                text = project.name,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
                                 maxLines = 1,
@@ -213,21 +211,7 @@ fun ProjectEditorScreen(
                         }
                     },
                     actions = {
-                        if (syncState is SyncState.Syncing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp).padding(4.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        } else {
-                            IconButton(onClick = onRunSync) {
-                                Icon(
-                                    imageVector = Icons.Default.Sync,
-                                    contentDescription = "Sincronizar ahora",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
+
 
                         // Undo (Deshacer) action
                         IconButton(
@@ -284,7 +268,7 @@ fun ProjectEditorScreen(
                                         leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                         onClick = {
                                             showPdfDropdown = false
-                                            onExportSingleVisit(0L) // export modeCOMMON_ONLY
+                                            onExportSingleVisit("") // export modeCOMMON_ONLY
                                         }
                                     )
                                 }
@@ -460,8 +444,8 @@ fun ProjectEditorScreen(
         
         // State variables for managing visits
         var showCreateVisitDialog by remember { mutableStateOf(false) }
-        var visitToEdit by remember { mutableStateOf<com.example.data.VisitEntity?>(null) }
-        var visitToDeleteConfirm by remember { mutableStateOf<com.example.data.VisitEntity?>(null) }
+        var visitToEdit by remember { mutableStateOf<com.example.data.VisitData?>(null) }
+        var visitToDeleteConfirm by remember { mutableStateOf<com.example.data.VisitData?>(null) }
         
         var visitTitleInput by remember { mutableStateOf("") }
         var visitNotesInput by remember { mutableStateOf("") }
@@ -494,7 +478,7 @@ fun ProjectEditorScreen(
 
             val filteredBlocksByTab = remember(blocks, activeTab) {
                 if (activeTab == 0) {
-                    blocks.filter { it.visitId == null || it.visitId == 0L }
+                    blocks.filter { it.visitUuid == null || it.visitUuid == "" }
                 } else {
                     emptyList()
                 }
@@ -505,7 +489,7 @@ fun ProjectEditorScreen(
             }
 
             val groupedRows = remember(sortedBlocks) {
-                val result = mutableListOf<List<ContentBlockEntity>>()
+                val result = mutableListOf<List<BlockData>>()
                 var i = 0
                 while (i < sortedBlocks.size) {
                     val block = sortedBlocks[i]
@@ -527,15 +511,15 @@ fun ProjectEditorScreen(
             }
 
             @Composable
-            fun RenderSingleBlock(block: ContentBlockEntity) {
+            fun RenderSingleBlock(block: BlockData) {
                 BlockItemView(
                     block = block,
-                    isEditing = focusedBlockIdToEdit == block.id,
+                    isEditing = focusedBlockIdToEdit == block.uuid,
                     editValue = runningDraftEditVal,
                     onEditValueChange = { runningDraftEditVal = it },
                     onStartEdit = {
-                        focusedBlockIdToEdit = block.id
-                        if (block.type == BlockType.SIGNATURE) {
+                        focusedBlockIdToEdit = block.uuid
+                        if (block.type == BlockType.SIGNATURE.name) {
                             val parts = block.content.split("|")
                             val label = parts.getOrNull(1) ?: "Firma de Validación"
                             val subtitle = parts.getOrNull(2) ?: "Firma Autorizada"
@@ -546,7 +530,7 @@ fun ProjectEditorScreen(
                     },
                     onCancelEdit = { focusedBlockIdToEdit = null },
                     onSaveEdit = {
-                        if (block.type == BlockType.SIGNATURE) {
+                        if (block.type == BlockType.SIGNATURE.name) {
                             val parts = block.content.split("|")
                             val filePath = parts[0]
                             val editParts = runningDraftEditVal.split("|")
@@ -652,18 +636,18 @@ fun ProjectEditorScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Checkbox(
-                                        checked = project.project.showHeaderBox,
+                                        checked = project.showHeaderBox,
                                         onCheckedChange = { isChecked ->
                                             onUpdateProjectInfo(
-                                                project.project.name,
-                                                project.project.reportLabel,
-                                                project.project.showHeaderLabel,
-                                                project.project.showHeaderDate,
-                                                project.project.headerCompany,
-                                                project.project.headerCompanySub,
-                                                project.project.headerTitle,
+                                                project.name,
+                                                project.reportLabel,
+                                                project.showHeaderLabel,
+                                                project.showHeaderDate,
+                                                project.headerCompany,
+                                                project.headerCompanySub,
+                                                project.headerTitle,
                                                 isChecked,
-                                                project.project.showHeaderTitle
+                                                project.showHeaderTitle
                                             )
                                         }
                                     )
@@ -682,7 +666,7 @@ fun ProjectEditorScreen(
                                     }
                                 }
 
-                                if (project.project.showHeaderBox) {
+                                if (project.showHeaderBox) {
                                     Spacer(modifier = Modifier.height(12.dp))
                                     
                                     // Live Beautiful Render Preview of the Box Header Component!
@@ -715,7 +699,7 @@ fun ProjectEditorScreen(
                                                     .padding(6.dp)
                                             ) {
                                                 Text(
-                                                    text = project.project.headerCompany.ifBlank { "Nombre de la empresa" },
+                                                    text = project.headerCompany.ifBlank { "Nombre de la empresa" },
                                                     fontSize = 9.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color(0xFF9A6640), // copper brown
@@ -723,7 +707,7 @@ fun ProjectEditorScreen(
                                                 )
                                                 Spacer(modifier = Modifier.height(1.dp))
                                                 Text(
-                                                    text = project.project.headerCompanySub.ifBlank { "ARQUITECTO TÉCNICO..." },
+                                                    text = project.headerCompanySub.ifBlank { "ARQUITECTO TÉCNICO..." },
                                                     fontSize = 5.5.sp,
                                                     lineHeight = 7.sp,
                                                     color = Color(0xFF6B7280),
@@ -744,7 +728,7 @@ fun ProjectEditorScreen(
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    text = project.project.headerTitle.ifBlank { "INFORME DE VISITA A OBRA" }.uppercase(Locale.getDefault()),
+                                                    text = project.headerTitle.ifBlank { "INFORME DE VISITA A OBRA" }.uppercase(Locale.getDefault()),
                                                     fontSize = 9.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color(0xFF111827),
@@ -775,21 +759,21 @@ fun ProjectEditorScreen(
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     // Editable Field: Left Side (Company Name)
-                                    var headerCompValue by remember(project.project.headerCompany) { mutableStateOf(project.project.headerCompany) }
+                                    var headerCompValue by remember(project.headerCompany) { mutableStateOf(project.headerCompany) }
                                     OutlinedTextField(
                                         value = headerCompValue,
                                         onValueChange = {
                                             headerCompValue = it
                                             onUpdateProjectInfo(
-                                                project.project.name,
-                                                project.project.reportLabel,
-                                                project.project.showHeaderLabel,
-                                                project.project.showHeaderDate,
+                                                project.name,
+                                                project.reportLabel,
+                                                project.showHeaderLabel,
+                                                project.showHeaderDate,
                                                 it,
-                                                project.project.headerCompanySub,
-                                                project.project.headerTitle,
-                                                project.project.showHeaderBox,
-                                                project.project.showHeaderTitle
+                                                project.headerCompanySub,
+                                                project.headerTitle,
+                                                project.showHeaderBox,
+                                                project.showHeaderTitle
                                             )
                                         },
                                         placeholder = { Text("Nombre o Nombre de Empresa") },
@@ -802,21 +786,21 @@ fun ProjectEditorScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     // Editable Field: Left Side Subtitle details
-                                    var headerCompSubValue by remember(project.project.headerCompanySub) { mutableStateOf(project.project.headerCompanySub) }
+                                    var headerCompSubValue by remember(project.headerCompanySub) { mutableStateOf(project.headerCompanySub) }
                                     OutlinedTextField(
                                         value = headerCompSubValue,
                                         onValueChange = {
                                             headerCompSubValue = it
                                             onUpdateProjectInfo(
-                                                project.project.name,
-                                                project.project.reportLabel,
-                                                project.project.showHeaderLabel,
-                                                project.project.showHeaderDate,
-                                                project.project.headerCompany,
+                                                project.name,
+                                                project.reportLabel,
+                                                project.showHeaderLabel,
+                                                project.showHeaderDate,
+                                                project.headerCompany,
                                                 it,
-                                                project.project.headerTitle,
-                                                project.project.showHeaderBox,
-                                                project.project.showHeaderTitle
+                                                project.headerTitle,
+                                                project.showHeaderBox,
+                                                project.showHeaderTitle
                                             )
                                         },
                                         placeholder = { Text("Ej. Especialidades, título, dirección...") },
@@ -829,21 +813,21 @@ fun ProjectEditorScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     // Editable Field: Center column label
-                                    var headerTitleValue by remember(project.project.headerTitle) { mutableStateOf(project.project.headerTitle) }
+                                    var headerTitleValue by remember(project.headerTitle) { mutableStateOf(project.headerTitle) }
                                     OutlinedTextField(
                                         value = headerTitleValue,
                                         onValueChange = {
                                             headerTitleValue = it
                                             onUpdateProjectInfo(
-                                                project.project.name,
-                                                project.project.reportLabel,
-                                                project.project.showHeaderLabel,
-                                                project.project.showHeaderDate,
-                                                project.project.headerCompany,
-                                                project.project.headerCompanySub,
+                                                project.name,
+                                                project.reportLabel,
+                                                project.showHeaderLabel,
+                                                project.showHeaderDate,
+                                                project.headerCompany,
+                                                project.headerCompanySub,
                                                 it,
-                                                project.project.showHeaderBox,
-                                                project.project.showHeaderTitle
+                                                project.showHeaderBox,
+                                                project.showHeaderTitle
                                             )
                                         },
                                         placeholder = { Text("Ej. INFORME DE VISITA A OBRA") },
@@ -857,23 +841,23 @@ fun ProjectEditorScreen(
                                 }
 
                                 // Project Name Editable Field con Check de Visibilidad
-                                var projName by remember(project.project.name) { mutableStateOf(project.project.name) }
+                                var projName by remember(project.name) { mutableStateOf(project.name) }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Checkbox(
-                                        checked = project.project.showHeaderTitle,
+                                        checked = project.showHeaderTitle,
                                         onCheckedChange = { isChecked ->
                                             onUpdateProjectInfo(
-                                                project.project.name,
-                                                project.project.reportLabel,
-                                                project.project.showHeaderLabel,
-                                                project.project.showHeaderDate,
-                                                project.project.headerCompany,
-                                                project.project.headerCompanySub,
-                                                project.project.headerTitle,
-                                                project.project.showHeaderBox,
+                                                project.name,
+                                                project.reportLabel,
+                                                project.showHeaderLabel,
+                                                project.showHeaderDate,
+                                                project.headerCompany,
+                                                project.headerCompanySub,
+                                                project.headerTitle,
+                                                project.showHeaderBox,
                                                 isChecked
                                             )
                                         }
@@ -901,14 +885,14 @@ fun ProjectEditorScreen(
                                         projName = it
                                         onUpdateProjectInfo(
                                             it, 
-                                            project.project.reportLabel, 
-                                            project.project.showHeaderLabel, 
-                                            project.project.showHeaderDate,
-                                            project.project.headerCompany,
-                                            project.project.headerCompanySub,
-                                            project.project.headerTitle,
-                                            project.project.showHeaderBox,
-                                            project.project.showHeaderTitle
+                                            project.reportLabel, 
+                                            project.showHeaderLabel, 
+                                            project.showHeaderDate,
+                                            project.headerCompany,
+                                            project.headerCompanySub,
+                                            project.headerTitle,
+                                            project.showHeaderBox,
+                                            project.showHeaderTitle
                                         )
                                     },
                                     placeholder = { Text("Nombre del Proyecto") },
@@ -921,24 +905,24 @@ fun ProjectEditorScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 
                                 // Report Category Label (e.g. "REPORTE DE PROYECTO" / "ACTA DE VISITA")
-                                var repLabel by remember(project.project.reportLabel) { mutableStateOf(project.project.reportLabel) }
+                                var repLabel by remember(project.reportLabel) { mutableStateOf(project.reportLabel) }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Checkbox(
-                                        checked = project.project.showHeaderLabel,
+                                        checked = project.showHeaderLabel,
                                         onCheckedChange = { isChecked ->
                                             onUpdateProjectInfo(
-                                                project.project.name, 
-                                                project.project.reportLabel, 
+                                                project.name, 
+                                                project.reportLabel, 
                                                 isChecked, 
-                                                project.project.showHeaderDate,
-                                                project.project.headerCompany,
-                                                project.project.headerCompanySub,
-                                                project.project.headerTitle,
-                                                project.project.showHeaderBox,
-                                                project.project.showHeaderTitle
+                                                project.showHeaderDate,
+                                                project.headerCompany,
+                                                project.headerCompanySub,
+                                                project.headerTitle,
+                                                project.showHeaderBox,
+                                                project.showHeaderTitle
                                             )
                                         }
                                     )
@@ -957,22 +941,22 @@ fun ProjectEditorScreen(
                                     }
                                 }
                                 
-                                if (project.project.showHeaderLabel) {
+                                if (project.showHeaderLabel) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     OutlinedTextField(
                                         value = repLabel,
                                         onValueChange = {
                                             repLabel = it
                                             onUpdateProjectInfo(
-                                                project.project.name, 
+                                                project.name, 
                                                 it, 
-                                                project.project.showHeaderLabel, 
-                                                project.project.showHeaderDate,
-                                                project.project.headerCompany,
-                                                project.project.headerCompanySub,
-                                                project.project.headerTitle,
-                                                project.project.showHeaderBox,
-                                                project.project.showHeaderTitle
+                                                project.showHeaderLabel, 
+                                                project.showHeaderDate,
+                                                project.headerCompany,
+                                                project.headerCompanySub,
+                                                project.headerTitle,
+                                                project.showHeaderBox,
+                                                project.showHeaderTitle
                                             )
                                         },
                                         placeholder = { Text("Ej. REPORTE DE PROYECTO") },
@@ -990,18 +974,18 @@ fun ProjectEditorScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Checkbox(
-                                        checked = project.project.showHeaderDate,
+                                        checked = project.showHeaderDate,
                                         onCheckedChange = { isChecked ->
                                             onUpdateProjectInfo(
-                                                project.project.name, 
-                                                project.project.reportLabel, 
-                                                project.project.showHeaderLabel, 
+                                                project.name, 
+                                                project.reportLabel, 
+                                                project.showHeaderLabel, 
                                                 isChecked,
-                                                project.project.headerCompany,
-                                                project.project.headerCompanySub,
-                                                project.project.headerTitle,
-                                                project.project.showHeaderBox,
-                                                project.project.showHeaderTitle
+                                                project.headerCompany,
+                                                project.headerCompanySub,
+                                                project.headerTitle,
+                                                project.showHeaderBox,
+                                                project.showHeaderTitle
                                             )
                                         }
                                     )
@@ -1056,7 +1040,7 @@ fun ProjectEditorScreen(
                         }
                     }
                 } else {
-                    items(groupedRows, key = { row -> row.map { it.id }.joinToString("-") }) { rowBlocks ->
+                    items(groupedRows, key = { row -> row.joinToString("-") { it.uuid } }) { rowBlocks ->
                         if (rowBlocks.size == 2) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1155,7 +1139,7 @@ fun ProjectEditorScreen(
                         } else {
                             project.visits.forEach { visit ->
                                 val visitBlocks = remember(blocks) {
-                                    blocks.filter { it.visitId == visit.id }.sortedBy { it.sequence }
+                                    blocks.filter { it.visitUuid == visit.uuid }.sortedBy { it.sequence }
                                 }
                                 val formattedDate = remember(visit.date) { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(visit.date)) }
                                 
@@ -1211,7 +1195,7 @@ fun ProjectEditorScreen(
                                                     Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                                                 }
                                                 Button(
-                                                    onClick = { onExportSingleVisit(visit.id) },
+                                                    onClick = { onExportSingleVisit(visit.uuid) },
                                                     colors = ButtonDefaults.buttonColors(
                                                         containerColor = MaterialTheme.colorScheme.primary,
                                                         contentColor = Color.White
@@ -1302,40 +1286,40 @@ fun ProjectEditorScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             AssistChip(
-                                                onClick = { onAddTextBlock("Nueva nota de visita", visit.id) },
+                                                onClick = { onAddTextBlock("Nueva nota de visita", visit.uuid) },
                                                 label = { Text("Nota", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
                                                 onClick = {
-                                                    targetVisitIdForImage = visit.id
+                                                    targetVisitIdForImage = visit.uuid
                                                     showImagePicker = true
                                                 },
                                                 label = { Text("Fotos", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
-                                                onClick = { onAddSignatureClick(visit.id) },
+                                                onClick = { onAddSignatureClick(visit.uuid) },
                                                 label = { Text("Firma", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.Default.Gesture, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
-                                                onClick = { onAddTitleBlock("Subtítulo de Visita", visit.id) },
+                                                onClick = { onAddTitleBlock("Subtítulo de Visita", visit.uuid) },
                                                 label = { Text("Título", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.Subject, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
-                                                onClick = { onAddTableBlock(visit.id) },
+                                                onClick = { onAddTableBlock(visit.uuid) },
                                                 label = { Text("Tabla", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
-                                                onClick = { onAddChecklistBlock(visit.id) },
+                                                onClick = { onAddChecklistBlock(visit.uuid) },
                                                 label = { Text("Checklist", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.Default.CheckBox, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
                                             AssistChip(
-                                                onClick = { onAddChecklistTableBlock(visit.id) },
+                                                onClick = { onAddChecklistTableBlock(visit.uuid) },
                                                 label = { Text("Ch. Tabla", fontSize = 11.sp) },
                                                 leadingIcon = { Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                             )
@@ -1572,7 +1556,7 @@ fun BlockActionIconButton(
 
 @Composable
 fun BlockItemView(
-    block: ContentBlockEntity,
+    block: BlockData,
     isEditing: Boolean,
     editValue: String,
     onEditValueChange: (String) -> Unit,
@@ -1594,7 +1578,7 @@ fun BlockItemView(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-            .testTag("block_item_${block.id}"),
+            .testTag("block_item_${block.uuid}"),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -1604,14 +1588,15 @@ fun BlockItemView(
         ) {
             // Header: Block Type Badge & Action Controls (Adaptive for Half Width space constraints)
             val (icon, typeLabel, badgeColor) = when (block.type) {
-                BlockType.TEXT -> Triple(Icons.AutoMirrored.Filled.Notes, "OBSERVACIONES", MaterialTheme.colorScheme.primary)
-                BlockType.IMAGE -> Triple(Icons.Default.Photo, "REGISTRO FOTOGRÁFICO", MaterialTheme.colorScheme.secondary)
-                BlockType.SIGNATURE -> Triple(Icons.Default.Draw, "FIRMA DE VALIDACIÓN", MaterialTheme.colorScheme.tertiary)
-                BlockType.TITLE -> Triple(Icons.AutoMirrored.Filled.Subject, "TÍTULO DE SECCIÓN", MaterialTheme.colorScheme.primary)
-                BlockType.FOOTER -> Triple(Icons.Default.Info, "NOTAS AL PIE", MaterialTheme.colorScheme.outline)
-                BlockType.TABLE -> Triple(Icons.AutoMirrored.Filled.List, "TABLA DE DATOS", MaterialTheme.colorScheme.primary)
-                BlockType.CHECKLIST -> Triple(Icons.Default.CheckBox, "CHECKLIST / TAREAS", MaterialTheme.colorScheme.secondary)
-                BlockType.CHECKLIST_TABLE -> Triple(Icons.Default.GridOn, "TABLA DE CHEQUEO", MaterialTheme.colorScheme.primary)
+                BlockType.TEXT.name -> Triple(Icons.AutoMirrored.Filled.Notes, "OBSERVACIONES", MaterialTheme.colorScheme.primary)
+                BlockType.IMAGE.name -> Triple(Icons.Default.Photo, "REGISTRO FOTOGRÁFICO", MaterialTheme.colorScheme.secondary)
+                BlockType.SIGNATURE.name -> Triple(Icons.Default.Draw, "FIRMA DE VALIDACIÓN", MaterialTheme.colorScheme.tertiary)
+                BlockType.TITLE.name -> Triple(Icons.AutoMirrored.Filled.Subject, "TÍTULO DE SECCIÓN", MaterialTheme.colorScheme.primary)
+                BlockType.FOOTER.name -> Triple(Icons.Default.Info, "NOTAS AL PIE", MaterialTheme.colorScheme.outline)
+                BlockType.TABLE.name -> Triple(Icons.AutoMirrored.Filled.List, "TABLA DE DATOS", MaterialTheme.colorScheme.primary)
+                BlockType.CHECKLIST.name -> Triple(Icons.Default.CheckBox, "CHECKLIST / TAREAS", MaterialTheme.colorScheme.secondary)
+                BlockType.CHECKLIST_TABLE.name -> Triple(Icons.Default.GridOn, "TABLA DE CHEQUEO", MaterialTheme.colorScheme.primary)
+                else -> Triple(Icons.Default.Info, "DESCONOCIDO", MaterialTheme.colorScheme.outline)
             }
 
             if (block.isHalfWidth) {
@@ -1742,7 +1727,7 @@ fun BlockItemView(
             val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
             
             when (block.type) {
-                BlockType.TEXT -> {
+                BlockType.TEXT.name -> {
                     if (isEditing) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             OutlinedTextField(
@@ -1779,7 +1764,7 @@ fun BlockItemView(
                         )
                     }
                 }
-                BlockType.TITLE -> {
+                BlockType.TITLE.name -> {
                     if (isEditing) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             OutlinedTextField(
@@ -1813,7 +1798,7 @@ fun BlockItemView(
                         )
                     }
                 }
-                BlockType.FOOTER -> {
+                BlockType.FOOTER.name -> {
                     if (isEditing) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             OutlinedTextField(
@@ -1847,7 +1832,7 @@ fun BlockItemView(
                         )
                     }
                 }
-                BlockType.TABLE -> {
+                BlockType.TABLE.name -> {
                     val adapter = moshi.adapter(TableBlockContent::class.java)
                     val content = remember(block.content) { try { adapter.fromJson(block.content) ?: TableBlockContent() } catch(e: Exception) { TableBlockContent() } }
                     
@@ -1894,7 +1879,7 @@ fun BlockItemView(
                         }
                     }
                 }
-                BlockType.CHECKLIST -> {
+                BlockType.CHECKLIST.name -> {
                     val adapter = moshi.adapter(ChecklistBlockContent::class.java)
                     val content = remember(block.content) { try { adapter.fromJson(block.content) ?: ChecklistBlockContent() } catch(e: Exception) { ChecklistBlockContent() } }
 
@@ -1928,7 +1913,7 @@ fun BlockItemView(
                         }
                     }
                 }
-                BlockType.CHECKLIST_TABLE -> {
+                BlockType.CHECKLIST_TABLE.name -> {
                     val adapter = moshi.adapter(ChecklistTableBlockContent::class.java)
                     val content = remember(block.content) { try { adapter.fromJson(block.content) ?: ChecklistTableBlockContent() } catch(e: Exception) { ChecklistTableBlockContent() } }
 
@@ -1977,7 +1962,7 @@ fun BlockItemView(
                         }
                     }
                 }
-                BlockType.IMAGE -> {
+                BlockType.IMAGE.name -> {
                     val file = File(block.content)
                     if (file.exists()) {
                         Box(
@@ -2030,7 +2015,7 @@ fun BlockItemView(
                         EmptyFilePlaceholder(message = "Fotografía no encontrada localmente")
                     }
                 }
-                BlockType.SIGNATURE -> {
+                BlockType.SIGNATURE.name -> {
                     val parts = block.content.split("|")
                     val filePath = parts[0]
                     val signatureLabel = parts.getOrNull(1)?.ifBlank { null } ?: "Firma de Validación"

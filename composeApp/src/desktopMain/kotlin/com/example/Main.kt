@@ -9,15 +9,15 @@ import com.example.ui.*
 import java.io.File
 
 fun main() {
-    val database = getRoomDatabase(getDatabaseBuilder())
+    val workspaceManager = WorkspaceManager()
+    val store = JsonProjectStore(workspaceManager)
+    val pdfGenerator = DesktopPdfGenerator()
     val repository = ProjectRepository(
-        projectDao = database.projectDao(),
-        pdfGenerator = DesktopPdfGenerator(),
-        filesDir = File(System.getProperty("user.home"), ".pdfgenerator/files").apply { if(!exists()) mkdirs() },
-        cacheDir = File(System.getProperty("java.io.tmpdir"), "pdfgenerator_cache").apply { if(!exists()) mkdirs() }
+        store = store,
+        workspaceManager = workspaceManager,
+        pdfGenerator = pdfGenerator
     )
-    val syncManager = DesktopFolderSyncManager(repository)
-    val viewModel = ProjectViewModel(repository, syncManager)
+    val viewModel = ProjectViewModel(repository, workspaceManager, store)
     
     singleWindowApplication(title = "Project PDF Manager") {
         MyApplicationTheme {

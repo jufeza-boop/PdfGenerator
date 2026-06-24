@@ -65,7 +65,7 @@ import java.util.Locale
 expect fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit)
 
 @Composable
-expect fun PlatformImagePicker(onImageSelected: (InputStream, Long?) -> Unit, visitId: Long?)
+expect fun PlatformImagePicker(onImageSelected: (InputStream, String?) -> Unit, visitId: String?)
 
 @Composable
 fun AppIcon(modifier: Modifier = Modifier, tint: Color = MaterialTheme.colorScheme.primary) {
@@ -126,15 +126,10 @@ fun ProjectApp(
     val generatedPdfFile by viewModel.generatedPdfFile.collectAsStateWithLifecycle()
     val isGeneratingPdf by viewModel.isGeneratingPdf.collectAsStateWithLifecycle()
     val isUploadingCloud by viewModel.isUploadingCloud.collectAsStateWithLifecycle()
-    
-    val syncConfig by viewModel.syncConfig.collectAsStateWithLifecycle()
-    val syncState by viewModel.syncState.collectAsStateWithLifecycle()
-
     var showCreateDialog by remember { mutableStateOf(false) }
     var showSignatureDialog by remember { mutableStateOf(false) }
-    var showSyncDialog by remember { mutableStateOf(false) }
-    var activeSignatureBlockForDrawing by remember { mutableStateOf<ContentBlockEntity?>(null) }
-    var activeSignatureVisitId by remember { mutableStateOf<Long?>(null) }
+    var activeSignatureBlockForDrawing by remember { mutableStateOf<BlockData?>(null) }
+    var activeSignatureVisitId by remember { mutableStateOf<String?>(null) }
 
     // Observe mock upload status
     LaunchedEffect(Unit) {
@@ -148,13 +143,32 @@ fun ProjectApp(
         }
     }
 
-    var hasAutoShownSync by remember { mutableStateOf(false) }
-    LaunchedEffect(syncConfig) {
-        if (syncConfig != null && syncConfig?.rootFolderUri?.isEmpty() == true && !hasAutoShownSync) {
-            hasAutoShownSync = true
-            showSyncDialog = true
-        }
+    val workspaceConfigured by viewModel.workspaceConfigured.collectAsStateWithLifecycle()
+    var showFolderSelector by remember { mutableStateOf(false) }
+
+    if (!workspaceConfigured && !showFolderSelector) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {}, // Cannot be dismissed
+            title = { Text("Configurar Workspace", fontWeight = FontWeight.Bold) },
+            text = { Text("Para comenzar a utilizar la aplicación, por favor selecciona o crea una carpeta en tu dispositivo. Aquí se guardarán todos los proyectos JSON localmente.") },
+            confirmButton = {
+                androidx.compose.material3.Button(onClick = { showFolderSelector = true }) {
+                    Text("Seleccionar Carpeta")
+                }
+            }
+        )
     }
+
+    if (showFolderSelector) {
+        PlatformFolderSelector(onFolderSelected = { uri ->
+            if (uri != null) {
+                viewModel.setWorkspaceUri(uri)
+            }
+            showFolderSelector = false
+        })
+    }
+
+
 
     // Dynamic Navigation states based on active bindings
     Surface(
@@ -173,13 +187,11 @@ fun ProjectApp(
                 AppScreen.Dashboard -> {
                     DashboardScreen(
                         projects = allProjects,
-                        syncConfig = syncConfig,
-                        syncState = syncState,
                         onProjectSelected = { id -> viewModel.selectProject(id) },
                         onCreateProjectClick = { showCreateDialog = true },
                         onDeleteProject = { project -> viewModel.deleteProject(project) },
-                        onSyncClick = { showSyncDialog = true },
-                        onRunSync = { viewModel.runFolderSync(true) }
+                        onSyncClick = { showFolderSelector = true },
+                        onRunSync = { /* No-op */ }
                     )
                 }
                 AppScreen.Editor -> {
@@ -189,7 +201,6 @@ fun ProjectApp(
                             blocks = draftBlocks,
                             isDirty = isDirty,
                             isGeneratingPdf = isGeneratingPdf,
-                            syncState = syncState,
                             onBack = { viewModel.selectProject(null) },
                             onSave = { viewModel.saveDraft() },
                             onUndo = { viewModel.discardChanges() },
@@ -217,8 +228,7 @@ fun ProjectApp(
                             onAddVisit = { title, notes, templateType -> viewModel.createVisit(title, notes, templateType) },
                             onDeleteVisit = { visit -> viewModel.deleteVisit(visit) },
                             onUpdateVisit = { visit -> viewModel.updateVisit(visit) },
-                            onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) },
-                            onRunSync = { viewModel.runFolderSync(true) }
+                            onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) }
                         )
                     } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -267,29 +277,15 @@ fun ProjectApp(
                 onDismiss = { activeSignatureBlockForDrawing = null },
                 onConfirm = { signatureBitmap ->
                     activeSignatureBlockForDrawing?.let { block ->
-                        viewModel.updateSignatureDrawing(block.id, signatureBitmap)
+                        viewModel.updateSignatureDrawing(block.uuid, signatureBitmap)
                     }
                     activeSignatureBlockForDrawing = null
                 }
             )
         }
-
-        if (showSyncDialog) {
-            FolderSyncDialog(
-                config = syncConfig,
-                state = syncState,
-                onSaveConfig = { uri, auto ->
-                    viewModel.updateSyncConfig(uri, auto)
-                },
-                onRunSync = { real ->
-                    viewModel.runFolderSync(real)
-                },
-                onDismiss = { showSyncDialog = false },
-                onResetState = { viewModel.resetSyncState() }
-            )
-        }
     }
 }
+
 @Composable
 fun CreateProjectDialog(
     onDismiss: () -> Unit,
@@ -449,3 +445,5 @@ expect fun SignatureDialog(
     onConfirm: (ByteArray) -> Unit
 )
 
+@Composable
+expect fun PlatformFolderSelector(onFolderSelected: (String?) -> Unit)

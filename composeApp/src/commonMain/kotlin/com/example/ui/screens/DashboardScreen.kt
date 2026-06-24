@@ -29,12 +29,10 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    projects: List<ProjectWithBlocks>,
-    syncConfig: FolderSyncConfig?,
-    syncState: SyncState,
-    onProjectSelected: (Long) -> Unit,
+    projects: List<ProjectData>,
+    onProjectSelected: (String) -> Unit,
     onCreateProjectClick: () -> Unit,
-    onDeleteProject: (ProjectEntity) -> Unit,
+    onDeleteProject: (ProjectData) -> Unit,
     onSyncClick: () -> Unit,
     onRunSync: () -> Unit
 ) {
@@ -54,24 +52,6 @@ fun DashboardScreen(
                         }
                     },
                     actions = {
-                        if (syncConfig != null && syncConfig.rootFolderUri.isNotEmpty()) {
-                            if (syncState is SyncState.Syncing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp).padding(4.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            } else {
-                                IconButton(onClick = onRunSync) {
-                                    Icon(
-                                        imageVector = Icons.Default.Sync,
-                                        contentDescription = "Sincronizar ahora",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-
                         IconButton(
                             onClick = onSyncClick,
                             modifier = Modifier.testTag("sync_cloud_button")
@@ -92,15 +72,13 @@ fun DashboardScreen(
             }
         },
         floatingActionButton = {
-            if (syncConfig != null && !syncConfig.rootFolderUri.isNullOrBlank()) {
-                FloatingActionButton(
-                    onClick = onCreateProjectClick,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.testTag("create_project_fab")
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = "Nuevo Proyecto")
-                }
+            FloatingActionButton(
+                onClick = onCreateProjectClick,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.testTag("create_project_fab")
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Nuevo Proyecto")
             }
         },
         contentWindowInsets = WindowInsets.safeDrawing
@@ -111,54 +89,6 @@ fun DashboardScreen(
                 .padding(padding)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                if (syncConfig?.rootFolderUri.isNullOrBlank()) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.FolderOff,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "¡Carpeta de Trabajo desvinculada!",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Vincule una carpeta de almacenamiento local o compartida de su móvil. Todos sus proyectos de obra, reportes fotográficos y actas se guardarán en carpetas individuales directamente allí en tiempo real.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                lineHeight = 16.sp
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Button(
-                                onClick = onSyncClick,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error
-                                ),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                                modifier = Modifier.align(Alignment.End),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("Vincular Carpeta de Trabajo", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
 
                 if (projects.isEmpty()) {
                     // Empty state card
@@ -207,11 +137,11 @@ fun DashboardScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(projects, key = { it.project.id }) { item ->
+                            items(projects, key = { it.uuid }) { item ->
                                 ProjectGridCard(
                                     item = item,
-                                    onClick = { onProjectSelected(item.project.id) },
-                                    onDelete = { onDeleteProject(item.project) }
+                                    onClick = { onProjectSelected(item.uuid) },
+                                    onDelete = { onDeleteProject(item) }
                                 )
                             }
                         }
@@ -232,7 +162,7 @@ fun DashboardScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectGridCard(
-    item: ProjectWithBlocks,
+    item: ProjectData,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -243,7 +173,7 @@ fun ProjectGridCard(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-            .testTag("project_card_${item.project.id}"),
+            .testTag("project_card_${item.uuid}"),
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
@@ -260,9 +190,9 @@ fun ProjectGridCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                val formattedDate = remember(item.project.createdAt) {
+                val formattedDate = remember(item.createdAt) {
                     val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                    sdf.format(Date(item.project.createdAt))
+                    sdf.format(Date(item.createdAt))
                 }
                 
                 Text(
@@ -276,7 +206,7 @@ fun ProjectGridCard(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier
                         .size(24.dp)
-                        .testTag("delete_project_${item.project.id}")
+                        .testTag("delete_project_${item.uuid}")
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
@@ -290,7 +220,7 @@ fun ProjectGridCard(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = item.project.name,
+                text = item.name,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 maxLines = 2,
@@ -306,9 +236,9 @@ fun ProjectGridCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 val blockCounts = remember(item.blocks) {
-                    val textCount = item.blocks.count { it.type == BlockType.TEXT }
-                    val imageCount = item.blocks.count { it.type == BlockType.IMAGE }
-                    val sigCount = item.blocks.count { it.type == BlockType.SIGNATURE }
+                    val textCount = item.blocks.count { it.type == "TEXT" }
+                    val imageCount = item.blocks.count { it.type == "IMAGE" }
+                    val sigCount = item.blocks.count { it.type == "SIGNATURE" }
                     Triple(textCount, imageCount, sigCount)
                 }
 
@@ -323,7 +253,7 @@ fun ProjectGridCard(
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("Eliminar Proyecto") },
-            text = { Text("¿Estás seguro de que deseas eliminar '${item.project.name}'? Todos los archivos y firmas locales asociados se borrarán permanentemente.") },
+            text = { Text("¿Estás seguro de que deseas eliminar '${item.name}'? Todos los archivos y firmas locales asociados se borrarán permanentemente.") },
             confirmButton = {
                 TextButton(
                     onClick = {

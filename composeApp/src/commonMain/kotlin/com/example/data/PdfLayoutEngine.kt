@@ -96,15 +96,15 @@ class PdfLayoutEngine(
         return result
     }
 
-    fun getRequiredHeight(block: ContentBlockEntity, colWidth: Float): Float {
+    fun getRequiredHeight(block: BlockData, colWidth: Float): Float {
         return when (block.type) {
-            BlockType.TITLE -> 30f
-            BlockType.FOOTER -> 20f
-            BlockType.TEXT -> {
+            BlockType.TITLE.name -> 30f
+            BlockType.FOOTER.name -> 20f
+            BlockType.TEXT.name -> {
                 val lines = wrapText(block.content, 12f, false, colWidth)
                 lines.size * 18f + 12f
             }
-            BlockType.IMAGE -> {
+            BlockType.IMAGE.name -> {
                 val originalSize = imageSizeProvider(block.content)
                 val originalWidth = originalSize.first
                 val originalHeight = originalSize.second
@@ -113,7 +113,7 @@ class PdfLayoutEngine(
                     originalHeight * scaleRatio + 20f
                 } else 40f
             }
-            BlockType.SIGNATURE -> {
+            BlockType.SIGNATURE.name -> {
                 val parts = block.content.split("|")
                 val filePath = parts[0]
                 val originalSize = imageSizeProvider(filePath)
@@ -125,56 +125,57 @@ class PdfLayoutEngine(
                     originalHeight * scaleRatio + 55f
                 } else 115f
             }
-            BlockType.TABLE -> {
+            BlockType.TABLE.name -> {
                 val content = try { tableAdapter.fromJson(block.content) ?: TableBlockContent() } catch (e: Exception) { TableBlockContent() }
                 (content.rows.size + (if (content.headers.isNotEmpty()) 1 else 0)) * 22f + (if (content.title.isNotBlank()) 32f else 0f) + 15f
             }
-            BlockType.CHECKLIST -> {
+            BlockType.CHECKLIST.name -> {
                 val content = try { checklistAdapter.fromJson(block.content) ?: ChecklistBlockContent() } catch (e: Exception) { ChecklistBlockContent() }
                 content.items.size * 18f + (if (content.title.isNotBlank()) 32f else 0f) + 15f
             }
-            BlockType.CHECKLIST_TABLE -> {
+            BlockType.CHECKLIST_TABLE.name -> {
                 val content = try { checklistTableAdapter.fromJson(block.content) ?: ChecklistTableBlockContent() } catch (e: Exception) { ChecklistTableBlockContent() }
                 (content.rows.size + 1) * 22f + (if (content.title.isNotBlank()) 32f else 0f) + 15f
             }
+            else -> 0f
         }
     }
 
     fun layoutPdf(
-        project: ProjectWithBlocks,
+        project: ProjectData,
         exportMode: PdfExportMode,
-        singleVisitId: Long?
+        singleVisitId: String?
     ): List<RenderedPage> {
-        val showHeaderBox = project.project.showHeaderBox
+        val showHeaderBox = project.showHeaderBox
         val contentStartY = if (showHeaderBox) 105f else 60f
         val contentEndY = pageHeight - 60f
 
         // 1. Prepare sorted blocks list (including formatted Visit items)
         val sortedBlocks = when (exportMode) {
-            PdfExportMode.COMMON_ONLY -> project.blocks.filter { it.visitId == null || it.visitId == 0L }.sortedBy { it.sequence }
+            PdfExportMode.COMMON_ONLY -> project.blocks.filter { it.visitUuid == null }.sortedBy { it.sequence }
             PdfExportMode.SINGLE_VISIT -> {
-                val list = mutableListOf<ContentBlockEntity>()
-                list.addAll(project.blocks.filter { it.visitId == null || it.visitId == 0L }.sortedBy { it.sequence })
-                project.visits.find { it.id == singleVisitId }?.let { visit ->
+                val list = mutableListOf<BlockData>()
+                list.addAll(project.blocks.filter { it.visitUuid == null }.sortedBy { it.sequence })
+                project.visits.find { it.uuid == singleVisitId }?.let { visit ->
                     val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                    list.add(ContentBlockEntity(id = -999, projectId = project.project.id, type = BlockType.TITLE, content = "VISITA: ${visit.title} (${sdf.format(Date(visit.date))})", sequence = -1))
+                    list.add(BlockData(uuid = "temp_title_${visit.uuid}", type = BlockType.TITLE.name, content = "VISITA: ${visit.title} (${sdf.format(Date(visit.date))})", sequence = -1))
                     if (visit.notes.isNotBlank()) {
-                        list.add(ContentBlockEntity(id = -1000, projectId = project.project.id, type = BlockType.TEXT, content = "Notas de reunión o incidencias:\n" + visit.notes, sequence = -1))
+                        list.add(BlockData(uuid = "temp_notes_${visit.uuid}", type = BlockType.TEXT.name, content = "Notas de reunión o incidencias:\n" + visit.notes, sequence = -1))
                     }
-                    list.addAll(project.blocks.filter { it.visitId == singleVisitId }.sortedBy { it.sequence })
+                    list.addAll(project.blocks.filter { it.visitUuid == singleVisitId }.sortedBy { it.sequence })
                 }
                 list
             }
             PdfExportMode.FULL_REPORT -> {
-                val list = mutableListOf<ContentBlockEntity>()
-                list.addAll(project.blocks.filter { it.visitId == null || it.visitId == 0L }.sortedBy { it.sequence })
+                val list = mutableListOf<BlockData>()
+                list.addAll(project.blocks.filter { it.visitUuid == null }.sortedBy { it.sequence })
                 project.visits.sortedBy { it.date }.forEach { v ->
                     val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                    list.add(ContentBlockEntity(id = -100L - v.id, projectId = project.project.id, type = BlockType.TITLE, content = "VISITA: ${v.title.uppercase(Locale.getDefault())} (${sdf.format(Date(v.date))})", sequence = -1))
+                    list.add(BlockData(uuid = "temp_title_${v.uuid}", type = BlockType.TITLE.name, content = "VISITA: ${v.title.uppercase(Locale.getDefault())} (${sdf.format(Date(v.date))})", sequence = -1))
                     if (v.notes.isNotBlank()) {
-                        list.add(ContentBlockEntity(id = -200L - v.id, projectId = project.project.id, type = BlockType.TEXT, content = "Notas de reunión o incidencias:\n" + v.notes, sequence = -1))
+                        list.add(BlockData(uuid = "temp_notes_${v.uuid}", type = BlockType.TEXT.name, content = "Notas de reunión o incidencias:\n" + v.notes, sequence = -1))
                     }
-                    list.addAll(project.blocks.filter { it.visitId == v.id }.sortedBy { it.sequence })
+                    list.addAll(project.blocks.filter { it.visitUuid == v.uuid }.sortedBy { it.sequence })
                 }
                 list
             }
@@ -183,7 +184,7 @@ class PdfLayoutEngine(
         // 2. Dry run: calculate total pages count
         var dryPageCount = 1
         var dryY = contentStartY
-        val proj = project.project
+        val proj = project
         if (proj.showHeaderLabel) dryY += 24f
         if (proj.showHeaderTitle) dryY += 20f
         if (proj.showHeaderDate) dryY += 15f
@@ -292,18 +293,18 @@ class PdfLayoutEngine(
         currentInstructions.add(DrawInstruction.Line(marginX, currentY, pageWidth - marginX, currentY, 0xE5E7EB, strokeWidth = 1f))
         currentY += 35f
 
-        fun drawBlock(block: ContentBlockEntity, x: Float, width: Float, startY: Float): Float {
+        fun drawBlock(block: BlockData, x: Float, width: Float, startY: Float): Float {
             var y = startY
             when (block.type) {
-                BlockType.TITLE -> {
+                BlockType.TITLE.name -> {
                     currentInstructions.add(DrawInstruction.Text(block.content, x, y + 15f, 16f, isBold = true, colorRgb = 0x1F2937))
                     y += 25f
                 }
-                BlockType.FOOTER -> {
+                BlockType.FOOTER.name -> {
                     currentInstructions.add(DrawInstruction.Text(block.content, x, y + 10f, 9f, isBold = false, isItalic = true, colorRgb = 0x6B7280))
                     y += 18f
                 }
-                BlockType.TEXT -> {
+                BlockType.TEXT.name -> {
                     val lines = wrapText(block.content, 12f, false, width)
                     for (line in lines) {
                         currentInstructions.add(DrawInstruction.Text(line, x, y + 12f, 12f, isBold = false, colorRgb = 0x374151))
@@ -311,7 +312,7 @@ class PdfLayoutEngine(
                     }
                     y += 10f
                 }
-                BlockType.IMAGE -> {
+                BlockType.IMAGE.name -> {
                     val size = imageSizeProvider(block.content)
                     val originalWidth = size.first
                     val originalHeight = size.second
@@ -323,7 +324,7 @@ class PdfLayoutEngine(
                         y += targetHeight + 16f
                     }
                 }
-                BlockType.SIGNATURE -> {
+                BlockType.SIGNATURE.name -> {
                     val parts = block.content.split("|")
                     val filePath = parts[0]
                     val signatureLabel = parts.getOrNull(1)?.ifBlank { null } ?: "Firma de Validación"
@@ -354,7 +355,7 @@ class PdfLayoutEngine(
                         y += targetHeight + 35f
                     }
                 }
-                BlockType.TABLE -> {
+                BlockType.TABLE.name -> {
                     val content = try { tableAdapter.fromJson(block.content) ?: TableBlockContent() } catch (e: Exception) { TableBlockContent() }
                     if (content.rows.isNotEmpty()) {
                         val numCols = if (content.headers.isNotEmpty()) content.headers.size else content.rows[0].size
@@ -386,7 +387,7 @@ class PdfLayoutEngine(
                         y = cellY + 10f
                     }
                 }
-                BlockType.CHECKLIST -> {
+                BlockType.CHECKLIST.name -> {
                     val content = try { checklistAdapter.fromJson(block.content) ?: ChecklistBlockContent() } catch (e: Exception) { ChecklistBlockContent() }
                     var cellY = y
                     if (content.title.isNotBlank()) {
@@ -408,7 +409,7 @@ class PdfLayoutEngine(
                     }
                     y = cellY + 10f
                 }
-                BlockType.CHECKLIST_TABLE -> {
+                BlockType.CHECKLIST_TABLE.name -> {
                     val content = try { checklistTableAdapter.fromJson(block.content) ?: ChecklistTableBlockContent() } catch (e: Exception) { ChecklistTableBlockContent() }
                     if (content.rows.isNotEmpty()) {
                         val statusCols = content.headers

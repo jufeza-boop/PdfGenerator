@@ -2,8 +2,8 @@ package com.example.data
 
 interface PdfGenerator {
     suspend fun generatePdf(
-        project: ProjectWithBlocks,
+        project: ProjectData,
         exportMode: PdfExportMode = PdfExportMode.FULL_REPORT,
-        singleVisitId: Long? = null
+        singleVisitId: String? = null
     ): String
 }

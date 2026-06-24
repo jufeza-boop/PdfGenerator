@@ -12,12 +12,12 @@ import java.io.FileOutputStream
 class DesktopPdfGenerator : PdfGenerator {
 
     override suspend fun generatePdf(
-        project: ProjectWithBlocks,
+        project: ProjectData,
         exportMode: PdfExportMode,
-        singleVisitId: Long?
+        singleVisitId: String?
     ): String {
         val tempDir = File(System.getProperty("java.io.tmpdir"))
-        val pdfFile = File(tempDir, "project_report_${project.project.id}.pdf")
+        val pdfFile = File(tempDir, "project_report_${project.uuid}.pdf")
         if (pdfFile.exists()) {
             pdfFile.delete()
         }

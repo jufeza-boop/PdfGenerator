@@ -8,28 +8,40 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.InputStream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProjectViewModel(
     private val repository: ProjectRepository,
-    val syncManager: FolderSyncManager
+    private val workspaceManager: WorkspaceManager,
+    private val store: JsonProjectStore
 ) : ViewModel() {
 
-    private val _syncConfig = MutableStateFlow<FolderSyncConfig?>(null)
-    val syncConfig: StateFlow<FolderSyncConfig?> = _syncConfig.asStateFlow()
-
-    private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
-    val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
-
     // List of all projects for the dashboard
-    val allProjects: StateFlow<List<ProjectWithBlocks>>
+    val allProjects: StateFlow<List<ProjectData>> = repository.allProjects
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    private val _workspaceConfigured = MutableStateFlow(workspaceManager.getAccessor() != null)
+    val workspaceConfigured: StateFlow<Boolean> = _workspaceConfigured.asStateFlow()
+
+    fun setWorkspaceUri(uri: String) {
+        workspaceManager.saveWorkspaceUri(uri)
+        _workspaceConfigured.value = true
+        viewModelScope.launch {
+            store.initialize()
+        }
+    }
 
     // Selected project state
-    private val _selectedProjectId = MutableStateFlow<Long?>(null)
-    val selectedProjectId: StateFlow<Long?> = _selectedProjectId.asStateFlow()
+    private val _selectedProjectId = MutableStateFlow<String?>(null)
+    val selectedProjectId: StateFlow<String?> = _selectedProjectId.asStateFlow()
 
     // Retrieve active details reactively using selected ID mapping
-    val selectedProject: StateFlow<ProjectWithBlocks?> = _selectedProjectId
+    val selectedProject: StateFlow<ProjectData?> = _selectedProjectId
         .flatMapLatest { id ->
             if (id == null) flowOf(null)
             else repository.getProjectById(id)
@@ -37,11 +49,11 @@ class ProjectViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     // Draft blocks state of currently editing project
-    private val _draftBlocks = MutableStateFlow<List<ContentBlockEntity>>(emptyList())
-    val draftBlocks: StateFlow<List<ContentBlockEntity>> = _draftBlocks.asStateFlow()
+    private val _draftBlocks = MutableStateFlow<List<BlockData>>(emptyList())
+    val draftBlocks: StateFlow<List<BlockData>> = _draftBlocks.asStateFlow()
 
-    private val _originalBlocks = MutableStateFlow<List<ContentBlockEntity>>(emptyList())
-    val originalBlocks: StateFlow<List<ContentBlockEntity>> = _originalBlocks.asStateFlow()
+    private val _originalBlocks = MutableStateFlow<List<BlockData>>(emptyList())
+    val originalBlocks: StateFlow<List<BlockData>> = _originalBlocks.asStateFlow()
 
     // Determine if user made any edits
     val isDirty: StateFlow<Boolean> = combine(_draftBlocks, _originalBlocks) { draft, original ->
@@ -62,48 +74,14 @@ class ProjectViewModel(
     val uploadSuccess: SharedFlow<Boolean> = _uploadSuccess.asSharedFlow()
 
     init {
-        _syncConfig.value = syncManager.getConfig()
-        
-        allProjects = repository.allProjects
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = emptyList()
-            )
-
-        // Automatically run a silent sync on application startup to ingest any external modifications
-        if (syncManager.isConfigured()) {
-            triggerSilentSync()
-        }
-    }
-
-    fun triggerSilentSync() {
-        if (!syncManager.isConfigured()) return
         viewModelScope.launch {
-            syncManager.runSync(realSync = true).collect { state ->
-                _syncState.value = state
+            if (workspaceManager.getAccessor() != null) {
+                store.initialize()
             }
         }
     }
 
-    fun updateSyncConfig(rootFolderUri: String, isAutoSync: Boolean) {
-        syncManager.saveConfig(rootFolderUri, isAutoSync)
-        _syncConfig.value = syncManager.getConfig()
-    }
-
-    fun runFolderSync(realSync: Boolean) {
-        viewModelScope.launch {
-            syncManager.runSync(realSync).collect { state ->
-                _syncState.value = state
-            }
-        }
-    }
-
-    fun resetSyncState() {
-        _syncState.value = SyncState.Idle
-    }
-
-    fun selectProject(id: Long?) {
+    fun selectProject(id: String?) {
         _selectedProjectId.value = id
         _generatedPdfFile.value = null // reset preview when changing project
         if (id != null) {
@@ -119,61 +97,50 @@ class ProjectViewModel(
         }
     }
 
-    suspend fun createProject(name: String, templateType: String = "NONE", onCreated: (Long) -> Unit = {}) = viewModelScope.launch {
+    fun createProject(name: String, templateType: String = "NONE", onCreated: (String) -> Unit = {}) = viewModelScope.launch {
         val projectId = repository.createProject(name, templateType)
         onCreated(projectId)
-        triggerSilentSync()
     }
 
-    fun deleteProject(project: ProjectEntity) {
+    fun deleteProject(project: ProjectData) {
         viewModelScope.launch {
             repository.deleteProject(project)
-            if (_selectedProjectId.value == project.id) {
+            if (_selectedProjectId.value == project.uuid) {
                 _selectedProjectId.value = null
             }
-            try {
-                syncManager.deleteProjectFolder(project.createdAt)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            triggerSilentSync()
         }
     }
 
-    fun addTextBlock(text: String, visitId: Long? = null) {
+    fun addTextBlock(text: String, visitId: String? = null) {
         val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.toMutableList()
-        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
-        val newBlock = ContentBlockEntity(
-            id = nextId,
-            projectId = projectId,
-            type = BlockType.TEXT,
+        val newBlock = BlockData(
+            uuid = "draft_${UUID.randomUUID()}",
+            type = BlockType.TEXT.name,
             content = text,
             sequence = nextSequence,
-            visitId = visitId
+            visitUuid = visitId
         )
         currentDraft.add(newBlock)
         _draftBlocks.value = currentDraft
     }
 
-    fun addImageBlock(inputStream: InputStream, visitId: Long? = null) {
+    fun addImageBlock(inputStream: InputStream, visitId: String? = null) {
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             try {
                 val filePath = repository.copyImageToLocalFile(projectId, inputStream)
                 val currentDraft = _draftBlocks.value.toMutableList()
-                val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
                 val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
                 
-                val newBlock = ContentBlockEntity(
-                    id = nextId,
-                    projectId = projectId,
-                    type = BlockType.IMAGE,
+                val newBlock = BlockData(
+                    uuid = "draft_${UUID.randomUUID()}",
+                    type = BlockType.IMAGE.name,
                     content = filePath,
                     sequence = nextSequence,
-                    visitId = visitId
+                    visitUuid = visitId
                 )
                 currentDraft.add(newBlock)
                 _draftBlocks.value = currentDraft
@@ -183,22 +150,20 @@ class ProjectViewModel(
         }
     }
 
-    fun addSignatureBlock(signatureBytes: ByteArray, visitId: Long? = null) {
+    fun addSignatureBlock(signatureBytes: ByteArray, visitId: String? = null) {
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             try {
                 val filePath = repository.saveSignatureToLocalFile(projectId, signatureBytes)
                 val currentDraft = _draftBlocks.value.toMutableList()
-                val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
                 val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
                 
-                val newBlock = ContentBlockEntity(
-                    id = nextId,
-                    projectId = projectId,
-                    type = BlockType.SIGNATURE,
+                val newBlock = BlockData(
+                    uuid = "draft_${UUID.randomUUID()}",
+                    type = BlockType.SIGNATURE.name,
                     content = filePath,
                     sequence = nextSequence,
-                    visitId = visitId
+                    visitUuid = visitId
                 )
                 currentDraft.add(newBlock)
                 _draftBlocks.value = currentDraft
@@ -208,81 +173,74 @@ class ProjectViewModel(
         }
     }
 
-    fun addTitleBlock(text: String, visitId: Long? = null) {
+    fun addTitleBlock(text: String, visitId: String? = null) {
         val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.toMutableList()
-        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
-        val newBlock = ContentBlockEntity(
-            id = nextId,
-            projectId = projectId,
-            type = BlockType.TITLE,
+        val newBlock = BlockData(
+            uuid = "draft_${UUID.randomUUID()}",
+            type = BlockType.TITLE.name,
             content = text,
             sequence = nextSequence,
-            visitId = visitId
+            visitUuid = visitId
         )
         currentDraft.add(newBlock)
         _draftBlocks.value = currentDraft
     }
 
-    fun addFooterBlock(text: String, visitId: Long? = null) {
+    fun addFooterBlock(text: String, visitId: String? = null) {
         val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.toMutableList()
-        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
-        val newBlock = ContentBlockEntity(
-            id = nextId,
-            projectId = projectId,
-            type = BlockType.FOOTER,
+        val newBlock = BlockData(
+            uuid = "draft_${UUID.randomUUID()}",
+            type = BlockType.FOOTER.name,
             content = text,
             sequence = nextSequence,
-            visitId = visitId
+            visitUuid = visitId
         )
         currentDraft.add(newBlock)
         _draftBlocks.value = currentDraft
     }
 
-    fun addTableBlock(visitId: Long? = null) {
+    fun addTableBlock(visitId: String? = null) {
         val projectId = _selectedProjectId.value ?: return
         val json = repository.getDefaultTableBlockJson()
         
         val currentDraft = _draftBlocks.value.toMutableList()
-        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
-        currentDraft.add(ContentBlockEntity(id = nextId, projectId = projectId, type = BlockType.TABLE, content = json, sequence = nextSequence, visitId = visitId))
+        currentDraft.add(BlockData(uuid = "draft_${UUID.randomUUID()}", type = BlockType.TABLE.name, content = json, sequence = nextSequence, visitUuid = visitId))
         _draftBlocks.value = currentDraft
     }
 
-    fun addChecklistBlock(visitId: Long? = null) {
+    fun addChecklistBlock(visitId: String? = null) {
         val projectId = _selectedProjectId.value ?: return
         val json = repository.getDefaultChecklistBlockJson()
         
         val currentDraft = _draftBlocks.value.toMutableList()
-        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
-        currentDraft.add(ContentBlockEntity(id = nextId, projectId = projectId, type = BlockType.CHECKLIST, content = json, sequence = nextSequence, visitId = visitId))
+        currentDraft.add(BlockData(uuid = "draft_${UUID.randomUUID()}", type = BlockType.CHECKLIST.name, content = json, sequence = nextSequence, visitUuid = visitId))
         _draftBlocks.value = currentDraft
     }
 
-    fun addChecklistTableBlock(visitId: Long? = null) {
+    fun addChecklistTableBlock(visitId: String? = null) {
         val projectId = _selectedProjectId.value ?: return
         val json = repository.getDefaultChecklistTableBlockJson()
         
         val currentDraft = _draftBlocks.value.toMutableList()
-        val nextId = (currentDraft.minOfOrNull { it.id } ?: 0L).let { if (it < 0) it - 1 else -1L }
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
-        currentDraft.add(ContentBlockEntity(id = nextId, projectId = projectId, type = BlockType.CHECKLIST_TABLE, content = json, sequence = nextSequence, visitId = visitId))
+        currentDraft.add(BlockData(uuid = "draft_${UUID.randomUUID()}", type = BlockType.CHECKLIST_TABLE.name, content = json, sequence = nextSequence, visitUuid = visitId))
         _draftBlocks.value = currentDraft
     }
 
-    fun moveBlockUp(block: ContentBlockEntity) {
+    fun moveBlockUp(block: BlockData) {
         val currentDraft = _draftBlocks.value.toMutableList()
-        val index = currentDraft.indexOfFirst { it.id == block.id }
+        val index = currentDraft.indexOfFirst { it.uuid == block.uuid }
         if (index > 0) {
             val elementCurrent = currentDraft[index]
             val elementPrev = currentDraft[index - 1]
@@ -295,9 +253,9 @@ class ProjectViewModel(
         }
     }
 
-    fun moveBlockDown(block: ContentBlockEntity) {
+    fun moveBlockDown(block: BlockData) {
         val currentDraft = _draftBlocks.value.toMutableList()
-        val index = currentDraft.indexOfFirst { it.id == block.id }
+        val index = currentDraft.indexOfFirst { it.uuid == block.uuid }
         if (index >= 0 && index < currentDraft.size - 1) {
             val elementCurrent = currentDraft[index]
             val elementNext = currentDraft[index + 1]
@@ -310,9 +268,9 @@ class ProjectViewModel(
         }
     }
 
-    fun toggleBlockWidth(block: ContentBlockEntity) {
+    fun toggleBlockWidth(block: BlockData) {
         val currentDraft = _draftBlocks.value.map {
-            if (it.id == block.id) {
+            if (it.uuid == block.uuid) {
                 it.copy(isHalfWidth = !it.isHalfWidth)
             } else {
                 it
@@ -321,9 +279,9 @@ class ProjectViewModel(
         _draftBlocks.value = currentDraft
     }
 
-    fun updateBlockText(block: ContentBlockEntity, newText: String) {
+    fun updateBlockText(block: BlockData, newText: String) {
         val currentDraft = _draftBlocks.value.map {
-            if (it.id == block.id) {
+            if (it.uuid == block.uuid) {
                 it.copy(content = newText)
             } else {
                 it
@@ -343,7 +301,7 @@ class ProjectViewModel(
         showHeaderBox: Boolean,
         showHeaderTitle: Boolean
     ) {
-        val project = selectedProject.value?.project ?: return
+        val project = selectedProject.value ?: return
         viewModelScope.launch {
             val updated = project.copy(
                 name = name,
@@ -358,17 +316,16 @@ class ProjectViewModel(
                 updatedAt = System.currentTimeMillis()
             )
             repository.updateProject(updated)
-            triggerSilentSync()
         }
     }
 
-    fun updateSignatureDrawing(blockId: Long, signatureBytes: ByteArray) {
+    fun updateSignatureDrawing(blockUuid: String, signatureBytes: ByteArray) {
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             try {
                 val filePath = repository.saveSignatureToLocalFile(projectId, signatureBytes)
                 val currentDraft = _draftBlocks.value.map {
-                    if (it.id == blockId) {
+                    if (it.uuid == blockUuid) {
                         val parts = it.content.split("|")
                         val labelText = parts.getOrNull(1)?.ifBlank { "" } ?: ""
                         val subtitleText = parts.getOrNull(2)?.ifBlank { "" } ?: ""
@@ -385,8 +342,8 @@ class ProjectViewModel(
         }
     }
 
-    fun deleteBlock(block: ContentBlockEntity) {
-        val currentDraft = _draftBlocks.value.filter { it.id != block.id }
+    fun deleteBlock(block: BlockData) {
+        val currentDraft = _draftBlocks.value.filter { it.uuid != block.uuid }
         _draftBlocks.value = currentDraft
     }
 
@@ -397,44 +354,29 @@ class ProjectViewModel(
             val original = _originalBlocks.value
 
             // 1. Delete blocks removed from the draft
-            val draftIds = draft.map { it.id }.toSet()
-            val deletedBlocks = original.filter { it.id !in draftIds }
+            val draftIds = draft.map { it.uuid }.toSet()
+            val deletedBlocks = original.filter { it.uuid !in draftIds }
             for (del in deletedBlocks) {
-                repository.deleteBlock(del)
+                repository.deleteBlock(projectId, del)
             }
 
             // 2. Insert or update the current draft blocks with updated sequence
             draft.forEachIndexed { idx, block ->
                 val updatedBlock = block.copy(sequence = idx)
-                if (updatedBlock.id <= 0) {
-                    val newBlock = ContentBlockEntity(
-                        id = 0,
-                        projectId = updatedBlock.projectId,
-                        type = updatedBlock.type,
-                        content = updatedBlock.content,
-                        sequence = updatedBlock.sequence,
-                        isHalfWidth = updatedBlock.isHalfWidth,
-                        visitId = updatedBlock.visitId
-                    )
-                    repository.insertBlock(newBlock)
+                if (updatedBlock.uuid.startsWith("draft_")) {
+                    val newBlock = updatedBlock.copy(uuid = UUID.randomUUID().toString())
+                    repository.insertBlock(projectId, newBlock)
                 } else {
-                    repository.updateBlock(updatedBlock)
+                    repository.updateBlock(projectId, updatedBlock)
                 }
             }
 
-            // 3. Update project updatedAt when blocks are changed
-            val currentProj = selectedProject.value?.project
-            if (currentProj != null) {
-                repository.updateProject(currentProj.copy(updatedAt = System.currentTimeMillis()))
-            }
-
-            // 4. Reload saved blocks from DB
+            // 3. Reload saved blocks from DB
             val freshProject = repository.getProjectById(projectId).filterNotNull().first()
             val sorted = freshProject.blocks.sortedBy { it.sequence }
             _originalBlocks.value = sorted
             _draftBlocks.value = sorted
             onSaved()
-            triggerSilentSync()
         }
     }
 
@@ -450,28 +392,27 @@ class ProjectViewModel(
             val sorted = freshProject.blocks.sortedBy { it.sequence }
             _originalBlocks.value = sorted
             _draftBlocks.value = sorted
-            triggerSilentSync()
         }
     }
 
-    fun deleteVisit(visit: VisitEntity) {
+    fun deleteVisit(visit: VisitData) {
+        val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
-            repository.deleteVisit(visit)
-            triggerSilentSync()
+            repository.deleteVisit(projectId, visit.uuid)
         }
     }
 
-    fun updateVisit(visit: VisitEntity) {
+    fun updateVisit(visit: VisitData) {
+        val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
-            repository.updateVisit(visit)
-            triggerSilentSync()
+            repository.updateVisit(projectId, visit)
         }
     }
 
-    fun exportPdf(exportMode: PdfExportMode = PdfExportMode.FULL_REPORT, singleVisitId: Long? = null) {
+    fun exportPdf(exportMode: PdfExportMode = PdfExportMode.FULL_REPORT, singleVisitId: String? = null) {
         val project = selectedProject.value ?: return
         val currentDraft = _draftBlocks.value
-        val draftProject = ProjectWithBlocks(project = project.project, blocks = currentDraft, visits = project.visits)
+        val draftProject = project.copy(blocks = currentDraft)
         viewModelScope.launch {
             _isGeneratingPdf.value = true
             try {
