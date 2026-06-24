@@ -45,16 +45,24 @@ class AndroidWorkspaceAccessor(
             if (part.isEmpty()) continue
             
             var next = current.findFile(part)
+            val isDir = i < parts.size - 1 || !part.contains(".")
+            
+            if (next == null && !isDir && !createParents) {
+                // SAF providers sometimes append duplicate extensions (e.g., .jpg.jpg).
+                // If exact match fails, try to find a file starting with the base name.
+                val baseName = part.substringBeforeLast(".")
+                next = current.listFiles().firstOrNull { it.name?.startsWith(baseName) == true }
+            }
+
             if (next == null) {
                 if (createParents) {
-                    val isDir = i < parts.size - 1 || !part.contains(".")
+                    val mimeType = if (part.endsWith(".json")) "application/json"
+                                   else if (part.endsWith(".jpg")) "image/jpeg"
+                                   else if (part.endsWith(".png")) "image/png"
+                                   else "application/octet-stream"
                     next = if (isDir) {
                         current.createDirectory(part)
                     } else {
-                        val mimeType = if (part.endsWith(".json")) "application/json"
-                                       else if (part.endsWith(".jpg")) "image/jpeg"
-                                       else if (part.endsWith(".png")) "image/png"
-                                       else "application/octet-stream"
                         current.createFile(mimeType, part)
                     }
                 }

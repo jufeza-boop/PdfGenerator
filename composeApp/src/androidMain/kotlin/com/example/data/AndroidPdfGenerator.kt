@@ -49,32 +49,52 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
 
         // Implement image size retrieval natively
         val imageSizeProvider: (String) -> Pair<Float, Float> = { path ->
-            val file = File(path)
-            if (file.exists()) {
-                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeFile(file.absolutePath, options)
-                var w = options.outWidth.toFloat()
-                var h = options.outHeight.toFloat()
-                try {
-                    val exif = android.media.ExifInterface(file.absolutePath)
-                    val orientation = exif.getAttributeInt(
-                        android.media.ExifInterface.TAG_ORIENTATION,
-                        android.media.ExifInterface.ORIENTATION_NORMAL
-                    )
-                    if (orientation == android.media.ExifInterface.ORIENTATION_ROTATE_90 ||
-                        orientation == android.media.ExifInterface.ORIENTATION_ROTATE_270 ||
-                        orientation == android.media.ExifInterface.ORIENTATION_TRANSPOSE ||
-                        orientation == android.media.ExifInterface.ORIENTATION_TRANSVERSE
-                    ) {
-                        val temp = w
-                        w = h
-                        h = temp
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            try {
+                val inputStream = if (path.startsWith("content://")) {
+                    context.contentResolver.openInputStream(android.net.Uri.parse(path))
+                } else {
+                    java.io.FileInputStream(path)
                 }
-                w to h
-            } else {
+                
+                if (inputStream != null) {
+                    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeStream(inputStream, null, options)
+                    inputStream.close()
+                    var w = options.outWidth.toFloat()
+                    var h = options.outHeight.toFloat()
+                    
+                    try {
+                        val exifInputStream = if (path.startsWith("content://")) {
+                            context.contentResolver.openInputStream(android.net.Uri.parse(path))
+                        } else {
+                            java.io.FileInputStream(path)
+                        }
+                        if (exifInputStream != null) {
+                            val exif = android.media.ExifInterface(exifInputStream)
+                            val orientation = exif.getAttributeInt(
+                                android.media.ExifInterface.TAG_ORIENTATION,
+                                android.media.ExifInterface.ORIENTATION_NORMAL
+                            )
+                            if (orientation == android.media.ExifInterface.ORIENTATION_ROTATE_90 ||
+                                orientation == android.media.ExifInterface.ORIENTATION_ROTATE_270 ||
+                                orientation == android.media.ExifInterface.ORIENTATION_TRANSPOSE ||
+                                orientation == android.media.ExifInterface.ORIENTATION_TRANSVERSE
+                            ) {
+                                val temp = w
+                                w = h
+                                h = temp
+                            }
+                            exifInputStream.close()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    w to h
+                } else {
+                    0f to 0f
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
                 0f to 0f
             }
         }
@@ -137,103 +157,122 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                         canvas.drawRect(instruction.x1, instruction.y1, instruction.x2, instruction.y2, paint)
                     }
                     is DrawInstruction.Image -> {
-                        val file = File(instruction.path)
-                        if (file.exists()) {
-                            try {
-                                // 1. Detectar orientación primero para ajustar las dimensiones requeridas
-                                val exif = android.media.ExifInterface(file.absolutePath)
-                                val orientation = exif.getAttributeInt(
+                        try {
+                            val isContentUri = instruction.path.startsWith("content://")
+                            
+                            // 1. Detectar orientación primero para ajustar las dimensiones requeridas
+                            val exifInputStream = if (isContentUri) {
+                                context.contentResolver.openInputStream(android.net.Uri.parse(instruction.path))
+                            } else {
+                                java.io.FileInputStream(instruction.path)
+                            }
+                            
+                            var orientation = android.media.ExifInterface.ORIENTATION_NORMAL
+                            if (exifInputStream != null) {
+                                val exif = android.media.ExifInterface(exifInputStream)
+                                orientation = exif.getAttributeInt(
                                     android.media.ExifInterface.TAG_ORIENTATION,
                                     android.media.ExifInterface.ORIENTATION_NORMAL
                                 )
-                                val isSwapped = orientation == android.media.ExifInterface.ORIENTATION_ROTATE_90 ||
-                                        orientation == android.media.ExifInterface.ORIENTATION_ROTATE_270 ||
-                                        orientation == android.media.ExifInterface.ORIENTATION_TRANSPOSE ||
-                                        orientation == android.media.ExifInterface.ORIENTATION_TRANSVERSE
+                                exifInputStream.close()
+                            }
+                            
+                            val isSwapped = orientation == android.media.ExifInterface.ORIENTATION_ROTATE_90 ||
+                                    orientation == android.media.ExifInterface.ORIENTATION_ROTATE_270 ||
+                                    orientation == android.media.ExifInterface.ORIENTATION_TRANSPOSE ||
+                                    orientation == android.media.ExifInterface.ORIENTATION_TRANSVERSE
 
-                                // 2. Calcular dimensiones en base al doble del tamaño del PDF (para 150+ DPI de excelente calidad visual)
-                                val targetW = (instruction.w * 2).toInt().coerceAtLeast(1)
-                                val targetH = (instruction.h * 2).toInt().coerceAtLeast(1)
-                                val reqWidth = if (isSwapped) targetH else targetW
-                                val reqHeight = if (isSwapped) targetW else targetH
+                            // 2. Calcular dimensiones
+                            val targetW = (instruction.w * 2).toInt().coerceAtLeast(1)
+                            val targetH = (instruction.h * 2).toInt().coerceAtLeast(1)
+                            val reqWidth = if (isSwapped) targetH else targetW
+                            val reqHeight = if (isSwapped) targetW else targetH
 
-                                // 3. Obtener dimensiones de la imagen original en disco sin cargarla a memoria
-                                val options = BitmapFactory.Options().apply {
-                                    inJustDecodeBounds = true
-                                }
-                                BitmapFactory.decodeFile(file.absolutePath, options)
+                            // 3. Obtener dimensiones de la imagen
+                            val options = BitmapFactory.Options().apply {
+                                inJustDecodeBounds = true
+                            }
+                            
+                            val boundsInputStream = if (isContentUri) {
+                                context.contentResolver.openInputStream(android.net.Uri.parse(instruction.path))
+                            } else {
+                                java.io.FileInputStream(instruction.path)
+                            }
+                            
+                            if (boundsInputStream != null) {
+                                BitmapFactory.decodeStream(boundsInputStream, null, options)
+                                boundsInputStream.close()
 
-                                // 4. Configurar el factor de submuestreo (inSampleSize)
+                                // 4. Configurar el factor de submuestreo
                                 options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
                                 options.inJustDecodeBounds = false
                                 options.inScaled = false
 
-                                // 5. Decodificar el bitmap de tamaño optimizado
-                                var bitmap = BitmapFactory.decodeFile(file.absolutePath, options)
-                                if (bitmap != null) {
-                                    // 6. Aplicar la rotación/espejo necesaria de EXIF
-                                    val matrix = android.graphics.Matrix()
-                                    var needsRotation = true
-                                    when (orientation) {
-                                        android.media.ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                                        android.media.ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                                        android.media.ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-                                        android.media.ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
-                                        android.media.ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
-                                        android.media.ExifInterface.ORIENTATION_TRANSPOSE -> {
-                                            matrix.postRotate(90f)
-                                            matrix.postScale(-1f, 1f)
-                                        }
-                                        android.media.ExifInterface.ORIENTATION_TRANSVERSE -> {
-                                            matrix.postRotate(270f)
-                                            matrix.postScale(-1f, 1f)
-                                        }
-                                        else -> needsRotation = false
-                                    }
-
-                                    if (needsRotation) {
-                                        val rotatedBitmap = Bitmap.createBitmap(
-                                            bitmap,
-                                            0,
-                                            0,
-                                            bitmap.width,
-                                            bitmap.height,
-                                            matrix,
-                                            true
-                                        )
-                                        if (rotatedBitmap != bitmap) {
-                                            bitmap.recycle()
-                                            bitmap = rotatedBitmap
-                                        }
-                                    }
-
-                                    // 7. Escalar al doble del tamaño de destino en el PDF (para excelente nitidez de impresión)
-                                    val scaled = bitmap.scale(targetW, targetH, true)
-
-                                    // 8. Definir el rectángulo de destino en puntos del PDF
-                                    val destRect = android.graphics.RectF(
-                                        instruction.x,
-                                        instruction.y,
-                                        instruction.x + instruction.w,
-                                        instruction.y + instruction.h
-                                    )
-
-                                    // 9. Dibujar en el Canvas usando RectF para ignorar la densidad física de pantalla del terminal
-                                    val paint = Paint().apply {
-                                        isFilterBitmap = true
-                                        isAntiAlias = true
-                                    }
-                                    canvas.drawBitmap(scaled, null, destRect, paint)
-
-                                    // 10. Reciclar recursos
-                                    if (scaled != bitmap) {
-                                        scaled.recycle()
-                                    }
-                                    bitmap.recycle()
+                                // 5. Decodificar el bitmap
+                                val decodeInputStream = if (isContentUri) {
+                                    context.contentResolver.openInputStream(android.net.Uri.parse(instruction.path))
+                                } else {
+                                    java.io.FileInputStream(instruction.path)
                                 }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
+                                
+                                if (decodeInputStream != null) {
+                                    var bitmap = BitmapFactory.decodeStream(decodeInputStream, null, options)
+                                    decodeInputStream.close()
+                                    
+                                    if (bitmap != null) {
+                                        // 6. Aplicar la rotación
+                                        val matrix = android.graphics.Matrix()
+                                        var needsRotation = true
+                                        when (orientation) {
+                                            android.media.ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                                            android.media.ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                                            android.media.ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                                            android.media.ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+                                            android.media.ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+                                            android.media.ExifInterface.ORIENTATION_TRANSPOSE -> {
+                                                matrix.postRotate(90f)
+                                                matrix.postScale(-1f, 1f)
+                                            }
+                                            android.media.ExifInterface.ORIENTATION_TRANSVERSE -> {
+                                                matrix.postRotate(270f)
+                                                matrix.postScale(-1f, 1f)
+                                            }
+                                            else -> needsRotation = false
+                                        }
+
+                                        if (needsRotation) {
+                                            val rotatedBitmap = Bitmap.createBitmap(
+                                                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+                                            )
+                                            if (rotatedBitmap != bitmap) {
+                                                bitmap.recycle()
+                                                bitmap = rotatedBitmap
+                                            }
+                                        }
+
+                                        // 7. Escalar
+                                        val scaled = bitmap.scale(targetW, targetH, true)
+
+                                        // 8. Dibujar
+                                        val destRect = android.graphics.RectF(
+                                            instruction.x,
+                                            instruction.y,
+                                            instruction.x + instruction.w,
+                                            instruction.y + instruction.h
+                                        )
+                                        val paint = Paint().apply {
+                                            isFilterBitmap = true
+                                            isAntiAlias = true
+                                        }
+                                        canvas.drawBitmap(scaled, null, destRect, paint)
+
+                                        if (scaled != bitmap) scaled.recycle()
+                                        bitmap.recycle()
+                                    }
+                                }
                             }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
                     }
                 }

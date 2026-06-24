@@ -1971,38 +1971,37 @@ fun BlockItemView(
                         absolutePath = onResolvePath(block.content)
                     }
 
-                    if (absolutePath != null) {
-                        val file = File(absolutePath!!)
-                        if (file.exists()) {
+                    if (!absolutePath.isNullOrEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1.77f) // aspect-video
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                        ) {
+                            AsyncImage(
+                                model = absolutePath,
+                                contentDescription = "Foto local del proyecto",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                            
+                            // Top-left design-matching badge
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(1.77f) // aspect-video
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                                    .padding(10.dp)
+                                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .align(Alignment.TopStart)
                             ) {
-                                AsyncImage(
-                                    model = file,
-                                    contentDescription = "Foto local del proyecto",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
+                                val displayFilename = absolutePath?.substringAfterLast("/")?.substringAfterLast("%2F") ?: "IMAGEN"
+                                Text(
+                                    text = displayFilename.uppercase(),
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
-                                
-                                // Top-left design-matching badge
-                                Box(
-                                    modifier = Modifier
-                                        .padding(10.dp)
-                                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        .align(Alignment.TopStart)
-                                ) {
-                                    Text(
-                                        text = file.name.uppercase(),
-                                        color = Color.White,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
+                            }
                                 
                                 // Bottom overlay grid caption
                                 Box(
@@ -2020,9 +2019,8 @@ fun BlockItemView(
                                     )
                                 }
                             }
-                        } else {
-                            EmptyFilePlaceholder(message = "Fotografía no encontrada localmente")
-                        }
+                    } else if (absolutePath == "") {
+                        EmptyFilePlaceholder(message = "Fotografía no encontrada localmente")
                     } else {
                         // Loading state placeholder
                         Box(
@@ -2047,8 +2045,7 @@ fun BlockItemView(
                         absolutePath = onResolvePath(filePath)
                     }
 
-                    val file = absolutePath?.let { File(it) }
-                    val hasSignature = file?.exists() == true
+                    val hasSignature = !absolutePath.isNullOrEmpty()
 
                     Column(
                         modifier = Modifier.fillMaxWidth()
@@ -2073,7 +2070,7 @@ fun BlockItemView(
                         ) {
                             if (hasSignature) {
                                 AsyncImage(
-                                    model = file,
+                                    model = absolutePath,
                                     contentDescription = "Firma digital",
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Fit
