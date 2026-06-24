@@ -228,7 +228,8 @@ fun ProjectApp(
                             onAddVisit = { title, notes, templateType -> viewModel.createVisit(title, notes, templateType) },
                             onDeleteVisit = { visit -> viewModel.deleteVisit(visit) },
                             onUpdateVisit = { visit -> viewModel.updateVisit(visit) },
-                            onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) }
+                            onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) },
+                            onResolvePath = { path -> viewModel.resolveAbsolutePath(path) }
                         )
                     } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()

@@ -90,7 +90,8 @@ fun ProjectEditorScreen(
     onAddVisit: (String, String, String) -> Unit,
     onDeleteVisit: (VisitData) -> Unit,
     onUpdateVisit: (VisitData) -> Unit,
-    onExportSingleVisit: (String) -> Unit
+    onExportSingleVisit: (String) -> Unit,
+    onResolvePath: suspend (String) -> String
 ) {
     var textInputToInsert by remember { mutableStateOf("") }
     var focusedBlockIdToEdit by remember { mutableStateOf<String?>(null) }
@@ -551,7 +552,8 @@ fun ProjectEditorScreen(
                         onSaveTextBlockEdit(block, newContent)
                         focusedBlockIdToEdit = null
                     },
-                    onDrawSignature = { onDrawSignatureClick(block) }
+                    onDrawSignature = { onDrawSignatureClick(block) },
+                    onResolvePath = onResolvePath
                 )
             }
 
@@ -1568,7 +1570,8 @@ fun BlockItemView(
     onMoveDown: () -> Unit,
     onToggleWidth: () -> Unit,
     onSaveDirectEdit: ((String) -> Unit)? = null,
-    onDrawSignature: (() -> Unit)? = null
+    onDrawSignature: (() -> Unit)? = null,
+    onResolvePath: suspend (String) -> String
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -1963,56 +1966,74 @@ fun BlockItemView(
                     }
                 }
                 BlockType.IMAGE.name -> {
-                    val file = File(block.content)
-                    if (file.exists()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1.77f) // aspect-video
-                                .clip(RoundedCornerShape(12.dp))
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
-                        ) {
-                            AsyncImage(
-                                model = file,
-                                contentDescription = "Foto local del proyecto",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                            
-                            // Top-left design-matching badge
-                            Box(
-                                modifier = Modifier
-                                    .padding(10.dp)
-                                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    .align(Alignment.TopStart)
-                            ) {
-                                Text(
-                                    text = file.name.uppercase(),
-                                    color = Color.White,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            
-                            // Bottom overlay grid caption
+                    var absolutePath by remember(block.content) { mutableStateOf<String?>(null) }
+                    LaunchedEffect(block.content) {
+                        absolutePath = onResolvePath(block.content)
+                    }
+
+                    if (absolutePath != null) {
+                        val file = File(absolutePath!!)
+                        if (file.exists()) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .align(Alignment.BottomStart)
-                                    .background(Color.Black.copy(alpha = 0.2f))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .aspectRatio(1.77f) // aspect-video
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                             ) {
-                                Text(
-                                    text = "Captura de Inspección del Sitio",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
+                                AsyncImage(
+                                    model = file,
+                                    contentDescription = "Foto local del proyecto",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
                                 )
+                                
+                                // Top-left design-matching badge
+                                Box(
+                                    modifier = Modifier
+                                        .padding(10.dp)
+                                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .align(Alignment.TopStart)
+                                ) {
+                                    Text(
+                                        text = file.name.uppercase(),
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                                
+                                // Bottom overlay grid caption
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .align(Alignment.BottomStart)
+                                        .background(Color.Black.copy(alpha = 0.2f))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = "Captura de Inspección del Sitio",
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
+                        } else {
+                            EmptyFilePlaceholder(message = "Fotografía no encontrada localmente")
                         }
                     } else {
-                        EmptyFilePlaceholder(message = "Fotografía no encontrada localmente")
+                        // Loading state placeholder
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1.77f)
+                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
                     }
                 }
                 BlockType.SIGNATURE.name -> {
@@ -2020,8 +2041,14 @@ fun BlockItemView(
                     val filePath = parts[0]
                     val signatureLabel = parts.getOrNull(1)?.ifBlank { null } ?: "Firma de Validación"
                     val signatureSubtitle = parts.getOrNull(2)?.ifBlank { null } ?: "Firma Autorizada"
-                    val file = File(filePath)
-                    val hasSignature = file.exists()
+                    
+                    var absolutePath by remember(filePath) { mutableStateOf<String?>(null) }
+                    LaunchedEffect(filePath) {
+                        absolutePath = onResolvePath(filePath)
+                    }
+
+                    val file = absolutePath?.let { File(it) }
+                    val hasSignature = file?.exists() == true
 
                     Column(
                         modifier = Modifier.fillMaxWidth()

@@ -18,7 +18,7 @@ enum class PdfExportMode {
 
 class ProjectRepository(
     private val store: JsonProjectStore,
-    private val workspaceManager: WorkspaceManager,
+    val workspaceManager: WorkspaceManager,
     private val pdfGenerator: PdfGenerator
 ) {
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
@@ -251,7 +251,28 @@ class ProjectRepository(
         exportMode: PdfExportMode = PdfExportMode.FULL_REPORT,
         singleVisitId: String? = null
     ): File {
-        val path = pdfGenerator.generatePdf(project, exportMode, singleVisitId)
+        val accessor = workspaceManager.getAccessor()
+        val resolvedBlocks = project.blocks.map { block ->
+            when (block.type) {
+                BlockType.IMAGE.name -> {
+                    val absPath = accessor?.getAbsolutePath("${project.uuid}/${block.content}") ?: block.content
+                    block.copy(content = absPath)
+                }
+                BlockType.SIGNATURE.name -> {
+                    val parts = block.content.split("|")
+                    val absPath = accessor?.getAbsolutePath("${project.uuid}/${parts[0]}") ?: parts[0]
+                    val resolvedContent = if (parts.size > 1) {
+                        "$absPath|${parts.drop(1).joinToString("|")}"
+                    } else {
+                        absPath
+                    }
+                    block.copy(content = resolvedContent)
+                }
+                else -> block
+            }
+        }
+        val projectForExport = project.copy(blocks = resolvedBlocks)
+        val path = pdfGenerator.generatePdf(projectForExport, exportMode, singleVisitId)
         return File(path)
     }
 

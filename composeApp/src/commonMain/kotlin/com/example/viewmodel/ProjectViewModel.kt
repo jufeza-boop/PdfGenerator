@@ -445,4 +445,9 @@ class ProjectViewModel(
     fun clearPdfPreviewState() {
         _generatedPdfFile.value = null
     }
+
+    suspend fun resolveAbsolutePath(relativePath: String): String {
+        val projectId = _selectedProjectId.value ?: return relativePath
+        return repository.workspaceManager.getAccessor()?.getAbsolutePath("$projectId/$relativePath") ?: relativePath
+    }
 }
