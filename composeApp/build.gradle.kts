@@ -100,6 +100,9 @@ compose.desktop {
                 // iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
                 shortcut = true
                 menu = true
+                // El upgradeUuid permite instalar nuevas versiones sobre las antiguas sin tener que desinstalar.
+                // IMPORTANTE: Este UUID debe mantenerse igual para siempre en esta app.
+                upgradeUuid = "f1e3c88a-9876-4d2a-b12e-43a1b82f0c7e"
             }
         }
     }
