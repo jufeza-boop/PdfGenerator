@@ -66,6 +66,7 @@ import java.util.Locale
 fun ProjectEditorScreen(
     project: ProjectData,
     blocks: List<BlockData>,
+    customTemplates: List<CustomTemplateData>,
     isDirty: Boolean,
     isGeneratingPdf: Boolean,
     onBack: () -> Unit,
@@ -91,7 +92,9 @@ fun ProjectEditorScreen(
     onDeleteVisit: (VisitData) -> Unit,
     onUpdateVisit: (VisitData) -> Unit,
     onExportSingleVisit: (String) -> Unit,
-    onResolvePath: suspend (String) -> String
+    onResolvePath: suspend (String) -> String,
+    onSaveProjectAsTemplate: (String) -> Unit,
+    onSaveVisitAsTemplate: (String, String) -> Unit
 ) {
     var textInputToInsert by remember { mutableStateOf("") }
     var focusedBlockIdToEdit by remember { mutableStateOf<String?>(null) }
@@ -180,6 +183,8 @@ fun ProjectEditorScreen(
         )
     }
 
+    var activeTab by remember { mutableStateOf(0) } // 0: Common Part, 1: Visits
+
     Scaffold(
         topBar = {
             Column {
@@ -235,6 +240,53 @@ fun ProjectEditorScreen(
                                 imageVector = Icons.Default.Save,
                                 contentDescription = "Guardar cambios",
                                 tint = if (isDirty) MaterialTheme.colorScheme.primary else BrandGreySupport.copy(alpha = 0.5f)
+                            )
+                        }
+
+                        // Save as Template action
+                        var showSaveTemplateDialog by remember { mutableStateOf(false) }
+                        IconButton(onClick = { showSaveTemplateDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.BookmarkBorder,
+                                contentDescription = "Guardar como plantilla",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        if (showSaveTemplateDialog) {
+                            var templateName by remember { mutableStateOf("") }
+                            AlertDialog(
+                                onDismissRequest = { showSaveTemplateDialog = false },
+                                title = { Text("Guardar como Plantilla") },
+                                text = {
+                                    Column {
+                                        Text("Nombre de la plantilla:", fontSize = 13.sp)
+                                        OutlinedTextField(
+                                            value = templateName,
+                                            onValueChange = { templateName = it },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(onClick = {
+                                        if (templateName.isNotBlank()) {
+                                            if (activeTab == 0) {
+                                                onSaveProjectAsTemplate(templateName)
+                                            } else {
+                                                val selectedVisitId = project.visits.getOrNull(activeTab - 1)?.uuid
+                                                if (selectedVisitId != null) {
+                                                    onSaveVisitAsTemplate(templateName, selectedVisitId)
+                                                }
+                                            }
+                                            showSaveTemplateDialog = false
+                                        }
+                                    }) { Text("Guardar") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showSaveTemplateDialog = false }) { Text("Cancelar") }
+                                }
                             )
                         }
 
@@ -441,7 +493,6 @@ fun ProjectEditorScreen(
             }
         }
     ) { paddingValues ->
-        var activeTab by remember { mutableStateOf(0) } // 0: Common Part, 1: Visits
         
         // State variables for managing visits
         var showCreateVisitDialog by remember { mutableStateOf(false) }
@@ -1348,7 +1399,10 @@ fun ProjectEditorScreen(
                     onDismissRequest = { showCreateVisitDialog = false },
                     title = { Text("Crear Nueva Visita", fontWeight = FontWeight.Bold) },
                     text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(
+                            modifier = Modifier.verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
                             OutlinedTextField(
                                 value = visitTitleInput,
                                 onValueChange = { visitTitleInput = it },
@@ -1400,6 +1454,16 @@ fun ProjectEditorScreen(
                                 isSelected = selectedVisitTemplate == "COORDINACION_CSS",
                                 onClick = { selectedVisitTemplate = "COORDINACION_CSS" }
                             )
+                            
+                            customTemplates.filter { it.target == "VISIT" }.forEach { template ->
+                                TemplateOptionCard(
+                                    title = template.name,
+                                    description = "Plantilla personalizada de visita.",
+                                    icon = Icons.AutoMirrored.Filled.Assignment,
+                                    isSelected = selectedVisitTemplate == template.uuid,
+                                    onClick = { selectedVisitTemplate = template.uuid }
+                                )
+                            }
                         }
                     },
                     confirmButton = {

@@ -144,6 +144,7 @@ fun ProjectApp(
     }
 
     val workspaceConfigured by viewModel.workspaceConfigured.collectAsStateWithLifecycle()
+    val customTemplates by viewModel.customTemplates.collectAsStateWithLifecycle()
     var showFolderSelector by remember { mutableStateOf(false) }
 
     if (!workspaceConfigured && !showFolderSelector) {
@@ -199,6 +200,7 @@ fun ProjectApp(
                         ProjectEditorScreen(
                             project = project,
                             blocks = draftBlocks,
+                            customTemplates = customTemplates,
                             isDirty = isDirty,
                             isGeneratingPdf = isGeneratingPdf,
                             onBack = { viewModel.selectProject(null) },
@@ -229,7 +231,9 @@ fun ProjectApp(
                             onDeleteVisit = { visit -> viewModel.deleteVisit(visit) },
                             onUpdateVisit = { visit -> viewModel.updateVisit(visit) },
                             onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) },
-                            onResolvePath = { path -> viewModel.resolveAbsolutePath(path) }
+                            onResolvePath = { path -> viewModel.resolveAbsolutePath(path) },
+                            onSaveProjectAsTemplate = { name -> viewModel.saveProjectAsTemplate(name) },
+                            onSaveVisitAsTemplate = { name, visitId -> viewModel.saveVisitAsTemplate(name, visitId) }
                         )
                     } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -251,6 +255,7 @@ fun ProjectApp(
         // Global float dialog overlays
         if (showCreateDialog) {
             CreateProjectDialog(
+                customTemplates = customTemplates,
                 onDismiss = { showCreateDialog = false },
                 onConfirm = { name, templateType ->
                     scope.launch {
@@ -289,6 +294,7 @@ fun ProjectApp(
 
 @Composable
 fun CreateProjectDialog(
+    customTemplates: List<CustomTemplateData>,
     onDismiss: () -> Unit,
     onConfirm: (String, String) -> Unit
 ) {
@@ -300,7 +306,7 @@ fun CreateProjectDialog(
         title = { Text("Nuevo Reporte de Obra") },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
@@ -343,6 +349,16 @@ fun CreateProjectDialog(
                     isSelected = selectedTemplate == "ACTA_VISITA",
                     onClick = { selectedTemplate = "ACTA_VISITA" }
                 )
+                
+                customTemplates.filter { it.target == "PROJECT" }.forEach { template ->
+                    TemplateOptionCard(
+                        title = template.name,
+                        description = "Plantilla personalizada.",
+                        icon = Icons.AutoMirrored.Filled.Assignment,
+                        isSelected = selectedTemplate == template.uuid,
+                        onClick = { selectedTemplate = template.uuid }
+                    )
+                }
             }
         },
         confirmButton = {

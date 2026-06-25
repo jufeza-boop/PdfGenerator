@@ -76,6 +76,17 @@ data class BlockData(
 )
 
 @JsonClass(generateAdapter = true)
+data class CustomTemplateData(
+    val uuid: String,
+    val name: String,
+    val target: String, // "PROJECT" or "VISIT"
+    val blocks: List<BlockData> = emptyList(),
+    val headerCompany: String = "",
+    val headerCompanySub: String = "",
+    val headerTitle: String = ""
+)
+
+@JsonClass(generateAdapter = true)
 data class ManifestData(
     val version: Int = 1,
     val projects: List<ManifestEntry> = emptyList()

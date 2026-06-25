@@ -25,6 +25,13 @@ class ProjectViewModel(
             initialValue = emptyList()
         )
 
+    val customTemplates: StateFlow<List<CustomTemplateData>> = repository.customTemplates
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     private val _workspaceConfigured = MutableStateFlow(workspaceManager.getAccessor() != null)
     val workspaceConfigured: StateFlow<Boolean> = _workspaceConfigured.asStateFlow()
 
@@ -449,5 +456,35 @@ class ProjectViewModel(
     suspend fun resolveAbsolutePath(relativePath: String): String {
         val projectId = _selectedProjectId.value ?: return relativePath
         return repository.workspaceManager.getAccessor()?.getAbsolutePath("$projectId/$relativePath") ?: relativePath
+    }
+
+    fun saveProjectAsTemplate(name: String) {
+        val project = selectedProject.value ?: return
+        val currentDraft = _draftBlocks.value.filter { it.visitUuid == null }
+        viewModelScope.launch {
+            val template = CustomTemplateData(
+                uuid = UUID.randomUUID().toString(),
+                name = name,
+                target = "PROJECT",
+                blocks = currentDraft,
+                headerCompany = project.headerCompany,
+                headerCompanySub = project.headerCompanySub,
+                headerTitle = project.headerTitle
+            )
+            store.saveCustomTemplate(template)
+        }
+    }
+
+    fun saveVisitAsTemplate(name: String, visitUuid: String) {
+        val currentDraft = _draftBlocks.value.filter { it.visitUuid == visitUuid }
+        viewModelScope.launch {
+            val template = CustomTemplateData(
+                uuid = UUID.randomUUID().toString(),
+                name = name,
+                target = "VISIT",
+                blocks = currentDraft
+            )
+            store.saveCustomTemplate(template)
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.example.data
 
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,8 +25,13 @@ class JsonProjectStore(
     private val _allProjects = MutableStateFlow<List<ProjectData>>(emptyList())
     val allProjects: StateFlow<List<ProjectData>> = _allProjects.asStateFlow()
 
+    private val _customTemplates = MutableStateFlow<List<CustomTemplateData>>(emptyList())
+    val customTemplates: StateFlow<List<CustomTemplateData>> = _customTemplates.asStateFlow()
+
     private val projectAdapter = moshi.adapter(ProjectData::class.java)
     private val manifestAdapter = moshi.adapter(ManifestData::class.java)
+    private val templatesType = Types.newParameterizedType(List::class.java, CustomTemplateData::class.java)
+    private val templatesAdapter = moshi.adapter<List<CustomTemplateData>>(templatesType)
 
     suspend fun initialize() = withContext(Dispatchers.IO) {
         val projects = mutableListOf<ProjectData>()
@@ -58,6 +64,19 @@ class JsonProjectStore(
         scanFoldersForProjects(projects, loadedUuids)
         
         _allProjects.value = projects.sortedByDescending { it.createdAt }
+        
+        if (accessor.exists("templates.json")) {
+            try {
+                accessor.readText("templates.json")?.let { text ->
+                    templatesAdapter.fromJson(text)?.let {
+                        _customTemplates.value = it
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        
         saveManifest()
     }
 
@@ -160,6 +179,29 @@ class JsonProjectStore(
             val manifest = ManifestData(version = 1, projects = entries)
             val json = manifestAdapter.toJson(manifest)
             accessor.writeText("manifest.json", json)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun saveCustomTemplate(template: CustomTemplateData) = withContext(Dispatchers.IO) {
+        val current = _customTemplates.value.toMutableList()
+        val index = current.indexOfFirst { it.uuid == template.uuid }
+        if (index >= 0) current[index] = template else current.add(template)
+        _customTemplates.value = current
+        saveTemplates()
+    }
+
+    suspend fun deleteCustomTemplate(uuid: String) = withContext(Dispatchers.IO) {
+        _customTemplates.value = _customTemplates.value.filter { it.uuid != uuid }
+        saveTemplates()
+    }
+
+    private suspend fun saveTemplates() {
+        try {
+            val accessor = workspaceManager.getAccessor() ?: return
+            val json = templatesAdapter.toJson(_customTemplates.value)
+            accessor.writeText("templates.json", json)
         } catch (e: Exception) {
             e.printStackTrace()
         }

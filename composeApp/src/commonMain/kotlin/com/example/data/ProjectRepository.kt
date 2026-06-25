@@ -27,6 +27,7 @@ class ProjectRepository(
     private val checklistTableAdapter = moshi.adapter(ChecklistTableBlockContent::class.java)
 
     val allProjects: Flow<List<ProjectData>> = store.allProjects
+    val customTemplates: Flow<List<CustomTemplateData>> = store.customTemplates
 
     fun getProjectById(uuid: String): Flow<ProjectData?> {
         return store.allProjects.map { projects -> projects.find { it.uuid == uuid } }
@@ -58,6 +59,8 @@ class ProjectRepository(
         val projectId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
         
+        val customTemplate = store.customTemplates.value.find { it.uuid == templateType }
+        
         var project = when (templateType) {
             "ACTA_VISITA" -> ProjectData(
                 uuid = projectId, name = name, createdAt = now, updatedAt = now,
@@ -71,7 +74,18 @@ class ProjectRepository(
                 headerCompanySub = "CONTROL DE CALIDAD DE EDIFICACIÓN\nREGISTRO DE ENSAYOS DE HORMIGÓN ESTRUCTURAL",
                 headerTitle = "CONTROL DE RECEPCIÓN DE HORMIGÓN"
             )
-            else -> ProjectData(uuid = projectId, name = name, createdAt = now, updatedAt = now)
+            else -> {
+                if (customTemplate != null) {
+                    ProjectData(
+                        uuid = projectId, name = name, createdAt = now, updatedAt = now,
+                        headerCompany = customTemplate.headerCompany,
+                        headerCompanySub = customTemplate.headerCompanySub,
+                        headerTitle = customTemplate.headerTitle
+                    )
+                } else {
+                    ProjectData(uuid = projectId, name = name, createdAt = now, updatedAt = now)
+                }
+            }
         }
         
         val blocks = mutableListOf<BlockData>()
@@ -102,6 +116,18 @@ class ProjectRepository(
                 blocks.add(BlockData(UUID.randomUUID().toString(), BlockType.TITLE.name, "CONTROL DE CALIDAD Y RECEPCIÓN DE HORMIGÓN", seq++))
                 blocks.add(BlockData(UUID.randomUUID().toString(), BlockType.TABLE.name, tableAdapter.toJson(tableContent), seq++))
             }
+            else -> {
+                if (customTemplate != null) {
+                    var seq = 0
+                    blocks.addAll(customTemplate.blocks.map { b ->
+                        b.copy(
+                            uuid = UUID.randomUUID().toString(),
+                            sequence = seq++,
+                            visitUuid = null
+                        )
+                    })
+                }
+            }
         }
         
         project = project.copy(blocks = blocks)
@@ -123,6 +149,7 @@ class ProjectRepository(
         val currentMaxSeq = proj.blocks.maxOfOrNull { it.sequence } ?: -1
         var nextSeq = currentMaxSeq + 1
         
+        val customTemplate = store.customTemplates.value.find { it.uuid == templateType }
         val blocksToInsert = mutableListOf<BlockData>()
         if (templateType == "DIRECCION_OBRA") {
             val tableContent = TableBlockContent(
@@ -148,6 +175,14 @@ class ProjectRepository(
                 BlockData(UUID.randomUUID().toString(), BlockType.TEXT.name, "Órdenes de seguridad...", nextSeq++, visitUuid = visitId),
                 BlockData(UUID.randomUUID().toString(), BlockType.SIGNATURE.name, "|C.S.S.|Coord. Seguridad y Salud", nextSeq++, isHalfWidth = true, visitUuid = visitId)
             ))
+        } else if (customTemplate != null) {
+            blocksToInsert.addAll(customTemplate.blocks.map { b ->
+                b.copy(
+                    uuid = UUID.randomUUID().toString(),
+                    sequence = nextSeq++,
+                    visitUuid = visitId
+                )
+            })
         }
         
         val updated = proj.copy(
