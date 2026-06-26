@@ -260,7 +260,8 @@ fun ProjectApp(
                         onEditTemplate = { uuid -> 
                             viewModel.setShowTemplateManagement(false)
                             viewModel.selectProject("template_$uuid") 
-                        }
+                        },
+                        onCreateVisitTemplate = { name -> viewModel.createNewVisitTemplate(name) }
                     )
                 }
             }

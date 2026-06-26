@@ -549,16 +549,32 @@ class ProjectViewModel(
     fun saveVisitAsTemplate(name: String, visitUuid: String) {
         val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.filter { it.visitUuid == visitUuid }
+        val normalizedDraft = currentDraft.map { it.copy(visitUuid = null) }
         viewModelScope.launch {
             val templateUuid = UUID.randomUUID().toString()
-            repository.copyMediaForTemplate(projectId, templateUuid, currentDraft)
+            repository.copyMediaForTemplate(projectId, templateUuid, normalizedDraft)
             val template = CustomTemplateData(
                 uuid = templateUuid,
                 name = name,
                 target = "VISIT",
-                blocks = currentDraft
+                blocks = normalizedDraft
             )
             store.saveCustomTemplate(template)
+        }
+    }
+
+    fun createNewVisitTemplate(name: String) {
+        viewModelScope.launch {
+            val templateUuid = UUID.randomUUID().toString()
+            val template = CustomTemplateData(
+                uuid = templateUuid,
+                name = name,
+                target = "VISIT",
+                blocks = emptyList()
+            )
+            store.saveCustomTemplate(template)
+            _showTemplateManagement.value = false
+            selectProject("template_$templateUuid")
         }
     }
 

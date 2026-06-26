@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,8 +29,12 @@ fun TemplateManagementScreen(
     onBack: () -> Unit,
     onDeleteTemplate: (String) -> Unit,
     onRenameTemplate: (String, String) -> Unit,
-    onEditTemplate: (String) -> Unit
+    onEditTemplate: (String) -> Unit,
+    onCreateVisitTemplate: (String) -> Unit
 ) {
+    var activeTab by remember { mutableStateOf(0) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             Column {
@@ -44,15 +49,47 @@ fun TemplateManagementScreen(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                TabRow(
+                    selectedTabIndex = activeTab,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Tab(
+                        selected = activeTab == 0,
+                        onClick = { activeTab = 0 },
+                        text = { Text("Proyectos", fontWeight = FontWeight.Bold) }
+                    )
+                    Tab(
+                        selected = activeTab == 1,
+                        onClick = { activeTab = 1 },
+                        text = { Text("Visitas", fontWeight = FontWeight.Bold) }
+                    )
+                }
+            }
+        },
+        floatingActionButton = {
+            if (activeTab == 1) {
+                FloatingActionButton(
+                    onClick = { showCreateDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Nueva Plantilla de Visita")
+                }
             }
         },
         contentWindowInsets = WindowInsets.safeDrawing
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (customTemplates.isEmpty()) {
+            val filteredTemplates = remember(customTemplates, activeTab) {
+                customTemplates.filter { 
+                    if (activeTab == 0) it.target == "PROJECT" else it.target == "VISIT" 
+                }
+            }
+
+            if (filteredTemplates.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No tienes plantillas guardadas", color = MaterialTheme.colorScheme.outline)
+                    Text("No tienes plantillas en esta categoría", color = MaterialTheme.colorScheme.outline)
                 }
             } else {
                 LazyColumn(
@@ -60,7 +97,7 @@ fun TemplateManagementScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(customTemplates, key = { it.uuid }) { template ->
+                    items(filteredTemplates, key = { it.uuid }) { template ->
                         TemplateListItem(
                             template = template,
                             onDelete = { onDeleteTemplate(it) },
@@ -70,6 +107,38 @@ fun TemplateManagementScreen(
                     }
                 }
             }
+        }
+
+        if (showCreateDialog) {
+            var newTemplateName by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { showCreateDialog = false },
+                title = { Text("Nueva Plantilla de Visita") },
+                text = {
+                    OutlinedTextField(
+                        value = newTemplateName,
+                        onValueChange = { newTemplateName = it },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Nombre de la plantilla") }
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (newTemplateName.isNotBlank()) {
+                                onCreateVisitTemplate(newTemplateName.trim())
+                                showCreateDialog = false
+                            }
+                        }
+                    ) {
+                        Text("Crear")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showCreateDialog = false }) { Text("Cancelar") }
+                }
+            )
         }
     }
 }
