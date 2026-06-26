@@ -123,6 +123,18 @@ class AndroidWorkspaceAccessor(
         }
     }
 
+    override suspend fun readBytes(relativePath: String): ByteArray? = withContext(Dispatchers.IO) {
+        val doc = getDoc(relativePath, createParents = false) ?: return@withContext null
+        try {
+            context.contentResolver.openInputStream(doc.uri)?.use { 
+                it.readBytes() 
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     override suspend fun getAbsolutePath(relativePath: String): String {
         val doc = getDoc(relativePath, createParents = false)
         return doc?.uri?.toString() ?: ""

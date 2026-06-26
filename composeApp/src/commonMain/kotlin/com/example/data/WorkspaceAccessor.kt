@@ -7,5 +7,6 @@ interface WorkspaceAccessor {
     suspend fun delete(relativePath: String)
     suspend fun listDirectories(relativePath: String): List<String>
     suspend fun writeBytes(relativePath: String, data: ByteArray)
+    suspend fun readBytes(relativePath: String): ByteArray?
     suspend fun getAbsolutePath(relativePath: String): String
 }

@@ -34,7 +34,8 @@ fun DashboardScreen(
     onCreateProjectClick: () -> Unit,
     onDeleteProject: (ProjectData) -> Unit,
     onSyncClick: () -> Unit,
-    onRunSync: () -> Unit
+    onRunSync: () -> Unit,
+    onManageTemplatesClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -52,6 +53,17 @@ fun DashboardScreen(
                         }
                     },
                     actions = {
+                        IconButton(
+                            onClick = onManageTemplatesClick,
+                            modifier = Modifier.testTag("manage_templates_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.List,
+                                contentDescription = "Gestionar Plantillas",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         IconButton(
                             onClick = onSyncClick,
                             modifier = Modifier.testTag("sync_cloud_button")

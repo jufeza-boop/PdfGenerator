@@ -35,6 +35,13 @@ class ProjectViewModel(
     private val _workspaceConfigured = MutableStateFlow(workspaceManager.getAccessor() != null)
     val workspaceConfigured: StateFlow<Boolean> = _workspaceConfigured.asStateFlow()
 
+    private val _showTemplateManagement = MutableStateFlow(false)
+    val showTemplateManagement: StateFlow<Boolean> = _showTemplateManagement.asStateFlow()
+
+    fun setShowTemplateManagement(show: Boolean) {
+        _showTemplateManagement.value = show
+    }
+
     fun setWorkspaceUri(uri: String) {
         workspaceManager.saveWorkspaceUri(uri)
         _workspaceConfigured.value = true
@@ -51,7 +58,24 @@ class ProjectViewModel(
     val selectedProject: StateFlow<ProjectData?> = _selectedProjectId
         .flatMapLatest { id ->
             if (id == null) flowOf(null)
-            else repository.getProjectById(id)
+            else if (id.startsWith("template_")) {
+                val templateId = id.removePrefix("template_")
+                val template = store.customTemplates.value.find { it.uuid == templateId }
+                if (template != null) {
+                    flowOf(ProjectData(
+                        uuid = id,
+                        name = template.name,
+                        headerCompany = template.headerCompany ?: "",
+                        headerCompanySub = template.headerCompanySub ?: "",
+                        headerTitle = template.headerTitle ?: "",
+                        blocks = template.blocks,
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis()
+                    ))
+                } else {
+                    flowOf(null)
+                }
+            } else repository.getProjectById(id)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -93,10 +117,20 @@ class ProjectViewModel(
         _generatedPdfFile.value = null // reset preview when changing project
         if (id != null) {
             viewModelScope.launch {
-                val projectWithBlocks = repository.getProjectById(id).filterNotNull().first()
-                val blocks = projectWithBlocks.blocks.sortedBy { it.sequence }
-                _originalBlocks.value = blocks
-                _draftBlocks.value = blocks
+                if (id.startsWith("template_")) {
+                    val templateId = id.removePrefix("template_")
+                    val template = store.customTemplates.value.find { it.uuid == templateId }
+                    if (template != null) {
+                        val blocks = template.blocks.sortedBy { it.sequence }
+                        _originalBlocks.value = blocks
+                        _draftBlocks.value = blocks
+                    }
+                } else {
+                    val projectWithBlocks = repository.getProjectById(id).filterNotNull().first()
+                    val blocks = projectWithBlocks.blocks.sortedBy { it.sequence }
+                    _originalBlocks.value = blocks
+                    _draftBlocks.value = blocks
+                }
             }
         } else {
             _originalBlocks.value = emptyList()
@@ -310,19 +344,33 @@ class ProjectViewModel(
     ) {
         val project = selectedProject.value ?: return
         viewModelScope.launch {
-            val updated = project.copy(
-                name = name,
-                reportLabel = reportLabel,
-                showHeaderLabel = showHeaderLabel,
-                showHeaderDate = showHeaderDate,
-                headerCompany = headerCompany,
-                headerCompanySub = headerCompanySub,
-                headerTitle = headerTitle,
-                showHeaderBox = showHeaderBox,
-                showHeaderTitle = showHeaderTitle,
-                updatedAt = System.currentTimeMillis()
-            )
-            repository.updateProject(updated)
+            if (project.uuid.startsWith("template_")) {
+                val templateId = project.uuid.removePrefix("template_")
+                val template = store.customTemplates.value.find { it.uuid == templateId }
+                if (template != null) {
+                    val updatedTemplate = template.copy(
+                        name = name,
+                        headerCompany = headerCompany,
+                        headerCompanySub = headerCompanySub,
+                        headerTitle = headerTitle
+                    )
+                    store.saveCustomTemplate(updatedTemplate)
+                }
+            } else {
+                val updated = project.copy(
+                    name = name,
+                    reportLabel = reportLabel,
+                    showHeaderLabel = showHeaderLabel,
+                    showHeaderDate = showHeaderDate,
+                    headerCompany = headerCompany,
+                    headerCompanySub = headerCompanySub,
+                    headerTitle = headerTitle,
+                    showHeaderBox = showHeaderBox,
+                    showHeaderTitle = showHeaderTitle,
+                    updatedAt = System.currentTimeMillis()
+                )
+                repository.updateProject(updated)
+            }
         }
     }
 
@@ -359,6 +407,27 @@ class ProjectViewModel(
         viewModelScope.launch {
             val draft = _draftBlocks.value
             val original = _originalBlocks.value
+
+            if (projectId.startsWith("template_")) {
+                val templateId = projectId.removePrefix("template_")
+                val template = store.customTemplates.value.find { it.uuid == templateId }
+                if (template != null) {
+                    val updatedBlocks = draft.mapIndexed { idx, block -> 
+                        val newBlock = if (block.uuid.startsWith("draft_")) {
+                            block.copy(uuid = UUID.randomUUID().toString(), sequence = idx)
+                        } else {
+                            block.copy(sequence = idx)
+                        }
+                        newBlock
+                    }
+                    val updatedTemplate = template.copy(blocks = updatedBlocks)
+                    store.saveCustomTemplate(updatedTemplate)
+                    _originalBlocks.value = updatedBlocks
+                    _draftBlocks.value = updatedBlocks
+                    onSaved()
+                }
+                return@launch
+            }
 
             // 1. Delete blocks removed from the draft
             val draftIds = draft.map { it.uuid }.toSet()
@@ -462,8 +531,10 @@ class ProjectViewModel(
         val project = selectedProject.value ?: return
         val currentDraft = _draftBlocks.value.filter { it.visitUuid == null }
         viewModelScope.launch {
+            val templateUuid = UUID.randomUUID().toString()
+            repository.copyMediaForTemplate(project.uuid, templateUuid, currentDraft)
             val template = CustomTemplateData(
-                uuid = UUID.randomUUID().toString(),
+                uuid = templateUuid,
                 name = name,
                 target = "PROJECT",
                 blocks = currentDraft,
@@ -476,15 +547,33 @@ class ProjectViewModel(
     }
 
     fun saveVisitAsTemplate(name: String, visitUuid: String) {
+        val projectId = _selectedProjectId.value ?: return
         val currentDraft = _draftBlocks.value.filter { it.visitUuid == visitUuid }
         viewModelScope.launch {
+            val templateUuid = UUID.randomUUID().toString()
+            repository.copyMediaForTemplate(projectId, templateUuid, currentDraft)
             val template = CustomTemplateData(
-                uuid = UUID.randomUUID().toString(),
+                uuid = templateUuid,
                 name = name,
                 target = "VISIT",
                 blocks = currentDraft
             )
             store.saveCustomTemplate(template)
+        }
+    }
+
+    fun renameCustomTemplate(uuid: String, newName: String) {
+        viewModelScope.launch {
+            val template = store.customTemplates.value.find { it.uuid == uuid }
+            if (template != null) {
+                store.saveCustomTemplate(template.copy(name = newName))
+            }
+        }
+    }
+
+    fun deleteCustomTemplate(uuid: String) {
+        viewModelScope.launch {
+            store.deleteCustomTemplate(uuid)
         }
     }
 }

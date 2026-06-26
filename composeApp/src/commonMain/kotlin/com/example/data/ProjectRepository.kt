@@ -126,6 +126,7 @@ class ProjectRepository(
                             visitUuid = null
                         )
                     })
+                    copyMediaFromTemplate(templateType, projectId, customTemplate.blocks)
                 }
             }
         }
@@ -183,6 +184,7 @@ class ProjectRepository(
                     visitUuid = visitId
                 )
             })
+            copyMediaFromTemplate(templateType, projectId, customTemplate.blocks)
         }
         
         val updated = proj.copy(
@@ -279,6 +281,32 @@ class ProjectRepository(
         val relPath = "signatures/sig_${UUID.randomUUID()}.png"
         workspaceManager.getAccessor()?.writeBytes("$projectId/$relPath", signatureBytes)
         relPath
+    }
+
+    suspend fun copyMediaForTemplate(sourceProjectId: String, templateUuid: String, blocks: List<BlockData>) = withContext(Dispatchers.IO) {
+        val accessor = workspaceManager.getAccessor() ?: return@withContext
+        blocks.forEach { block ->
+            if (block.type == BlockType.IMAGE.name || block.type == BlockType.SIGNATURE.name) {
+                val relPath = block.content.split("|")[0]
+                val bytes = accessor.readBytes("$sourceProjectId/$relPath")
+                if (bytes != null) {
+                    accessor.writeBytes("template_$templateUuid/$relPath", bytes)
+                }
+            }
+        }
+    }
+
+    suspend fun copyMediaFromTemplate(templateUuid: String, destProjectId: String, blocks: List<BlockData>) = withContext(Dispatchers.IO) {
+        val accessor = workspaceManager.getAccessor() ?: return@withContext
+        blocks.forEach { block ->
+            if (block.type == BlockType.IMAGE.name || block.type == BlockType.SIGNATURE.name) {
+                val relPath = block.content.split("|")[0]
+                val bytes = accessor.readBytes("template_$templateUuid/$relPath")
+                if (bytes != null) {
+                    accessor.writeBytes("$destProjectId/$relPath", bytes)
+                }
+            }
+        }
     }
 
     suspend fun generatePdf(

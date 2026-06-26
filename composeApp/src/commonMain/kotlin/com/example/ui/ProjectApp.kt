@@ -48,6 +48,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.example.data.*
+import com.example.ui.screens.*
 import com.example.ui.theme.*
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -126,6 +127,7 @@ fun ProjectApp(
     val generatedPdfFile by viewModel.generatedPdfFile.collectAsStateWithLifecycle()
     val isGeneratingPdf by viewModel.isGeneratingPdf.collectAsStateWithLifecycle()
     val isUploadingCloud by viewModel.isUploadingCloud.collectAsStateWithLifecycle()
+    val showTemplateManagement by viewModel.showTemplateManagement.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
     var showSignatureDialog by remember { mutableStateOf(false) }
     var activeSignatureBlockForDrawing by remember { mutableStateOf<BlockData?>(null) }
@@ -180,6 +182,7 @@ fun ProjectApp(
             targetState = when {
                 generatedPdfFile != null -> AppScreen.PdfPreview
                 selectedProjectId != null -> AppScreen.Editor
+                showTemplateManagement -> AppScreen.TemplateManagement
                 else -> AppScreen.Dashboard
             },
             label = "ScreenTransition"
@@ -192,7 +195,8 @@ fun ProjectApp(
                         onCreateProjectClick = { showCreateDialog = true },
                         onDeleteProject = { project -> viewModel.deleteProject(project) },
                         onSyncClick = { showFolderSelector = true },
-                        onRunSync = { /* No-op */ }
+                        onRunSync = { /* No-op */ },
+                        onManageTemplatesClick = { viewModel.setShowTemplateManagement(true) }
                     )
                 }
                 AppScreen.Editor -> {
@@ -246,6 +250,18 @@ fun ProjectApp(
                             onBack = { viewModel.clearPdfPreviewState() }
                         )
                     }
+                }
+                AppScreen.TemplateManagement -> {
+                    TemplateManagementScreen(
+                        customTemplates = customTemplates,
+                        onBack = { viewModel.setShowTemplateManagement(false) },
+                        onDeleteTemplate = { uuid -> viewModel.deleteCustomTemplate(uuid) },
+                        onRenameTemplate = { uuid, newName -> viewModel.renameCustomTemplate(uuid, newName) },
+                        onEditTemplate = { uuid -> 
+                            viewModel.setShowTemplateManagement(false)
+                            viewModel.selectProject("template_$uuid") 
+                        }
+                    )
                 }
             }
         }

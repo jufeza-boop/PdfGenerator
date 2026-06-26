@@ -66,6 +66,11 @@ class DesktopWorkspaceAccessor(private val rootDir: File) : WorkspaceAccessor {
         file.writeBytes(data)
     }
 
+    override suspend fun readBytes(relativePath: String): ByteArray? = withContext(Dispatchers.IO) {
+        val file = getFile(relativePath)
+        if (file.exists()) file.readBytes() else null
+    }
+
     override suspend fun getAbsolutePath(relativePath: String): String {
         return getFile(relativePath).absolutePath
     }
