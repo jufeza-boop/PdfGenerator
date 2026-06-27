@@ -30,6 +30,7 @@ import java.util.Locale
 @Composable
 fun DashboardScreen(
     projects: List<ProjectData>,
+    isLoading: Boolean,
     onProjectSelected: (String) -> Unit,
     onCreateProjectClick: () -> Unit,
     onDeleteProject: (ProjectData) -> Unit,
@@ -102,7 +103,16 @@ fun DashboardScreen(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
 
-                if (projects.isEmpty()) {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                } else if (projects.isEmpty()) {
                     // Empty state card
                     Column(
                         modifier = Modifier

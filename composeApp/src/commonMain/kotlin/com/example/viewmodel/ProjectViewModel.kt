@@ -38,6 +38,9 @@ class ProjectViewModel(
     private val _showTemplateManagement = MutableStateFlow(false)
     val showTemplateManagement: StateFlow<Boolean> = _showTemplateManagement.asStateFlow()
 
+    private val _isLoadingProjects = MutableStateFlow(true)
+    val isLoadingProjects: StateFlow<Boolean> = _isLoadingProjects.asStateFlow()
+
     fun setShowTemplateManagement(show: Boolean) {
         _showTemplateManagement.value = show
     }
@@ -46,7 +49,9 @@ class ProjectViewModel(
         workspaceManager.saveWorkspaceUri(uri)
         _workspaceConfigured.value = true
         viewModelScope.launch {
+            _isLoadingProjects.value = true
             store.initialize()
+            _isLoadingProjects.value = false
         }
     }
 
@@ -107,7 +112,11 @@ class ProjectViewModel(
     init {
         viewModelScope.launch {
             if (workspaceManager.getAccessor() != null) {
+                _isLoadingProjects.value = true
                 store.initialize()
+                _isLoadingProjects.value = false
+            } else {
+                _isLoadingProjects.value = false
             }
         }
     }

@@ -128,6 +128,7 @@ fun ProjectApp(
     val isGeneratingPdf by viewModel.isGeneratingPdf.collectAsStateWithLifecycle()
     val isUploadingCloud by viewModel.isUploadingCloud.collectAsStateWithLifecycle()
     val showTemplateManagement by viewModel.showTemplateManagement.collectAsStateWithLifecycle()
+    val isLoadingProjects by viewModel.isLoadingProjects.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
     var showSignatureDialog by remember { mutableStateOf(false) }
     var activeSignatureBlockForDrawing by remember { mutableStateOf<BlockData?>(null) }
@@ -191,6 +192,7 @@ fun ProjectApp(
                 AppScreen.Dashboard -> {
                     DashboardScreen(
                         projects = allProjects,
+                        isLoading = isLoadingProjects,
                         onProjectSelected = { id -> viewModel.selectProject(id) },
                         onCreateProjectClick = { showCreateDialog = true },
                         onDeleteProject = { project -> viewModel.deleteProject(project) },
