@@ -53,7 +53,7 @@ El proyecto sigue una arquitectura **MVVM (Model-View-ViewModel)** dentro de un 
 ### Configuración y Compilación
 1.  **Clonar el repositorio**:
     ```bash
-    git clone [url-del-repositorio]
+    git clone https://github.com/jufeza-boop/PdfGenerator.git
     ```
 2.  **Sincronizar Gradle**: Se descargarán todas las dependencias multiplataforma necesarias.
 3.  **Ejecutar en Android**:
@@ -71,7 +71,7 @@ El proyecto sigue una arquitectura **MVVM (Model-View-ViewModel)** dentro de un 
 
 ## 📸 Capturas de Pantalla
 
-![Dashboard de Proyectos](url)
-![Editor de Bloques Interactivos](url)
-![Formulario de Tabla de Chequeo](url)
-![Informe PDF Profesional](url)
+![Dashboard de Proyectos](./landing-page/public/imagenesApp/dashboard.png)
+![Editor de Bloques Interactivos](./landing-page/public/imagenesApp/editorGeneral.png)
+![Formulario de Visitas](./landing-page/public/imagenesApp/editorVisita.png)
+![Informe PDF Profesional](./landing-page/public/imagenesApp/previsualizaciónReporte.png)
