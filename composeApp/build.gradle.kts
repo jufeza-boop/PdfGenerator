@@ -94,7 +94,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "PdfGenerator"
-            packageVersion = "1.0.0"
+            packageVersion = "1.0.1"
             
             windows {
                 // iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
