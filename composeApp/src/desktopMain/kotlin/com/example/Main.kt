@@ -1,6 +1,7 @@
 package com.example
 
-import androidx.compose.ui.window.singleWindowApplication
+import androidx.compose.ui.window.application
+import androidx.compose.ui.window.Window
 import com.example.ui.ProjectApp
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.ProjectViewModel
@@ -19,9 +20,15 @@ fun main() {
     )
     val viewModel = ProjectViewModel(repository, workspaceManager, store)
     
-    singleWindowApplication(title = "Project PDF Manager") {
-        MyApplicationTheme {
-            ProjectApp(viewModel)
+    application {
+        Window(
+            onCloseRequest = ::exitApplication,
+            title = "Seguimiento Obras",
+            icon = androidx.compose.ui.res.painterResource("icon.png")
+        ) {
+            MyApplicationTheme {
+                ProjectApp(viewModel)
+            }
         }
     }
 }

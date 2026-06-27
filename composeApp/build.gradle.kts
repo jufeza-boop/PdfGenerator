@@ -93,11 +93,11 @@ compose.desktop {
         mainClass = "com.example.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "PdfGenerator"
+            packageName = "Seguimiento Obras"
             packageVersion = "1.0.1"
             
             windows {
-                // iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
+                iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
                 shortcut = true
                 menu = true
                 // El upgradeUuid permite instalar nuevas versiones sobre las antiguas sin tener que desinstalar.

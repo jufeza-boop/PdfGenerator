@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "PdfGenerator"
+rootProject.name = "SeguimientoObras"
 
 include(":composeApp")
