@@ -34,10 +34,6 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.core)
                 
                 implementation(libs.moshi.kotlin)
-                implementation(libs.okhttp)
-                implementation(libs.retrofit)
-                implementation(libs.converter.moshi)
-                implementation(libs.logging.interceptor)
                 
                 implementation(libs.coil.compose)
             }
