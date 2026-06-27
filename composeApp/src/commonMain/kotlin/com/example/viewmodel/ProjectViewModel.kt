@@ -18,7 +18,7 @@ class ProjectViewModel(
 ) : ViewModel() {
 
     // List of all projects for the dashboard
-    val allProjects: StateFlow<List<ProjectData>> = repository.allProjects
+    val projectSummaries: StateFlow<List<ManifestEntry>> = repository.projectSummaries
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -60,29 +60,8 @@ class ProjectViewModel(
     val selectedProjectId: StateFlow<String?> = _selectedProjectId.asStateFlow()
 
     // Retrieve active details reactively using selected ID mapping
-    val selectedProject: StateFlow<ProjectData?> = _selectedProjectId
-        .flatMapLatest { id ->
-            if (id == null) flowOf(null)
-            else if (id.startsWith("template_")) {
-                val templateId = id.removePrefix("template_")
-                val template = store.customTemplates.value.find { it.uuid == templateId }
-                if (template != null) {
-                    flowOf(ProjectData(
-                        uuid = id,
-                        name = template.name,
-                        headerCompany = template.headerCompany ?: "",
-                        headerCompanySub = template.headerCompanySub ?: "",
-                        headerTitle = template.headerTitle ?: "",
-                        blocks = template.blocks,
-                        createdAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis()
-                    ))
-                } else {
-                    flowOf(null)
-                }
-            } else repository.getProjectById(id)
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    private val _selectedProject = MutableStateFlow<ProjectData?>(null)
+    val selectedProject: StateFlow<ProjectData?> = _selectedProject.asStateFlow()
 
     // Draft blocks state of currently editing project
     private val _draftBlocks = MutableStateFlow<List<BlockData>>(emptyList())
@@ -130,18 +109,32 @@ class ProjectViewModel(
                     val templateId = id.removePrefix("template_")
                     val template = store.customTemplates.value.find { it.uuid == templateId }
                     if (template != null) {
+                        _selectedProject.value = ProjectData(
+                            uuid = id,
+                            name = template.name,
+                            headerCompany = template.headerCompany ?: "",
+                            headerCompanySub = template.headerCompanySub ?: "",
+                            headerTitle = template.headerTitle ?: "",
+                            blocks = template.blocks,
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis()
+                        )
                         val blocks = template.blocks.sortedBy { it.sequence }
                         _originalBlocks.value = blocks
                         _draftBlocks.value = blocks
                     }
                 } else {
-                    val projectWithBlocks = repository.getProjectById(id).filterNotNull().first()
-                    val blocks = projectWithBlocks.blocks.sortedBy { it.sequence }
-                    _originalBlocks.value = blocks
-                    _draftBlocks.value = blocks
+                    val projectWithBlocks = repository.getProjectById(id)
+                    if (projectWithBlocks != null) {
+                        _selectedProject.value = projectWithBlocks
+                        val blocks = projectWithBlocks.blocks.sortedBy { it.sequence }
+                        _originalBlocks.value = blocks
+                        _draftBlocks.value = blocks
+                    }
                 }
             }
         } else {
+            _selectedProject.value = null
             _originalBlocks.value = emptyList()
             _draftBlocks.value = emptyList()
         }
@@ -152,11 +145,12 @@ class ProjectViewModel(
         onCreated(projectId)
     }
 
-    fun deleteProject(project: ProjectData) {
+    fun deleteProject(uuid: String) {
         viewModelScope.launch {
-            repository.deleteProject(project)
-            if (_selectedProjectId.value == project.uuid) {
+            store.deleteProject(uuid)
+            if (_selectedProjectId.value == uuid) {
                 _selectedProjectId.value = null
+                _selectedProject.value = null
             }
         }
     }
@@ -379,6 +373,7 @@ class ProjectViewModel(
                     updatedAt = System.currentTimeMillis()
                 )
                 repository.updateProject(updated)
+                _selectedProject.value = updated
             }
         }
     }
@@ -457,10 +452,13 @@ class ProjectViewModel(
             }
 
             // 3. Reload saved blocks from DB
-            val freshProject = repository.getProjectById(projectId).filterNotNull().first()
-            val sorted = freshProject.blocks.sortedBy { it.sequence }
-            _originalBlocks.value = sorted
-            _draftBlocks.value = sorted
+            val freshProject = repository.getProjectById(projectId)
+            if (freshProject != null) {
+                _selectedProject.value = freshProject
+                val sorted = freshProject.blocks.sortedBy { it.sequence }
+                _originalBlocks.value = sorted
+                _draftBlocks.value = sorted
+            }
             onSaved()
         }
     }
@@ -473,10 +471,13 @@ class ProjectViewModel(
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             repository.createVisit(projectId, title, notes, templateType, date)
-            val freshProject = repository.getProjectById(projectId).filterNotNull().first()
-            val sorted = freshProject.blocks.sortedBy { it.sequence }
-            _originalBlocks.value = sorted
-            _draftBlocks.value = sorted
+            val freshProject = repository.getProjectById(projectId)
+            if (freshProject != null) {
+                _selectedProject.value = freshProject
+                val sorted = freshProject.blocks.sortedBy { it.sequence }
+                _originalBlocks.value = sorted
+                _draftBlocks.value = sorted
+            }
         }
     }
 

@@ -26,11 +26,11 @@ class ProjectRepository(
     private val checklistAdapter = moshi.adapter(ChecklistBlockContent::class.java)
     private val checklistTableAdapter = moshi.adapter(ChecklistTableBlockContent::class.java)
 
-    val allProjects: Flow<List<ProjectData>> = store.allProjects
+    val projectSummaries: Flow<List<ManifestEntry>> = store.projectSummaries
     val customTemplates: Flow<List<CustomTemplateData>> = store.customTemplates
 
-    fun getProjectById(uuid: String): Flow<ProjectData?> {
-        return store.allProjects.map { projects -> projects.find { it.uuid == uuid } }
+    suspend fun getProjectById(uuid: String): ProjectData? {
+        return store.getProject(uuid)
     }
 
     suspend fun insertVisit(projectId: String, visit: VisitData) = withContext(Dispatchers.IO) {

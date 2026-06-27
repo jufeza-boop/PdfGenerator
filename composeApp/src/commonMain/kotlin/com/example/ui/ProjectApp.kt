@@ -119,7 +119,7 @@ fun ProjectApp(
     modifier: Modifier = Modifier
 ) {
     val platformUtils = getPlatformUtils()
-    val allProjects by viewModel.allProjects.collectAsStateWithLifecycle()
+    val allProjects by viewModel.projectSummaries.collectAsStateWithLifecycle()
     val selectedProjectId by viewModel.selectedProjectId.collectAsStateWithLifecycle()
     val selectedProject by viewModel.selectedProject.collectAsStateWithLifecycle()
     val draftBlocks by viewModel.draftBlocks.collectAsStateWithLifecycle()

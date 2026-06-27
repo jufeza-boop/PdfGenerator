@@ -22,8 +22,8 @@ class JsonProjectStore(
     private val workspaceManager: WorkspaceManager,
     private val moshi: Moshi = MoshiProvider.instance
 ) {
-    private val _allProjects = MutableStateFlow<List<ProjectData>>(emptyList())
-    val allProjects: StateFlow<List<ProjectData>> = _allProjects.asStateFlow()
+    private val _projectSummaries = MutableStateFlow<List<ManifestEntry>>(emptyList())
+    val projectSummaries: StateFlow<List<ManifestEntry>> = _projectSummaries.asStateFlow()
 
     private val _customTemplates = MutableStateFlow<List<CustomTemplateData>>(emptyList())
     val customTemplates: StateFlow<List<CustomTemplateData>> = _customTemplates.asStateFlow()
@@ -34,8 +34,7 @@ class JsonProjectStore(
     private val templatesAdapter = moshi.adapter<List<CustomTemplateData>>(templatesType)
 
     suspend fun initialize() = withContext(Dispatchers.IO) {
-        val projects = mutableListOf<ProjectData>()
-        val loadedUuids = mutableSetOf<String>()
+        val entries = mutableListOf<ManifestEntry>()
         
         val accessor = workspaceManager.getAccessor() ?: return@withContext
         if (accessor.exists("manifest.json")) {
@@ -43,16 +42,8 @@ class JsonProjectStore(
                 val manifestText = accessor.readText("manifest.json")
                 if (manifestText != null) {
                     val manifest = manifestAdapter.fromJson(manifestText)
-                    manifest?.projects?.forEach { entry ->
-                        val dataFile = "${entry.uuid}/project_data.json"
-                        if (accessor.exists(dataFile)) {
-                            accessor.readText(dataFile)?.let { text ->
-                                projectAdapter.fromJson(text)?.let { 
-                                    projects.add(it)
-                                    loadedUuids.add(it.uuid)
-                                }
-                            }
-                        }
+                    if (manifest != null) {
+                        entries.addAll(manifest.projects)
                     }
                 }
             } catch (e: Exception) {
@@ -60,10 +51,7 @@ class JsonProjectStore(
             }
         }
         
-        // Siempre escaneamos carpetas para encontrar proyectos copiados manualmente que no estén en el manifest
-        scanFoldersForProjects(projects, loadedUuids)
-        
-        _allProjects.value = projects.sortedByDescending { it.createdAt }
+        _projectSummaries.value = entries.sortedByDescending { it.updatedAt }
         
         if (accessor.exists("templates.json")) {
             try {
@@ -80,17 +68,23 @@ class JsonProjectStore(
         saveManifest()
     }
 
-    private suspend fun scanFoldersForProjects(projects: MutableList<ProjectData>, skipUuids: Set<String> = emptySet()) {
-        val accessor = workspaceManager.getAccessor() ?: return
+    suspend fun syncFolders() = withContext(Dispatchers.IO) {
+        val entries = _projectSummaries.value.toMutableList()
+        val loadedUuids = entries.map { it.uuid }.toSet()
+        val accessor = workspaceManager.getAccessor() ?: return@withContext
         val dirs = accessor.listDirectories("")
+        var changed = false
         for (dir in dirs) {
-            if (dir in skipUuids) continue
+            if (dir in loadedUuids) continue
             val dataFile = "$dir/project_data.json"
             if (accessor.exists(dataFile)) {
                 try {
                     accessor.readText(dataFile)?.let { text ->
                         try {
-                            projectAdapter.fromJson(text)?.let { projects.add(it) }
+                            projectAdapter.fromJson(text)?.let { 
+                                entries.add(ManifestEntry(it.uuid, it.name, it.createdAt, it.updatedAt))
+                                changed = true
+                            }
                         } catch (e: Exception) {
                             // Intento de migración desde formato legacy
                             val legacyAdapter = moshi.adapter(ProjectSyncData::class.java)
@@ -109,7 +103,7 @@ class JsonProjectStore(
                                         headerTitle = legacy.project.headerTitle,
                                         showHeaderBox = legacy.project.showHeaderBox,
                                         showHeaderTitle = legacy.project.showHeaderTitle,
-                                        visits = emptyList(), // Legacy did not support visits natively
+                                        visits = emptyList(),
                                         blocks = legacy.blocks.map { b ->
                                             BlockData(
                                                 uuid = java.util.UUID.randomUUID().toString(),
@@ -120,8 +114,8 @@ class JsonProjectStore(
                                             )
                                         }
                                     )
-                                    projects.add(projectData)
-                                    // Guardar el proyecto migrado
+                                    entries.add(ManifestEntry(projectData.uuid, projectData.name, projectData.createdAt, projectData.updatedAt))
+                                    changed = true
                                     accessor.writeText(dataFile, projectAdapter.toJson(projectData))
                                 }
                             } catch (e2: Exception) {
@@ -133,6 +127,10 @@ class JsonProjectStore(
                     e.printStackTrace()
                 }
             }
+        }
+        if (changed) {
+            _projectSummaries.value = entries.sortedByDescending { it.updatedAt }
+            saveManifest()
         }
     }
 
@@ -147,14 +145,15 @@ class JsonProjectStore(
             e.printStackTrace()
         }
         
-        val current = _allProjects.value.toMutableList()
+        val current = _projectSummaries.value.toMutableList()
         val index = current.indexOfFirst { it.uuid == project.uuid }
+        val newEntry = ManifestEntry(project.uuid, project.name, project.createdAt, project.updatedAt)
         if (index >= 0) {
-            current[index] = project
+            current[index] = newEntry
         } else {
-            current.add(project)
+            current.add(newEntry)
         }
-        _allProjects.value = current.sortedByDescending { it.createdAt }
+        _projectSummaries.value = current.sortedByDescending { it.updatedAt }
         
         saveManifest()
     }
@@ -162,21 +161,29 @@ class JsonProjectStore(
     suspend fun deleteProject(uuid: String) = withContext(Dispatchers.IO) {
         val accessor = workspaceManager.getAccessor() ?: return@withContext
         accessor.delete(uuid)
-        _allProjects.value = _allProjects.value.filter { it.uuid != uuid }
+        _projectSummaries.value = _projectSummaries.value.filter { it.uuid != uuid }
         saveManifest()
     }
 
-    fun getProject(uuid: String): ProjectData? {
-        return _allProjects.value.find { it.uuid == uuid }
+    suspend fun getProject(uuid: String): ProjectData? = withContext(Dispatchers.IO) {
+        val accessor = workspaceManager.getAccessor() ?: return@withContext null
+        val dataFile = "$uuid/project_data.json"
+        if (accessor.exists(dataFile)) {
+            try {
+                accessor.readText(dataFile)?.let { text ->
+                    return@withContext projectAdapter.fromJson(text)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return@withContext null
     }
 
     private suspend fun saveManifest() {
         try {
             val accessor = workspaceManager.getAccessor() ?: return
-            val entries = _allProjects.value.map { 
-                ManifestEntry(uuid = it.uuid, name = it.name, createdAt = it.createdAt, updatedAt = it.updatedAt)
-            }
-            val manifest = ManifestData(version = 1, projects = entries)
+            val manifest = ManifestData(version = 1, projects = _projectSummaries.value)
             val json = manifestAdapter.toJson(manifest)
             accessor.writeText("manifest.json", json)
         } catch (e: Exception) {

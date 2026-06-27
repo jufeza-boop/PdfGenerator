@@ -29,11 +29,11 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    projects: List<ProjectData>,
+    projects: List<ManifestEntry>,
     isLoading: Boolean,
     onProjectSelected: (String) -> Unit,
     onCreateProjectClick: () -> Unit,
-    onDeleteProject: (ProjectData) -> Unit,
+    onDeleteProject: (String) -> Unit,
     onSyncClick: () -> Unit,
     onRunSync: () -> Unit,
     onManageTemplatesClick: () -> Unit
@@ -163,7 +163,7 @@ fun DashboardScreen(
                                 ProjectGridCard(
                                     item = item,
                                     onClick = { onProjectSelected(item.uuid) },
-                                    onDelete = { onDeleteProject(item) }
+                                    onDelete = { onDeleteProject(item.uuid) }
                                 )
                             }
                         }
@@ -184,7 +184,7 @@ fun DashboardScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectGridCard(
-    item: ProjectData,
+    item: ManifestEntry,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -212,9 +212,9 @@ fun ProjectGridCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                val formattedDate = remember(item.createdAt) {
+                val formattedDate = remember(item.updatedAt) {
                     val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                    sdf.format(Date(item.createdAt))
+                    sdf.format(Date(item.updatedAt))
                 }
                 
                 Text(
@@ -251,23 +251,6 @@ fun ProjectGridCard(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Short summary info icons
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val blockCounts = remember(item.blocks) {
-                    val textCount = item.blocks.count { it.type == "TEXT" }
-                    val imageCount = item.blocks.count { it.type == "IMAGE" }
-                    val sigCount = item.blocks.count { it.type == "SIGNATURE" }
-                    Triple(textCount, imageCount, sigCount)
-                }
-
-                BadgeCountIcon(imageVector = Icons.Default.Description, count = blockCounts.first)
-                BadgeCountIcon(imageVector = Icons.Default.Photo, count = blockCounts.second)
-                BadgeCountIcon(imageVector = Icons.Default.Gesture, count = blockCounts.third)
-            }
         }
     }
 
@@ -296,22 +279,3 @@ fun ProjectGridCard(
     }
 }
 
-@Composable
-fun BadgeCountIcon(imageVector: ImageVector, count: Int) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Icon(
-            imageVector = imageVector,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.size(14.dp)
-        )
-        Text(
-            text = count.toString(),
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.outline
-        )
-    }
-}
