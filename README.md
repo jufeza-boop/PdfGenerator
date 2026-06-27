@@ -15,11 +15,12 @@ Aplicación multiplataforma (Android/Windows) para la gestión de visitas a obra
     *   **Checklists**: Listas de tareas con estado de completado.
     *   **Tablas de Chequeo (Checklist Table)**: Tablas de inspección multi-columna (ej. SI/NO/NP) con recuadros de 8.5pt y centrado absoluto.
 *   **Generación de PDF de Alta Fidelidad**:
-    *   **Android**: Motor nativo `android.graphics.pdf`.
-    *   **Windows**: Motor `OpenPDF` para paridad visual absoluta.
+    *   Motor de maquetación unificado (`PdfLayoutEngine`) en `commonMain` para garantizar paridad visual absoluta.
+    *   Adaptadores de renderizado nativo: `android.graphics.pdf` en Android y `OpenPDF` en Windows.
     *   Incluye numeración de páginas, cabeceras corporativas encuadradas y estilos técnicos profesionales (negro sobre blanco).
-*   **Previsualización en Tiempo Real**: Visor de PDF integrado en la aplicación (usando PDFBox en Desktop).
-*   **Sincronización en la Nube**: Sistema de backup y exportación hacia Google Drive y Google Sheets (implementado en `FolderSyncManager`).
+*   **Sincronización en la Nube**: Sistema de backup y exportación (Google Drive/Sheets) completamente centralizado en `commonMain` usando `FolderSyncOrchestrator` y `FolderAccessor`.
+
+
 
 ## 🛠️ Stack Tecnológico y Arquitectura
 

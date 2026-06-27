@@ -103,6 +103,7 @@
 | `ui/UI.desktop.kt` | Platform Impl | `actual` de BackHandler (no-op), ImagePicker (JFileChooser), SignatureDialog, PdfPreview, FolderSelector |
 | `ui/PlatformUtils.desktop.kt` | Platform Impl | JOptionPane para mensajes, Desktop API para abrir archivos, JFileChooser para guardar |
 
+
 ---
 
 ## 3. Evaluación MVVM
