@@ -1,0 +1,30 @@
+{
+  "project": "PdfGenerator KMP",
+  "last_updated": "2026-07-02",
+  "rules": {
+    "single_active_feature": true,
+    "passing_requires_evidence": true,
+    "do_not_skip_verification": true
+  },
+  "status_legend": {
+    "not_started": "El trabajo no ha comenzado.",
+    "in_progress": "La característica es la tarea activa actual.",
+    "blocked": "El trabajo no puede continuar hasta que se resuelva un bloqueador documentado.",
+    "passing": "La verificación requerida ha pasado y se ha registrado evidencia."
+  },
+  "features": [
+    {
+      "id": "harness-001",
+      "priority": 1,
+      "area": "entorno",
+      "title": "Implementar Harness inicial",
+      "user_visible_behavior": "Los agentes siguen un flujo estandarizado al iniciar y terminar sesiones.",
+      "status": "passing",
+      "verification": {
+        "command": ".\\init.ps1",
+        "expected_result": "Éxito sin errores en la verificación base."
+      },
+      "evidence": "Archivos de configuración creados y actualizados con éxito."
+    }
+  ]
+}

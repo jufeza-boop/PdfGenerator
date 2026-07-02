@@ -1,5 +1,27 @@
 # PdfGenerator KMP — Agent Instructions
 
+Este repositorio está diseñado para trabajo de agentes de codificación de larga duración. El objetivo no es maximizar la salida bruta de código. El objetivo es dejar el repositorio en un estado donde la próxima sesión pueda continuar sin adivinar.
+
+## Flujo de Trabajo de Inicio
+
+Antes de escribir código:
+
+1. Confirma el directorio de trabajo.
+2. Lee `agent-progress.md` para el estado verificado más reciente y el próximo paso.
+3. Lee `feature_list.json` y elige la característica inacabada de mayor prioridad.
+4. Revisa los commits recientes con `git log --oneline -5`.
+5. Ejecuta `.\init.ps1`.
+6. Si la verificación de referencia ya está fallando, corrígela primero. No apiles trabajo de características nuevas sobre un estado inicial roto.
+
+## Reglas de Trabajo de Harness
+
+- Trabaja en una característica a la vez.
+- No marques una característica como completa solo porque se añadió código. Se requiere evidencia verificable.
+- Mantén los cambios dentro del alcance de la característica seleccionada.
+- Al final de la sesión, actualiza `agent-progress.md` detallando el estado alcanzado y la siguiente acción recomendada.
+
+## Reglas Específicas del Proyecto
+
 See [README.md](README.md) for project overview, tech stack, and build/run commands.
 
 ## Essential Commands
