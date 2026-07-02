@@ -18,7 +18,7 @@ Aplicación multiplataforma (Android/Windows) para la gestión de visitas a obra
     *   Motor de maquetación unificado (`PdfLayoutEngine`) en `commonMain` para garantizar paridad visual absoluta.
     *   Adaptadores de renderizado nativo: `android.graphics.pdf` en Android y `OpenPDF` en Windows.
     *   Incluye numeración de páginas, cabeceras corporativas encuadradas y estilos técnicos profesionales (negro sobre blanco).
-*   **Sincronización en la Nube**: Sistema de backup y exportación (Google Drive/Sheets) completamente centralizado en `commonMain` usando `FolderSyncOrchestrator` y `FolderAccessor`.
+*   **Gestión de Archivos**: Sistema de acceso a archivos y carpetas completamente centralizado en `commonMain` usando `WorkspaceManager` y `WorkspaceAccessor`.
 
 
 
@@ -35,12 +35,11 @@ El proyecto sigue una arquitectura **MVVM (Model-View-ViewModel)** dentro de un 
 | :--- | :--- |
 | **Lenguaje** | Kotlin 2.1.0 |
 | **Framework UI** | Compose Multiplatform 1.7.1 |
-| **Base de Datos** | Room Multiplatform 2.7.0 (v8 schema) |
-| **Serialización** | Moshi (JSON estructurado para bloques) |
+| **Almacenamiento** | Archivos JSON locales (JsonProjectStore) |
+| **Serialización** | Moshi (JSON estructurado para bloques y proyectos) |
 | **Imagen** | Coil 3.0.0-alpha |
 | **PDF (Windows)** | OpenPDF (com.github.librepdf:openpdf) |
 | **PDF Preview** | PDFBox (org.apache.pdfbox:pdfbox) |
-| **Red** | Ktor (Sincronización Drive/Sheets) |
 | **DI** | Koin 4.0.0 |
 
 ## 📦 Requisitos y Configuración

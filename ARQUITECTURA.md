@@ -15,36 +15,38 @@
 │  ENTRY POINTS (Platform-specific)                               │
 │  androidMain/MainActivity.kt  ←→  desktopMain/Main.kt           │
 │  Inyectan:                                                      │
-│    Android → AndroidPdfGenerator, AndroidFolderSyncManager     │
-│    Desktop → DesktopPdfGenerator, DesktopFolderSyncManager     │
+│    Android → AndroidPdfGenerator, WorkspaceManager (Android)    │
+│    Desktop → DesktopPdfGenerator, WorkspaceManager (Desktop)    │
 └─────────────────────┬───────────────────────────────────────────┘
                       │ instancia ProjectViewModel
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  VIEWMODEL (commonMain)                                         │
-│  ProjectViewModel.kt [~480 líneas] (Aligerado, sin Moshi)       │
+│  ProjectViewModel.kt [>600 líneas]                              │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │ StateFlows: allProjects, selectedProject, draftBlocks,  │   │
-│  │             isDirty, syncState, generatedPdfFile, etc.   │   │
+│  │             isDirty, generatedPdfFile, etc.             │   │
 │  └─────────────────────────────────────────────────────────┘   │
-│  Depende de: ProjectRepository, PdfGenerator, FolderSyncMgr    │
+│  Depende de: ProjectRepository, PdfGenerator, WorkspaceManager │
 └─────────────────────┬───────────────────────────────────────────┘
                       │ collectAsStateWithLifecycle()
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  UI / VIEW COMPONENTIZADA (commonMain)                         │
-│  ProjectApp.kt [~450 líneas] (Orquestador y layout base)        │
+│  ProjectApp.kt [~600 líneas] (Orquestador y layout base)        │
 │    ├─ AppNavigation.kt (Control de rutas)                       │
 │    ├─ screens/DashboardScreen.kt (Vista de proyectos)           │
-│    ├─ screens/EditorScreen.kt [~2,200 líneas] (Edición bloques)  │
+│    ├─ screens/EditorScreen.kt [>3,500 líneas] (God Composable)  │
 │    ├─ screens/PdfPreviewScreen.kt (Previsualizador)             │
-│    └─ BlockEditorForms.kt + FolderSyncDialog.kt                 │
+│    ├─ screens/TemplateManagementScreen.kt                       │
+│    └─ BlockEditorForms.kt                                       │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
 │  MOTORES DE LOGICA COMUN (commonMain / data)                    │
 │  • PdfLayoutEngine.kt: Maquetación común (RenderedPage)         │
-│  • FolderSyncOrchestrator.kt: Sync de metadatos (FolderAccessor)│
+│  • JsonProjectStore.kt: Almacenamiento JSON local               │
+│  • WorkspaceManager.kt: Gestión de acceso a archivos            │
 └──────────────┬──────────────────────────┬───────────────────────┘
                │                          │
                ▼                          ▼
@@ -61,47 +63,44 @@
 
 | Archivo | Capa | Descripción |
 |---|---|---|
-| `data/AppDatabase.kt` | Model | Entidades Room (Project, Visit, ContentBlock), DAOs, expect DB builder |
-| `data/Models.kt` | Model | DTOs: SyncState, TableBlockContent, ChecklistBlockContent, etc. |
-| `data/ProjectRepository.kt` | Repository | CRUD de proyectos y bloques, creación de plantillas de visitas y proyectos |
-| `data/PdfGenerator.kt` | Interface | Contrato para generación de PDF (implementado por cada plataforma) |
-| `data/PdfLayoutEngine.kt` | Core | Motor común de maquetación de PDF, calcula márgenes, fuentes, saltos de página y retorna `RenderedPage` |
-| `data/FolderAccessor.kt` | Interface | Interfaz para acceso genérico a almacenamiento de plataforma (SAF / File IO) |
-| `data/FolderSyncOrchestrator.kt` | Core | Orquestador de sincronización de carpetas, máquina de estados y serialización Moshi |
-| `data/FolderSyncManager.kt` | Interface | Contrato para sincronización de carpetas |
-| `ui/PlatformUtils.kt` | Interface | Contrato para utilidades de plataforma (toast, share, storage) |
-| `viewmodel/ProjectViewModel.kt` | ViewModel | Gestión de estado central. Aligerado, delega plantillas y serialización |
-| `ui/ProjectApp.kt` | View | Pantalla raíz simplificada, actúa como contenedor y orquestador |
-| `ui/navigation/AppNavigation.kt` | View | Gestión de rutas de navegación lateral y pantallas |
-| `ui/screens/DashboardScreen.kt` | View | Pantalla de lista de proyectos e inicio de sincronización |
-| `ui/screens/EditorScreen.kt` | View | Pantalla de edición de bloques de proyecto, visitas y exportación |
-| `ui/screens/PdfPreviewScreen.kt` | View | Pantalla de previsualización de PDF generado |
+| `data/JsonProjectStore.kt` | Model | Almacenamiento local de proyectos y bloques en formato JSON |
+| `data/Models.kt` | Model | DTOs y modelos de datos |
+| `data/ProjectRepository.kt` | Repository | CRUD de proyectos y bloques, creación de plantillas |
+| `data/PdfGenerator.kt` | Interface | Contrato para generación de PDF |
+| `data/PdfLayoutEngine.kt` | Core | Motor común de maquetación de PDF |
+| `data/WorkspaceAccessor.kt` | Interface | Interfaz para acceso genérico al sistema de archivos |
+| `data/WorkspaceManager.kt` | Core | Gestor unificado del espacio de trabajo y archivos |
+| `ui/PlatformUtils.kt` | Interface | Contrato para utilidades de plataforma |
+| `viewmodel/ProjectViewModel.kt` | ViewModel | Gestión de estado central |
+| `ui/ProjectApp.kt` | View | Pantalla raíz, actúa como contenedor y orquestador |
+| `ui/navigation/AppNavigation.kt` | View | Enum de rutas (muy simple) |
+| `ui/screens/DashboardScreen.kt` | View | Pantalla de lista de proyectos |
+| `ui/screens/EditorScreen.kt` | View | Pantalla de edición de bloques (God Composable a refactorizar) |
+| `ui/screens/PdfPreviewScreen.kt` | View | Pantalla de previsualización de PDF |
+| `ui/screens/TemplateManagementScreen.kt`| View | Gestión de plantillas de informe |
 | `ui/BlockEditorForms.kt` | View | Formularios reutilizables para edición de bloques |
-| `ui/FolderSyncDialog.kt` | View | Diálogo de configuración de sincronización de carpetas |
 | `ui/theme/` | Utility | Estilos, colores y tipografía Material 3 |
 
 ### androidMain — Implementaciones Android
 
 | Archivo | Capa | Descripción |
 |---|---|---|
-| `MainActivity.kt` | Entry Point | Inyecta implementaciones Android, crea ViewModelFactory, inicia Compose |
+| `MainActivity.kt` | Entry Point | Inyecta implementaciones Android, inicia Compose |
 | `AndroidPlatform.kt` | Utility | Holder global del `Context` de Android |
-| `data/AndroidPdfGenerator.kt` | Platform Impl | Adaptador de renderizado nativo. Consume `RenderedPage` y dibuja en `PdfDocument` |
-| `data/AndroidFolderSyncManager.kt` | Platform Impl | Implementa `FolderAccessor` usando Storage Access Framework (SAF) |
-| `data/AppDatabase.android.kt` | Platform Impl | Builder de Room con Context de Android |
-| `ui/UI.android.kt` | Platform Impl | `actual` de BackHandler, ImagePicker, SignatureDialog, PdfPreview, FolderSelector |
-| `ui/PlatformUtils.android.kt` | Platform Impl | Toast, FileProvider para compartir PDF, callbacks de almacenamiento |
+| `data/AndroidPdfGenerator.kt` | Platform Impl | Adaptador de renderizado nativo en `PdfDocument` |
+| `data/WorkspaceManager.android.kt`| Platform Impl | Implementación Android del acceso a disco local/SAF |
+| `ui/UI.android.kt` | Platform Impl | `actual` de componentes visuales específicos |
+| `ui/PlatformUtils.android.kt` | Platform Impl | Toast, FileProvider, callbacks |
 
 ### desktopMain — Implementaciones Desktop
 
 | Archivo | Capa | Descripción |
 |---|---|---|
-| `Main.kt` | Entry Point | Inyecta implementaciones Desktop, lanza `singleWindowApplication` |
-| `data/DesktopPdfGenerator.kt` | Platform Impl | Adaptador de renderizado nativo. Consume `RenderedPage` y dibuja en OpenPDF |
-| `data/DesktopFolderSyncManager.kt` | Platform Impl | Implementa `FolderAccessor` usando java.io.File nativo |
-| `data/AppDatabase.desktop.kt` | Platform Impl | Builder de Room con ruta `user.home` |
-| `ui/UI.desktop.kt` | Platform Impl | `actual` de BackHandler (no-op), ImagePicker (JFileChooser), SignatureDialog, PdfPreview, FolderSelector |
-| `ui/PlatformUtils.desktop.kt` | Platform Impl | JOptionPane para mensajes, Desktop API para abrir archivos, JFileChooser para guardar |
+| `Main.kt` | Entry Point | Inyecta implementaciones Desktop, lanza aplicación |
+| `data/DesktopPdfGenerator.kt` | Platform Impl | Adaptador de renderizado nativo OpenPDF |
+| `data/WorkspaceManager.desktop.kt`| Platform Impl | Implementación Windows del acceso a disco nativo |
+| `ui/UI.desktop.kt` | Platform Impl | `actual` de componentes visuales |
+| `ui/PlatformUtils.desktop.kt` | Platform Impl | Mensajes JOptionPane, manipulación local |
 
 
 ---
@@ -162,9 +161,8 @@ Composable recompone con nuevo estado
 *   **Antes:** Ambas plataformas calculaban márgenes, fuentes, saltos de página y renderizado de texto/tablas por separado, con un 60-70% de código idéntico.
 *   **Ahora:** `PdfLayoutEngine.kt` maneja el 100% de la lógica de maquetación en `commonMain`. Los adaptadores específicos solo consumen la lista de primitivas de `RenderedPage` y las dibujan usando la API de canvas de cada plataforma.
 
-### Detalle: Folder Sync
-*   **Antes:** Se duplicaba la máquina de estados, el progreso, la serialización JSON y el manejo de errores.
-*   **Ahora:** `FolderSyncOrchestrator.kt` en `commonMain` encapsula toda esta lógica. Las plataformas únicamente proporcionan una implementación de la interfaz `FolderAccessor` para abstraer la lectura/escritura física en disco.
+### Detalle: Workspace & Almacenamiento
+*   Se utiliza un sistema unificado (`WorkspaceManager` y `JsonProjectStore`) en `commonMain` para guardar proyectos como archivos JSON, evitando depender de bases de datos complejas como Room, y delegando la escritura física a cada plataforma mediante `WorkspaceAccessor`.
 
 ---
 
@@ -199,11 +197,11 @@ Composable recompone con nuevo estado
 ### Problema 1 — Duplicación crítica: Generación de PDF (SOLUCIONADO)
 *   **Resolución:** Extraído a [PdfLayoutEngine.kt](file:///c:/Users/jufez/Desktop/desarrolloIA/PdfGenerator/composeApp/src/commonMain/kotlin/com/example/data/PdfLayoutEngine.kt). Los generadores específicos son adaptadores gráficos puros y delgados.
 
-### Problema 2 — Duplicación crítica: Folder Sync (SOLUCIONADO)
-*   **Resolución:** Extraído a [FolderSyncOrchestrator.kt](file:///c:/Users/jufez/Desktop/desarrolloIA/PdfGenerator/composeApp/src/commonMain/kotlin/com/example/data/FolderSyncOrchestrator.kt). Se define la interfaz [FolderAccessor.kt](file:///c:/Users/jufez/Desktop/desarrolloIA/PdfGenerator/composeApp/src/commonMain/kotlin/com/example/data/FolderAccessor.kt) para que cada plataforma implemente su E/S física de archivos.
+### Problema 2 — Duplicación crítica: Acceso a disco y Workspace (SOLUCIONADO)
+*   **Resolución:** Unificado a través de `WorkspaceManager.kt` y `WorkspaceAccessor.kt`. Cada plataforma implementa su propia I/O física de archivos.
 
-### Problema 3 — `ProjectApp.kt` es un God Composable (SOLUCIONADO)
-*   **Resolución:** El archivo se redujo de 2,935 líneas a ~450 líneas. La UI se dividió en pantallas independientes dentro del directorio [screens](file:///c:/Users/jufez/Desktop/desarrolloIA/PdfGenerator/composeApp/src/commonMain/kotlin/com/example/ui/screens) y la navegación se delegó a [AppNavigation.kt](file:///c:/Users/jufez/Desktop/desarrolloIA/PdfGenerator/composeApp/src/commonMain/kotlin/com/example/ui/navigation/AppNavigation.kt).
+### Problema 3 — `ProjectApp.kt` y `EditorScreen.kt` como God Composables (PENDIENTE)
+*   **Estado:** `ProjectApp.kt` fue dividido, pero el problema persiste severamente en `EditorScreen.kt` que supera los 126 KB (>3,500 líneas). Su refactorización es prioritaria para cumplir las reglas de tamaño (máximo 600 líneas).
 
 ### Problema 4 — `ProjectViewModel` hace demasiado (SOLUCIONADO)
 *   **Resolución:** Se delegó la creación de proyectos y visitas utilizando plantillas a [ProjectRepository.kt](file:///c:/Users/jufez/Desktop/desarrolloIA/PdfGenerator/composeApp/src/commonMain/kotlin/com/example/data/ProjectRepository.kt). Se eliminó Moshi del ViewModel, delegando la serialización de metadatos al orquestador de sincronización.
@@ -215,8 +213,8 @@ Composable recompone con nuevo estado
 Se han completado e integrado con éxito las 5 tareas de refactorización descritas en el plan original:
 1. ** ViewModel & Repository:** Aislamiento del dominio, eliminación de dependencias de serialización en el VM, y delegación de fábricas de plantillas al repositorio.
 2. ** Generación de PDF:** Extracción del motor de maquetación platform-agnostic.
-3. ** Sincronización:** Abstracción mediante `FolderAccessor` y orquestación unificada en `commonMain`.
-4. ** Modularización de UI:** División del God Composable `ProjectApp` en pantallas específicas de Compose.
+3. ** Workspace y Almacenamiento:** Abstracción del sistema de archivos mediante `WorkspaceManager` y persistencia en JSON local en `JsonProjectStore`.
+4. ** Modularización de UI:** Pendiente de finalizar (necesaria refactorización urgente de `EditorScreen.kt` que aún es un God Composable).
 5. ** Verificación y Compilación:** Solución de inconsistencias de tipos y anotaciones de ciclo de vida (`@Composable` y `@OptIn`). Las compilaciones para Android y Desktop completaron con éxito.
 
 ---
