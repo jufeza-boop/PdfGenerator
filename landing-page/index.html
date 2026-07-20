@@ -1,151 +1,180 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Seguimiento Obras - Generador de actas e informes técnicos en PDF. La herramienta definitiva para el control de tus proyectos de construcción.">
-    <title>Seguimiento Obras - Informes de Obra Profesionales</title>
-    <!-- Google Fonts: Outfit -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  </head>
-  <body>
-    <div id="app">
-      <nav class="navbar glass">
-        <div class="nav-content">
-          <div class="logo-container">
-            <img src="/logo.png" alt="Seguimiento Obras Logo" class="logo">
-            <span class="app-name">Seguimiento Obras</span>
-          </div>
-          <div class="nav-links">
-            <a href="#tour">Funcionamiento</a>
-            <a href="#features">Características</a>
-            <a href="#downloads" class="btn-primary-outline">Descargas</a>
-            <a href="https://github.com/jufeza-boop/PdfGenerator" target="_blank" class="github-link">
-              <svg height="24" viewBox="0 0 16 16" width="24" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
-            </a>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="Seguimiento Obras - Generador de actas e informes técnicos en PDF. La herramienta definitiva para el control de tus proyectos de construcción.">
+  <title>Seguimiento Obras - Informes de Obra Profesionales</title>
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+  <div id="app">
+    <nav class="navbar glass">
+      <div class="nav-content">
+        <div class="logo-container">
+          <img src="/logo.png" alt="Seguimiento Obras Logo" class="logo">
+          <span class="app-name">Seguimiento Obras</span>
+        </div>
+        <div class="nav-links">
+          <a href="#tour">Funcionamiento</a>
+          <a href="#features">Características</a>
+          <a href="#downloads" class="btn-primary-outline">Descargas</a>
+          <a href="https://github.com/jufeza-boop/PdfGenerator" target="_blank" class="github-link">
+            <svg height="24" viewBox="0 0 16 16" width="24" fill="currentColor">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z">
+              </path>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <main>
+      <section class="hero">
+        <div class="hero-bg-glow"></div>
+        <div class="hero-content">
+          <h1 class="animate-up">Gestión de Obra e <span class="gradient-text">Informes Técnicos</span></h1>
+          <p class="hero-subtitle animate-up delay-1">
+            Diseñado para arquitectos, ingenieros y jefes de obra. Documenta el estado de tus proyectos, registra
+            incidencias,
+            recoge firmas in-situ y genera actas de reunión en formato PDF de alta precisión, todo desde tu móvil o
+            portátil.
+          </p>
+          <div class="hero-actions animate-up delay-2">
+            <a href="#downloads" class="btn-primary">Descargar Ahora</a>
+            <a href="#tour" class="btn-secondary">Saber Más</a>
           </div>
         </div>
-      </nav>
-
-      <main>
-        <section class="hero">
-          <div class="hero-bg-glow"></div>
-          <div class="hero-content">
-            <h1 class="animate-up">Gestión de Obra e <span class="gradient-text">Informes Técnicos</span></h1>
-            <p class="hero-subtitle animate-up delay-1">
-              Diseñado para arquitectos, ingenieros y jefes de obra. Documenta el estado de tus proyectos, registra incidencias, 
-              recoge firmas in-situ y genera actas de reunión en formato PDF de alta precisión, todo desde tu móvil o portátil.
-            </p>
-            <div class="hero-actions animate-up delay-2">
-              <a href="#downloads" class="btn-primary">Descargar Ahora</a>
-              <a href="#tour" class="btn-secondary">Saber Más</a>
-            </div>
+        <div class="hero-mockup animate-up delay-3" style="border: none; box-shadow: none; background: transparent;">
+          <div
+            style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+            <img src="/imagenesApp/dashboard.png" alt="Dashboard" class="tour-img"
+              style="max-height: 350px; transform: rotate(-5deg); position: relative; z-index: 2;">
+            <img src="/imagenesApp/previsualizaciónReporte.png" alt="PDF Report" class="tour-img"
+              style="max-height: 350px; position: absolute; transform: rotate(5deg) translateX(40px); z-index: 1; opacity: 0.9;">
           </div>
-          <div class="hero-mockup animate-up delay-3" style="border: none; box-shadow: none; background: transparent;">
-            <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
-              <img src="/imagenesApp/dashboard.png" alt="Dashboard" class="tour-img" style="max-height: 350px; transform: rotate(-5deg); position: relative; z-index: 2;">
-              <img src="/imagenesApp/previsualizaciónReporte.png" alt="PDF Report" class="tour-img" style="max-height: 350px; position: absolute; transform: rotate(5deg) translateX(40px); z-index: 1; opacity: 0.9;">
-            </div>
-          </div>
-        </section>
+        </div>
+      </section>
 
-        <section id="tour" class="tour-section">
-          <h2 class="section-title">Tour de la Aplicación</h2>
-          
-          <div class="tour-block">
-            <div class="tour-content">
-              <h3>Panel de Control y Proyectos</h3>
-              <p>Visualiza rápidamente todos tus proyectos activos en un dashboard intuitivo. Puedes crear nuevos proyectos rellenando los metadatos necesarios (nombre, cliente, localización) para mantener todo perfectamente organizado.</p>
-            </div>
-            <div class="tour-images dual">
-              <img src="/imagenesApp/dashboard.png" alt="Dashboard" class="tour-img">
-              <img src="/imagenesApp/nuevoPoryecto.png" alt="Nuevo Proyecto" class="tour-img">
-            </div>
-          </div>
+      <section id="tour" class="tour-section">
+        <h2 class="section-title">Tour de la Aplicación</h2>
 
-          <div class="tour-block">
-            <div class="tour-content">
-              <h3>Sistema Inteligente de Plantillas</h3>
-              <p>Ahorra tiempo valioso automatizando la estructura de tus documentos. Seguimiento Obras incluye un potente sistema que te permite predefinir plantillas tanto para proyectos como para visitas regulares. Una vez configuradas, tus nuevas actas heredarán automáticamente los bloques de texto, tablas base y firmas que hayas guardado.</p>
-            </div>
-            <div class="tour-images dual">
-              <img src="/imagenesApp/plantillasProyectos.png" alt="Plantillas Proyectos" class="tour-img">
-              <img src="/imagenesApp/plantillasVisitas.png" alt="Plantillas Visitas" class="tour-img">
-            </div>
+        <div class="tour-block">
+          <div class="tour-content">
+            <h3>Panel de Control y Proyectos</h3>
+            <p>Visualiza rápidamente todos tus proyectos activos en un dashboard intuitivo. Puedes crear nuevos
+              proyectos rellenando los metadatos necesarios (nombre, cliente, localización) para mantener todo
+              perfectamente organizado.</p>
           </div>
-
-          <div class="tour-block">
-            <div class="tour-content">
-              <h3>Editor de Visitas Interactivo</h3>
-              <p>Dentro de cada proyecto, añade actas o visitas ordenadas cronológicamente. Su potente editor modular te permite ir añadiendo "bloques" según lo que necesites plasmar: párrafos de texto, imágenes detalladas de incidencias, tablas de inspección y campos de firma de los responsables in-situ.</p>
-            </div>
-            <div class="tour-images dual">
-              <img src="/imagenesApp/añadirVisita.png" alt="Añadir Visita" class="tour-img">
-              <img src="/imagenesApp/editorVisita.png" alt="Editor Visita" class="tour-img">
-            </div>
+          <div class="tour-images dual">
+            <img src="/imagenesApp/dashboard.png" alt="Dashboard" class="tour-img">
+            <img src="/imagenesApp/nuevoPoryecto.png" alt="Nuevo Proyecto" class="tour-img">
           </div>
+        </div>
 
-          <div class="tour-block">
-            <div class="tour-content">
-              <h3>Previsualización y Reporte en PDF</h3>
-              <p>Antes de generar tu documento final, puedes previsualizar en tiempo real cómo quedará. El motor nativo se encarga de ajustar los márgenes, saltos de página y formatos para ofrecerte un acta en PDF de calidad corporativa, lista para enviar, imprimir o archivar.</p>
-            </div>
-            <div class="tour-images">
-              <img src="/imagenesApp/previsualizaciónReporte.png" alt="Previsualización Reporte" class="tour-img" style="max-height: 400px; width: auto; object-fit: cover;">
-            </div>
+        <div class="tour-block">
+          <div class="tour-content">
+            <h3>Sistema Inteligente de Plantillas</h3>
+            <p>Ahorra tiempo valioso automatizando la estructura de tus documentos. Seguimiento Obras incluye un potente
+              sistema que te permite predefinir plantillas tanto para proyectos como para visitas regulares. Una vez
+              configuradas, tus nuevas actas heredarán automáticamente los bloques de texto, tablas base y firmas que
+              hayas guardado.</p>
           </div>
-        </section>
-
-        <section id="features" class="features">
-          <h2 class="section-title">El Control de tus Proyectos en tu Bolsillo</h2>
-          <div class="feature-grid">
-            <div class="feature-card glass hover-lift">
-              <div class="feature-icon"><i class="fa-solid fa-helmet-safety"></i></div>
-              <h3>Control Integral de Obra</h3>
-              <p>Maneja múltiples proyectos simultáneos. Lleva el registro diario de operarios, clima, maquinaria y notas, manteniendo el historial completo de cada visita.</p>
-            </div>
-            <div class="feature-card glass hover-lift">
-              <div class="feature-icon"><i class="fa-solid fa-puzzle-piece"></i></div>
-              <h3>Informes Modulares</h3>
-              <p>Construye actas personalizadas. Añade bloques de texto, tablas de comprobación (checklists), fotografías con anotaciones y captura la firma de los asistentes directamente en la pantalla.</p>
-            </div>
-            <div class="feature-card glass hover-lift">
-              <div class="feature-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-              <h3>Colaboración y Sincronización</h3>
-              <p>Comparte proyectos con tu equipo de forma segura. <b>Configura una carpeta compartida en Google Drive, OneDrive o tu servidor local</b>, y la aplicación mantendrá todos tus dispositivos e informes perfectamente sincronizados.</p>
-            </div>
+          <div class="tour-images dual">
+            <img src="/imagenesApp/plantillasProyectos.png" alt="Plantillas Proyectos" class="tour-img">
+            <img src="/imagenesApp/plantillasVisitas.png" alt="Plantillas Visitas" class="tour-img">
           </div>
-        </section>
+        </div>
 
-        <section id="downloads" class="downloads">
-          <h2 class="section-title">Centro de Descargas</h2>
-          <p class="section-subtitle">Instala Seguimiento Obras de forma gratuita y sin suscripciones.</p>
-          <div class="download-grid">
-            <div class="download-card glass hover-border">
-              <div class="os-icon"><i class="fa-brands fa-android"></i></div>
-              <h3>Android</h3>
-              <p>Ideal para visitas a pie de obra</p>
-              <a href="https://github.com/jufeza-boop/PdfGenerator/releases/download/1.0.2/composeApp-debug.apk" target="_blank" rel="noopener noreferrer" class="btn-download">Descargar APK</a>
-            </div>
-            <div class="download-card glass hover-border">
-              <div class="os-icon"><i class="fa-brands fa-windows"></i></div>
-              <h3>Windows</h3>
-              <p>Perfecto para revisión en la oficina</p>
-              <a href="https://github.com/jufeza-boop/PdfGenerator/releases/download/1.0.2/PdfGenerator.msi" target="_blank" rel="noopener noreferrer" class="btn-download">Descargar Instalador (MSI)</a>
-            </div>
+        <div class="tour-block">
+          <div class="tour-content">
+            <h3>Editor de Visitas Interactivo</h3>
+            <p>Dentro de cada proyecto, añade actas o visitas ordenadas cronológicamente. Su potente editor modular te
+              permite ir añadiendo "bloques" según lo que necesites plasmar: párrafos de texto, imágenes detalladas de
+              incidencias, tablas de inspección y campos de firma de los responsables in-situ.</p>
           </div>
-        </section>
-      </main>
+          <div class="tour-images dual">
+            <img src="/imagenesApp/añadirVisita.png" alt="Añadir Visita" class="tour-img">
+            <img src="/imagenesApp/editorVisita.png" alt="Editor Visita" class="tour-img">
+          </div>
+        </div>
 
-      <footer class="footer">
-        <p>&copy; 2026 Seguimiento Obras. Todos los derechos reservados.</p>
-      </footer>
-    </div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+        <div class="tour-block">
+          <div class="tour-content">
+            <h3>Previsualización y Reporte en PDF</h3>
+            <p>Antes de generar tu documento final, puedes previsualizar en tiempo real cómo quedará. El motor nativo se
+              encarga de ajustar los márgenes, saltos de página y formatos para ofrecerte un acta en PDF de calidad
+              corporativa, lista para enviar, imprimir o archivar.</p>
+          </div>
+          <div class="tour-images">
+            <img src="/imagenesApp/previsualizaciónReporte.png" alt="Previsualización Reporte" class="tour-img"
+              style="max-height: 400px; width: auto; object-fit: cover;">
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="features">
+        <h2 class="section-title">El Control de tus Proyectos en tu Bolsillo</h2>
+        <div class="feature-grid">
+          <div class="feature-card glass hover-lift">
+            <div class="feature-icon"><i class="fa-solid fa-helmet-safety"></i></div>
+            <h3>Control Integral de Obra</h3>
+            <p>Maneja múltiples proyectos simultáneos. Lleva el registro diario de operarios, clima, maquinaria y notas,
+              manteniendo el historial completo de cada visita.</p>
+          </div>
+          <div class="feature-card glass hover-lift">
+            <div class="feature-icon"><i class="fa-solid fa-puzzle-piece"></i></div>
+            <h3>Informes Modulares</h3>
+            <p>Construye actas personalizadas. Añade bloques de texto, tablas de comprobación (checklists), fotografías
+              con anotaciones y captura la firma de los asistentes directamente en la pantalla.</p>
+          </div>
+          <div class="feature-card glass hover-lift">
+            <div class="feature-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+            <h3>Colaboración y Sincronización</h3>
+            <p>Comparte proyectos con tu equipo de forma segura. <b>Configura una carpeta compartida en Google Drive,
+                OneDrive o tu servidor local</b>, y la aplicación mantendrá todos tus dispositivos e informes
+              perfectamente sincronizados.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="downloads" class="downloads">
+        <h2 class="section-title">Centro de Descargas</h2>
+        <p class="section-subtitle">Instala Seguimiento Obras de forma gratuita y sin suscripciones.</p>
+        <div class="download-grid">
+          <div class="download-card glass hover-border">
+            <div class="os-icon"><i class="fa-brands fa-android"></i></div>
+            <h3>Android</h3>
+            <p>Ideal para visitas a pie de obra</p>
+            <a href="https://github.com/jufeza-boop/PdfGenerator/releases/download/1.0.2/composeApp-debug.apk"
+              target="_blank" rel="noopener noreferrer" class="btn-download">Descargar APK</a>
+          </div>
+          <div class="download-card glass hover-border">
+            <div class="os-icon"><i class="fa-brands fa-windows"></i></div>
+            <h3>Windows</h3>
+            <p>Perfecto para revisión en la oficina</p>
+            <a href="https://github.com/jufeza-boop/PdfGenerator/releases/download/1.0.2/Seguimiento.Obras-1.0.2.msi"
+              target="_blank" rel="noopener noreferrer" class="btn-download">Descargar Instalador (MSI)</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>&copy; 2026 Seguimiento Obras. Todos los derechos reservados.</p>
+    </footer>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
 </html>

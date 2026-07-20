@@ -90,7 +90,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Seguimiento Obras"
-            packageVersion = "1.0.1"
+            packageVersion = "1.0.2"
             
             windows {
                 iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
