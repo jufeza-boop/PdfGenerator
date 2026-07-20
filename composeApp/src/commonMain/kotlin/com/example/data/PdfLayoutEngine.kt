@@ -98,8 +98,14 @@ class PdfLayoutEngine(
 
     fun getRequiredHeight(block: BlockData, colWidth: Float): Float {
         return when (block.type) {
-            BlockType.TITLE.name -> 30f
-            BlockType.FOOTER.name -> 20f
+            BlockType.TITLE.name -> {
+                val lines = wrapText(block.content, 16f, true, colWidth)
+                lines.size * 22f + 8f
+            }
+            BlockType.FOOTER.name -> {
+                val lines = wrapText(block.content, 9f, false, colWidth)
+                lines.size * 14f + 6f
+            }
             BlockType.TEXT.name -> {
                 val lines = wrapText(block.content, 12f, false, colWidth)
                 lines.size * 18f + 12f
@@ -127,15 +133,43 @@ class PdfLayoutEngine(
             }
             BlockType.TABLE.name -> {
                 val content = try { tableAdapter.fromJson(block.content) ?: TableBlockContent() } catch (e: Exception) { TableBlockContent() }
-                (content.rows.size + (if (content.headers.isNotEmpty()) 1 else 0)) * 22f + (if (content.title.isNotBlank()) 32f else 0f) + 15f
+                var h = if (content.title.isNotBlank()) 32f else 0f
+                val numCols = if (content.headers.isNotEmpty()) content.headers.size else if (content.rows.isNotEmpty()) content.rows[0].size else 1
+                val colW = colWidth / numCols.coerceAtLeast(1).toFloat()
+                
+                content.rows.forEachIndexed { rowIndex, row ->
+                    val isHeader = rowIndex == 0 && content.headers.isNotEmpty()
+                    var maxLines = 1
+                    row.forEachIndexed { i, cText -> 
+                        if (i < numCols) {
+                            maxLines = maxOf(maxLines, wrapText(cText, 10f, isHeader, colW - 12f).size)
+                        }
+                    }
+                    h += maxOf(22f, maxLines * 14f + 8f)
+                }
+                h += 15f
+                h
             }
             BlockType.CHECKLIST.name -> {
                 val content = try { checklistAdapter.fromJson(block.content) ?: ChecklistBlockContent() } catch (e: Exception) { ChecklistBlockContent() }
-                content.items.size * 18f + (if (content.title.isNotBlank()) 32f else 0f) + 15f
+                var h = if (content.title.isNotBlank()) 32f else 0f
+                content.items.forEach { item ->
+                    val lines = wrapText(item.text, 11f, false, colWidth - 16f)
+                    h += maxOf(18f, lines.size * 14f + 4f)
+                }
+                h += 15f
+                h
             }
             BlockType.CHECKLIST_TABLE.name -> {
                 val content = try { checklistTableAdapter.fromJson(block.content) ?: ChecklistTableBlockContent() } catch (e: Exception) { ChecklistTableBlockContent() }
-                (content.rows.size + 1) * 22f + (if (content.title.isNotBlank()) 32f else 0f) + 15f
+                var h = if (content.title.isNotBlank()) 32f else 0f
+                h += 22f // Header row
+                content.rows.forEach { row ->
+                    val lines = wrapText(row.text, 10f, false, colWidth * 0.65f - 12f)
+                    h += maxOf(22f, lines.size * 14f + 8f)
+                }
+                h += 15f
+                h
             }
             else -> 0f
         }
@@ -186,7 +220,10 @@ class PdfLayoutEngine(
         var dryY = contentStartY
         val proj = project
         if (proj.showHeaderLabel) dryY += 24f
-        if (proj.showHeaderTitle) dryY += 20f
+        if (proj.showHeaderTitle) {
+            val titleLines = wrapText(proj.name.uppercase(Locale.getDefault()), 22f, true, usableWidth)
+            dryY += titleLines.size * 26f - 6f
+        }
         if (proj.showHeaderDate) dryY += 15f
         dryY += 35f // horizontal line and spaces
 
@@ -245,9 +282,15 @@ class PdfLayoutEngine(
             currentInstructions.add(DrawInstruction.Line(465f, topY, 465f, bottomY, 0xE5E7EB, strokeWidth = 1.2f))
 
             // Company Title and Sub-Lines
-            currentInstructions.add(DrawInstruction.Text(proj.headerCompany.ifBlank { "Nombre de la empresa" }, startX + 10f, topY + 16f, 10f, isBold = true, colorRgb = 0x9A6640))
+            val companyText = proj.headerCompany.ifBlank { "Nombre de la empresa" }
+            val companyLines = wrapText(companyText, 10f, true, 180f)
+            var currentTextY = topY + 16f
+            for (line in companyLines) {
+                currentInstructions.add(DrawInstruction.Text(line, startX + 10f, currentTextY, 10f, isBold = true, colorRgb = 0x9A6640))
+                currentTextY += 10f
+            }
             val subLines = proj.headerCompanySub.split("\n")
-            var subY = topY + 26f
+            var subY = currentTextY
             for (line in subLines) {
                 if (line.isNotBlank()) {
                     currentInstructions.add(DrawInstruction.Text(line.trim(), startX + 10f, subY, 5.5f, isBold = false, colorRgb = 0x6B7280))
@@ -256,7 +299,12 @@ class PdfLayoutEngine(
             }
 
             // Report Title centered
-            currentInstructions.add(DrawInstruction.Text(proj.headerTitle.ifBlank { "INFORME DE VISITA A OBRA" }.uppercase(Locale.getDefault()), 240f + 112.5f, topY + 29f, 12f, isBold = true, colorRgb = 0x111827, align = DrawAlign.CENTER))
+            val reportTitleText = proj.headerTitle.ifBlank { "INFORME DE VISITA A OBRA" }.uppercase(Locale.getDefault())
+            val reportTitleLines = wrapText(reportTitleText, 12f, true, 215f)
+            val reportTitleStartY = topY + 29f - ((reportTitleLines.size - 1) * 7f)
+            for ((idx, line) in reportTitleLines.withIndex()) {
+                currentInstructions.add(DrawInstruction.Text(line, 240f + 112.5f, reportTitleStartY + idx * 14f, 12f, isBold = true, colorRgb = 0x111827, align = DrawAlign.CENTER))
+            }
 
             // Pagination
             currentInstructions.add(DrawInstruction.Text("Página $currentPageNumber de $totalPages", 465f + 45f, topY + 28f, 10f, isBold = false, colorRgb = 0x374151, align = DrawAlign.CENTER))
@@ -281,8 +329,12 @@ class PdfLayoutEngine(
             currentY += 24f
         }
         if (proj.showHeaderTitle) {
-            currentInstructions.add(DrawInstruction.Text(proj.name.uppercase(Locale.getDefault()), marginX, currentY, 22f, isBold = true, colorRgb = 0x1F2937))
-            currentY += 20f
+            val titleLines = wrapText(proj.name.uppercase(Locale.getDefault()), 22f, true, usableWidth)
+            for (line in titleLines) {
+                currentInstructions.add(DrawInstruction.Text(line, marginX, currentY, 22f, isBold = true, colorRgb = 0x1F2937))
+                currentY += 26f
+            }
+            currentY -= 6f
         }
         if (proj.showHeaderDate) {
             val sdf = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault())
@@ -297,12 +349,20 @@ class PdfLayoutEngine(
             var y = startY
             when (block.type) {
                 BlockType.TITLE.name -> {
-                    currentInstructions.add(DrawInstruction.Text(block.content, x, y + 15f, 16f, isBold = true, colorRgb = 0x1F2937))
-                    y += 25f
+                    val lines = wrapText(block.content, 16f, true, width)
+                    for (line in lines) {
+                        currentInstructions.add(DrawInstruction.Text(line, x, y + 15f, 16f, isBold = true, colorRgb = 0x1F2937))
+                        y += 22f
+                    }
+                    y += 3f
                 }
                 BlockType.FOOTER.name -> {
-                    currentInstructions.add(DrawInstruction.Text(block.content, x, y + 10f, 9f, isBold = false, isItalic = true, colorRgb = 0x6B7280))
-                    y += 18f
+                    val lines = wrapText(block.content, 9f, false, width)
+                    for (line in lines) {
+                        currentInstructions.add(DrawInstruction.Text(line, x, y + 10f, 9f, isBold = false, isItalic = true, colorRgb = 0x6B7280))
+                        y += 14f
+                    }
+                    y += 4f
                 }
                 BlockType.TEXT.name -> {
                     val lines = wrapText(block.content, 12f, false, width)
@@ -368,21 +428,33 @@ class PdfLayoutEngine(
 
                         content.rows.forEachIndexed { rowIndex, row ->
                             val isHeader = rowIndex == 0 && content.headers.isNotEmpty()
-                            if (isHeader) {
-                                currentInstructions.add(DrawInstruction.Rect(x, cellY, x + width, cellY + 22f, 0xF3F4F6, isFill = true))
+                            
+                            var maxLines = 1
+                            row.forEachIndexed { colIndex, cellText ->
+                                if (colIndex < numCols) {
+                                    maxLines = maxOf(maxLines, wrapText(cellText.trim(), 10f, isHeader, colW - 12f).size)
+                                }
                             }
-                            currentInstructions.add(DrawInstruction.Rect(x, cellY, x + width, cellY + 22f, 0xE5E7EB, isFill = false, strokeWidth = 1f))
+                            val rowHeight = maxOf(22f, maxLines * 14f + 8f)
+
+                            if (isHeader) {
+                                currentInstructions.add(DrawInstruction.Rect(x, cellY, x + width, cellY + rowHeight, 0xF3F4F6, isFill = true))
+                            }
+                            currentInstructions.add(DrawInstruction.Rect(x, cellY, x + width, cellY + rowHeight, 0xE5E7EB, isFill = false, strokeWidth = 1f))
                             
                             row.forEachIndexed { colIndex, cellText ->
                                 if (colIndex < numCols) {
                                     val cellX = x + colIndex * colW
                                     if (colIndex > 0) {
-                                        currentInstructions.add(DrawInstruction.Line(cellX, cellY, cellX, cellY + 22f, 0xE5E7EB, strokeWidth = 1f))
+                                        currentInstructions.add(DrawInstruction.Line(cellX, cellY, cellX, cellY + rowHeight, 0xE5E7EB, strokeWidth = 1f))
                                     }
-                                    currentInstructions.add(DrawInstruction.Text(cellText.trim(), cellX + 6f, cellY + 15f, 10f, isBold = isHeader, colorRgb = if (isHeader) 0x111827 else 0x374151))
+                                    val lines = wrapText(cellText.trim(), 10f, isHeader, colW - 12f)
+                                    for ((idx, line) in lines.withIndex()) {
+                                        currentInstructions.add(DrawInstruction.Text(line, cellX + 6f, cellY + 15f + idx * 14f, 10f, isBold = isHeader, colorRgb = if (isHeader) 0x111827 else 0x374151))
+                                    }
                                 }
                             }
-                            cellY += 22f
+                            cellY += rowHeight
                         }
                         y = cellY + 10f
                     }
@@ -404,8 +476,11 @@ class PdfLayoutEngine(
                         if (item.checked) {
                             currentInstructions.add(DrawInstruction.Text("X", boxX + boxSize/2f, boxY + boxSize - 1.5f, 8f, isBold = true, colorRgb = 0x000000, align = DrawAlign.CENTER))
                         }
-                        currentInstructions.add(DrawInstruction.Text(item.text, x + 16f, cellY + 13f, 11f, isBold = false, colorRgb = 0x374151))
-                        cellY += 18f
+                        val lines = wrapText(item.text, 11f, false, width - 16f)
+                        for ((idx, line) in lines.withIndex()) {
+                            currentInstructions.add(DrawInstruction.Text(line, x + 16f, cellY + 13f + idx * 14f, 11f, isBold = false, colorRgb = 0x374151))
+                        }
+                        cellY += maxOf(18f, lines.size * 14f + 4f)
                     }
                     y = cellY + 10f
                 }
@@ -435,20 +510,26 @@ class PdfLayoutEngine(
 
                         // Rows
                         content.rows.forEach { row ->
-                            currentInstructions.add(DrawInstruction.Rect(x, cellY, x + width, cellY + 22f, 0xE5E7EB, isFill = false, strokeWidth = 1f))
-                            currentInstructions.add(DrawInstruction.Text(row.text, x + 6f, cellY + 15f, 10f, isBold = false, colorRgb = 0x374151))
+                            val lines = wrapText(row.text, 10f, false, textColW - 12f)
+                            val rowHeight = maxOf(22f, lines.size * 14f + 8f)
+
+                            currentInstructions.add(DrawInstruction.Rect(x, cellY, x + width, cellY + rowHeight, 0xE5E7EB, isFill = false, strokeWidth = 1f))
+                            for ((idx, line) in lines.withIndex()) {
+                                currentInstructions.add(DrawInstruction.Text(line, x + 6f, cellY + 15f + idx * 14f, 10f, isBold = false, colorRgb = 0x374151))
+                            }
+                            
                             statusCols.forEachIndexed { idx, _ ->
                                 val statusX = x + textColW + idx * statusColW
-                                currentInstructions.add(DrawInstruction.Line(statusX, cellY, statusX, cellY + 22f, 0xE5E7EB, strokeWidth = 1f))
+                                currentInstructions.add(DrawInstruction.Line(statusX, cellY, statusX, cellY + rowHeight, 0xE5E7EB, strokeWidth = 1f))
                                 val centerX = statusX + statusColW/2f
-                                val centerY = cellY + 11f
+                                val centerY = cellY + rowHeight / 2f
 
                                 if (row.selectedIndex == idx) {
                                     currentInstructions.add(DrawInstruction.Text("X", centerX, centerY + 4f, 10f, isBold = true, colorRgb = 0x111827, align = DrawAlign.CENTER))
                                 }
                                 currentInstructions.add(DrawInstruction.Rect(centerX - 6f, centerY - 6f, centerX + 6f, centerY + 6f, 0xE5E7EB, isFill = false, strokeWidth = 1f))
                             }
-                            cellY += 22f
+                            cellY += rowHeight
                         }
                         y = cellY + 10f
                     }
