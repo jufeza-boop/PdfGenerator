@@ -1195,6 +1195,7 @@ fun ProjectEditorScreen(
                                     blocks.filter { it.visitUuid == visit.uuid }.sortedBy { it.sequence }
                                 }
                                 val formattedDate = remember(visit.date) { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(visit.date)) }
+                                var expanded by remember { mutableStateOf(false) }
                                 
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
@@ -1211,22 +1212,36 @@ fun ProjectEditorScreen(
                                     ) {
                                         // Visit top header
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { expanded = !expanded }
+                                                .padding(bottom = if (expanded) 8.dp else 0.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = visit.title,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 16.sp,
-                                                    color = MaterialTheme.colorScheme.primary
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                                    contentDescription = if (expanded) "Minimizar" else "Expandir",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.padding(end = 8.dp)
                                                 )
-                                                Text(
-                                                    text = formattedDate,
-                                                    fontSize = 11.sp,
-                                                    color = MaterialTheme.colorScheme.outline
-                                                )
+                                                Column {
+                                                    Text(
+                                                        text = visit.title,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 16.sp,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    Text(
+                                                        text = formattedDate,
+                                                        fontSize = 11.sp,
+                                                        color = MaterialTheme.colorScheme.outline
+                                                    )
+                                                }
                                             }
 
                                             Row(
@@ -1273,109 +1288,113 @@ fun ProjectEditorScreen(
                                             }
                                         }
 
-                                        if (visit.notes.isNotBlank()) {
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Surface(
-                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                                shape = RoundedCornerShape(8.dp),
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Text(
-                                                    text = visit.notes,
-                                                    fontSize = 12.sp,
-                                                    modifier = Modifier.padding(8.dp),
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
+                                        AnimatedVisibility(visible = expanded) {
+                                            Column {
+                                                if (visit.notes.isNotBlank()) {
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Surface(
+                                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        Text(
+                                                            text = visit.notes,
+                                                            fontSize = 12.sp,
+                                                            modifier = Modifier.padding(8.dp),
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                }
 
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                        Spacer(modifier = Modifier.height(8.dp))
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                                Spacer(modifier = Modifier.height(8.dp))
 
-                                        // Display blocks in this visit
-                                        if (visitBlocks.isEmpty()) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(vertical = 12.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
+                                                // Display blocks in this visit
+                                                if (visitBlocks.isEmpty()) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(vertical = 12.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            "Sin contenido. Añade bloques usando las opciones de abajo.",
+                                                            fontSize = 11.sp,
+                                                            color = MaterialTheme.colorScheme.outline,
+                                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                        )
+                                                    }
+                                                } else {
+                                                    Column(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                                    ) {
+                                                        visitBlocks.forEach { block ->
+                                                            RenderSingleBlock(block)
+                                                        }
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                                Spacer(modifier = Modifier.height(8.dp))
+
+                                                // Quick insert controls for THIS visit
                                                 Text(
-                                                    "Sin contenido. Añade bloques usando las opciones de abajo.",
-                                                    fontSize = 11.sp,
-                                                    color = MaterialTheme.colorScheme.outline,
-                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                    "AÑADIR BLOQUE A ESTA VISITA:",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.outline
                                                 )
-                                            }
-                                        } else {
-                                            Column(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                visitBlocks.forEach { block ->
-                                                    RenderSingleBlock(block)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .horizontalScroll(rememberScrollState()),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    AssistChip(
+                                                        onClick = { onAddTextBlock("Nueva nota de visita", visit.uuid) },
+                                                        label = { Text("Nota", fontSize = 11.sp) },
+                                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                    )
+                                                    AssistChip(
+                                                        onClick = {
+                                                            targetVisitIdForImage = visit.uuid
+                                                            showImagePicker = true
+                                                        },
+                                                        label = { Text("Fotos", fontSize = 11.sp) },
+                                                        leadingIcon = { Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                    )
+                                                    AssistChip(
+                                                        onClick = { onAddSignatureClick(visit.uuid) },
+                                                        label = { Text("Firma", fontSize = 11.sp) },
+                                                        leadingIcon = { Icon(Icons.Default.Gesture, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                    )
+                                                    AssistChip(
+                                                        onClick = { onAddTitleBlock("Subtítulo de Visita", visit.uuid) },
+                                                        label = { Text("Título", fontSize = 11.sp) },
+                                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Subject, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                    )
+                                                    AssistChip(
+                                                        onClick = { onAddTableBlock(visit.uuid) },
+                                                        label = { Text("Tabla", fontSize = 11.sp) },
+                                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                    )
+                                                    AssistChip(
+                                                        onClick = { onAddChecklistBlock(visit.uuid) },
+                                                        label = { Text("Checklist", fontSize = 11.sp) },
+                                                        leadingIcon = { Icon(Icons.Default.CheckBox, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                    )
+                                                    AssistChip(
+                                                        onClick = { onAddChecklistTableBlock(visit.uuid) },
+                                                        label = { Text("Ch. Tabla", fontSize = 11.sp) },
+                                                        leadingIcon = { Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                    )
                                                 }
                                             }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        // Quick insert controls for THIS visit
-                                        Text(
-                                            "AÑADIR BLOQUE A ESTA VISITA:",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.outline
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .horizontalScroll(rememberScrollState()),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            AssistChip(
-                                                onClick = { onAddTextBlock("Nueva nota de visita", visit.uuid) },
-                                                label = { Text("Nota", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Notes, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                            )
-                                            AssistChip(
-                                                onClick = {
-                                                    targetVisitIdForImage = visit.uuid
-                                                    showImagePicker = true
-                                                },
-                                                label = { Text("Fotos", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                            )
-                                            AssistChip(
-                                                onClick = { onAddSignatureClick(visit.uuid) },
-                                                label = { Text("Firma", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.Default.Gesture, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                            )
-                                            AssistChip(
-                                                onClick = { onAddTitleBlock("Subtítulo de Visita", visit.uuid) },
-                                                label = { Text("Título", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Subject, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                            )
-                                            AssistChip(
-                                                onClick = { onAddTableBlock(visit.uuid) },
-                                                label = { Text("Tabla", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                            )
-                                            AssistChip(
-                                                onClick = { onAddChecklistBlock(visit.uuid) },
-                                                label = { Text("Checklist", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.Default.CheckBox, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                            )
-                                            AssistChip(
-                                                onClick = { onAddChecklistTableBlock(visit.uuid) },
-                                                label = { Text("Ch. Tabla", fontSize = 11.sp) },
-                                                leadingIcon = { Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                            )
                                         }
                                     }
                                 }
