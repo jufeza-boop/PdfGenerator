@@ -8,6 +8,13 @@ import com.lowagie.text.pdf.PdfContentByte
 import com.lowagie.text.pdf.PdfWriter
 import java.io.File
 import java.io.FileOutputStream
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
+import javax.imageio.IIOImage
+import javax.imageio.ImageIO
+import javax.imageio.ImageWriteParam
+import javax.imageio.stream.MemoryCacheImageOutputStream
 
 class DesktopPdfGenerator : PdfGenerator {
 
@@ -131,10 +138,54 @@ class DesktopPdfGenerator : PdfGenerator {
                         val file = File(instruction.path)
                         if (file.exists()) {
                             try {
-                                val img = Image.getInstance(instruction.path)
-                                img.scaleAbsolute(instruction.w, instruction.h)
-                                img.setAbsolutePosition(instruction.x, 842f - instruction.y - instruction.h)
-                                cb.addImage(img)
+                                val originalImage = ImageIO.read(file)
+                                if (originalImage != null) {
+                                    val scaleFactor = 1.5f // ~108 DPI
+                                    val targetW = (instruction.w * scaleFactor).toInt().coerceAtLeast(1)
+                                    val targetH = (instruction.h * scaleFactor).toInt().coerceAtLeast(1)
+                                    
+                                    // Compress if image is large or needs downscaling
+                                    if (originalImage.width > targetW || originalImage.height > targetH || file.length() > 250 * 1024) {
+                                        val newW = if (originalImage.width > targetW) targetW else originalImage.width
+                                        val newH = if (originalImage.height > targetH) targetH else originalImage.height
+                                        
+                                        val resizedImage = BufferedImage(newW, newH, BufferedImage.TYPE_INT_RGB)
+                                        val g = resizedImage.createGraphics()
+                                        g.color = java.awt.Color.WHITE
+                                        g.fillRect(0, 0, newW, newH)
+                                        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+                                        g.drawImage(originalImage, 0, 0, newW, newH, null)
+                                        g.dispose()
+                                        
+                                        val baos = ByteArrayOutputStream()
+                                        val writer = ImageIO.getImageWritersByFormatName("jpg").next()
+                                        val ios = MemoryCacheImageOutputStream(baos)
+                                        writer.output = ios
+                                        val param = writer.defaultWriteParam
+                                        if (param.canWriteCompressed()) {
+                                            param.compressionMode = ImageWriteParam.MODE_EXPLICIT
+                                            param.compressionQuality = 0.65f
+                                        }
+                                        writer.write(null, IIOImage(resizedImage, null, null), param)
+                                        writer.dispose()
+                                        ios.close()
+                                        
+                                        val img = Image.getInstance(baos.toByteArray())
+                                        img.scaleAbsolute(instruction.w, instruction.h)
+                                        img.setAbsolutePosition(instruction.x, 842f - instruction.y - instruction.h)
+                                        cb.addImage(img)
+                                    } else {
+                                        val img = Image.getInstance(instruction.path)
+                                        img.scaleAbsolute(instruction.w, instruction.h)
+                                        img.setAbsolutePosition(instruction.x, 842f - instruction.y - instruction.h)
+                                        cb.addImage(img)
+                                    }
+                                } else {
+                                    val img = Image.getInstance(instruction.path)
+                                    img.scaleAbsolute(instruction.w, instruction.h)
+                                    img.setAbsolutePosition(instruction.x, 842f - instruction.y - instruction.h)
+                                    cb.addImage(img)
+                                }
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }

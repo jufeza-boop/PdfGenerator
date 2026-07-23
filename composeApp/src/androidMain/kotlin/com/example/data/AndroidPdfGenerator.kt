@@ -183,8 +183,8 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                                     orientation == android.media.ExifInterface.ORIENTATION_TRANSVERSE
 
                             // 2. Calcular dimensiones
-                            val targetW = (instruction.w * 2).toInt().coerceAtLeast(1)
-                            val targetH = (instruction.h * 2).toInt().coerceAtLeast(1)
+                            val targetW = (instruction.w * 1.5f).toInt().coerceAtLeast(1)
+                            val targetH = (instruction.h * 1.5f).toInt().coerceAtLeast(1)
                             val reqWidth = if (isSwapped) targetH else targetW
                             val reqHeight = if (isSwapped) targetW else targetH
 
