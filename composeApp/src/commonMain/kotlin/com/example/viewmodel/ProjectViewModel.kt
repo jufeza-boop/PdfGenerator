@@ -168,7 +168,7 @@ class ProjectViewModel(
             visitUuid = visitId
         )
         currentDraft.add(newBlock)
-        _draftBlocks.value = currentDraft
+        _draftBlocks.value = currentDraft.toList()
     }
 
     fun addImageBlock(inputStream: InputStream, visitId: String? = null) {
@@ -177,6 +177,15 @@ class ProjectViewModel(
             try {
                 val filePath = repository.copyImageToLocalFile(projectId, inputStream)
                 val currentDraft = _draftBlocks.value.toMutableList()
+                
+                // Deduplicación: verificar si ya existe un bloque con la misma imagen
+                val alreadyExists = currentDraft.any { 
+                    it.type == BlockType.IMAGE.name && 
+                    it.content == filePath && 
+                    it.visitUuid == visitId 
+                }
+                if (alreadyExists) return@launch
+                
                 val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
                 
                 val newBlock = BlockData(
@@ -187,7 +196,7 @@ class ProjectViewModel(
                     visitUuid = visitId
                 )
                 currentDraft.add(newBlock)
-                _draftBlocks.value = currentDraft
+                _draftBlocks.value = currentDraft.toList()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -210,7 +219,7 @@ class ProjectViewModel(
                     visitUuid = visitId
                 )
                 currentDraft.add(newBlock)
-                _draftBlocks.value = currentDraft
+                _draftBlocks.value = currentDraft.toList()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -230,7 +239,7 @@ class ProjectViewModel(
             visitUuid = visitId
         )
         currentDraft.add(newBlock)
-        _draftBlocks.value = currentDraft
+        _draftBlocks.value = currentDraft.toList()
     }
 
     fun addFooterBlock(text: String, visitId: String? = null) {
@@ -246,7 +255,7 @@ class ProjectViewModel(
             visitUuid = visitId
         )
         currentDraft.add(newBlock)
-        _draftBlocks.value = currentDraft
+        _draftBlocks.value = currentDraft.toList()
     }
 
     fun addTableBlock(visitId: String? = null) {
@@ -257,7 +266,7 @@ class ProjectViewModel(
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
         currentDraft.add(BlockData(uuid = "draft_${UUID.randomUUID()}", type = BlockType.TABLE.name, content = json, sequence = nextSequence, visitUuid = visitId))
-        _draftBlocks.value = currentDraft
+        _draftBlocks.value = currentDraft.toList()
     }
 
     fun addChecklistBlock(visitId: String? = null) {
@@ -268,7 +277,7 @@ class ProjectViewModel(
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
         currentDraft.add(BlockData(uuid = "draft_${UUID.randomUUID()}", type = BlockType.CHECKLIST.name, content = json, sequence = nextSequence, visitUuid = visitId))
-        _draftBlocks.value = currentDraft
+        _draftBlocks.value = currentDraft.toList()
     }
 
     fun addChecklistTableBlock(visitId: String? = null) {
@@ -279,7 +288,7 @@ class ProjectViewModel(
         val nextSequence = (currentDraft.maxOfOrNull { it.sequence } ?: -1) + 1
         
         currentDraft.add(BlockData(uuid = "draft_${UUID.randomUUID()}", type = BlockType.CHECKLIST_TABLE.name, content = json, sequence = nextSequence, visitUuid = visitId))
-        _draftBlocks.value = currentDraft
+        _draftBlocks.value = currentDraft.toList()
     }
 
     fun moveBlockUp(block: BlockData) {
@@ -293,7 +302,7 @@ class ProjectViewModel(
             currentDraft[index] = elementPrev.copy(sequence = elementCurrent.sequence)
             currentDraft[index - 1] = elementCurrent.copy(sequence = elementPrev.sequence)
             
-            _draftBlocks.value = currentDraft
+            _draftBlocks.value = currentDraft.toList()
         }
     }
 
@@ -308,7 +317,7 @@ class ProjectViewModel(
             currentDraft[index] = elementNext.copy(sequence = elementCurrent.sequence)
             currentDraft[index + 1] = elementCurrent.copy(sequence = elementNext.sequence)
             
-            _draftBlocks.value = currentDraft
+            _draftBlocks.value = currentDraft.toList()
         }
     }
 
@@ -320,7 +329,7 @@ class ProjectViewModel(
                 it
             }
         }
-        _draftBlocks.value = currentDraft
+        _draftBlocks.value = currentDraft.toList()
     }
 
     fun updateBlockText(block: BlockData, newText: String) {
@@ -331,7 +340,7 @@ class ProjectViewModel(
                 it
             }
         }
-        _draftBlocks.value = currentDraft
+        _draftBlocks.value = currentDraft.toList()
     }
 
     fun updateProjectInfo(
@@ -394,7 +403,7 @@ class ProjectViewModel(
                         it
                     }
                 }
-                _draftBlocks.value = currentDraft
+                _draftBlocks.value = currentDraft.toList()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -403,14 +412,13 @@ class ProjectViewModel(
 
     fun deleteBlock(block: BlockData) {
         val currentDraft = _draftBlocks.value.filter { it.uuid != block.uuid }
-        _draftBlocks.value = currentDraft
+        _draftBlocks.value = currentDraft.toList()
     }
 
     fun saveDraft(onSaved: () -> Unit = {}) {
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             val draft = _draftBlocks.value
-            val original = _originalBlocks.value
 
             if (projectId.startsWith("template_")) {
                 val templateId = projectId.removePrefix("template_")
@@ -433,25 +441,20 @@ class ProjectViewModel(
                 return@launch
             }
 
-            // 1. Delete blocks removed from the draft
-            val draftIds = draft.map { it.uuid }.toSet()
-            val deletedBlocks = original.filter { it.uuid !in draftIds }
-            for (del in deletedBlocks) {
-                repository.deleteBlock(projectId, del)
-            }
-
-            // 2. Insert or update the current draft blocks with updated sequence
-            draft.forEachIndexed { idx, block ->
-                val updatedBlock = block.copy(sequence = idx)
-                if (updatedBlock.uuid.startsWith("draft_")) {
-                    val newBlock = updatedBlock.copy(uuid = UUID.randomUUID().toString())
-                    repository.insertBlock(projectId, newBlock)
+            // Construir lista final de bloques en memoria con UUIDs permanentes
+            val finalBlocks = draft.mapIndexed { idx, block ->
+                if (block.uuid.startsWith("draft_")) {
+                    block.copy(uuid = UUID.randomUUID().toString(), sequence = idx)
                 } else {
-                    repository.updateBlock(projectId, updatedBlock)
+                    block.copy(sequence = idx)
                 }
             }
 
-            // 3. Reload saved blocks from DB
+            // Una sola escritura atómica que reemplaza todos los bloques
+            // y limpia archivos huérfanos de bloques eliminados
+            repository.saveAllBlocks(projectId, finalBlocks)
+
+            // Recargar desde disco para sincronizar estado
             val freshProject = repository.getProjectById(projectId)
             if (freshProject != null) {
                 _selectedProject.value = freshProject
@@ -467,10 +470,10 @@ class ProjectViewModel(
         _draftBlocks.value = _originalBlocks.value
     }
 
-    fun createVisit(title: String, notes: String, templateType: String = "NONE", date: Long = System.currentTimeMillis()) {
+    fun createVisit(title: String, notes: String, templateType: String = "NONE", date: Long = System.currentTimeMillis(), category: String = "VISIT") {
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
-            repository.createVisit(projectId, title, notes, templateType, date)
+            repository.createVisit(projectId, title, notes, templateType, date, category)
             val freshProject = repository.getProjectById(projectId)
             if (freshProject != null) {
                 _selectedProject.value = freshProject
@@ -485,6 +488,13 @@ class ProjectViewModel(
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             repository.deleteVisit(projectId, visit.uuid)
+            val freshProject = repository.getProjectById(projectId)
+            if (freshProject != null) {
+                _selectedProject.value = freshProject
+                val sorted = freshProject.blocks.sortedBy { it.sequence }
+                _originalBlocks.value = sorted
+                _draftBlocks.value = sorted
+            }
         }
     }
 
@@ -492,6 +502,13 @@ class ProjectViewModel(
         val projectId = _selectedProjectId.value ?: return
         viewModelScope.launch {
             repository.updateVisit(projectId, visit)
+            val freshProject = repository.getProjectById(projectId)
+            if (freshProject != null) {
+                _selectedProject.value = freshProject
+                val sorted = freshProject.blocks.sortedBy { it.sequence }
+                _originalBlocks.value = sorted
+                _draftBlocks.value = sorted
+            }
         }
     }
 

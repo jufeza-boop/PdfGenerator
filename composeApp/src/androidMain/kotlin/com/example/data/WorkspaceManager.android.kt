@@ -89,12 +89,31 @@ class AndroidWorkspaceAccessor(
         }
     }
 
+    /**
+     * Crea o recupera un archivo .bak como respaldo para escrituras seguras.
+     * SAF no soporta rename atómico, así que la estrategia es:
+     * escribir contenido, luego copiar a .bak como respaldo.
+     */
+    private suspend fun writeBackup(relativePath: String, data: ByteArray) {
+        if (!relativePath.endsWith(".json")) return // Solo backup de JSON
+        val bakPath = "$relativePath.bak"
+        val bakDoc = getDoc(bakPath, createParents = true) ?: return
+        try {
+            context.contentResolver.openOutputStream(bakDoc.uri, "wt")?.use {
+                it.write(data)
+            }
+        } catch (_: Exception) { /* Backup fallido no es crítico */ }
+    }
+
     override suspend fun writeText(relativePath: String, content: String) = withContext(Dispatchers.IO) {
         val doc = getDoc(relativePath, createParents = true) ?: return@withContext
+        val bytes = content.toByteArray()
         try {
             context.contentResolver.openOutputStream(doc.uri, "wt")?.use {
-                it.write(content.toByteArray())
+                it.write(bytes)
             }
+            // Escribir backup después de una escritura exitosa
+            writeBackup(relativePath, bytes)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -118,6 +137,8 @@ class AndroidWorkspaceAccessor(
             context.contentResolver.openOutputStream(doc.uri, "wt")?.use {
                 it.write(data)
             }
+            // Escribir backup después de una escritura exitosa
+            writeBackup(relativePath, data)
         } catch (e: Exception) {
             e.printStackTrace()
         }

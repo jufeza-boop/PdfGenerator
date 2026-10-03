@@ -71,6 +71,8 @@ class PdfLayoutEngine(
     private val pageWidth = 595f
     private val pageHeight = 842f
     private val usableWidth = pageWidth - (2 * marginX)
+    // Altura máxima para imágenes: reducida a 220pt para hacerlas más pequeñas
+    private val maxImageHeight = 220f
 
     fun wrapText(text: String, fontSize: Float, isBold: Boolean, maxWidth: Float): List<String> {
         val result = mutableListOf<String>()
@@ -116,7 +118,9 @@ class PdfLayoutEngine(
                 val originalHeight = originalSize.second
                 if (originalWidth > 0) {
                     val scaleRatio = colWidth / originalWidth
-                    originalHeight * scaleRatio + 20f
+                    val scaledHeight = originalHeight * scaleRatio
+                    // Limitar altura para que quepan ~2 fotos por página
+                    minOf(scaledHeight, maxImageHeight) + 20f
                 } else 40f
             }
             BlockType.SIGNATURE.name -> {
@@ -192,9 +196,11 @@ class PdfLayoutEngine(
                 list.addAll(project.blocks.filter { it.visitUuid == null }.sortedBy { it.sequence })
                 project.visits.find { it.uuid == singleVisitId }?.let { visit ->
                     val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                    list.add(BlockData(uuid = "temp_title_${visit.uuid}", type = BlockType.TITLE.name, content = "VISITA: ${visit.title} (${sdf.format(Date(visit.date))})", sequence = -1))
+                    val prefix = if (visit.category == "DOCUMENTATION") "CONTROL/DOC" else "VISITA"
+                    list.add(BlockData(uuid = "temp_title_${visit.uuid}", type = BlockType.TITLE.name, content = "$prefix: ${visit.title} (${sdf.format(Date(visit.date))})", sequence = -1))
                     if (visit.notes.isNotBlank()) {
-                        list.add(BlockData(uuid = "temp_notes_${visit.uuid}", type = BlockType.TEXT.name, content = "Notas de reunión o incidencias:\n" + visit.notes, sequence = -1))
+                        val notesPrefix = if (visit.category == "DOCUMENTATION") "Notas / Observaciones:" else "Notas de reunión o incidencias:"
+                        list.add(BlockData(uuid = "temp_notes_${visit.uuid}", type = BlockType.TEXT.name, content = "$notesPrefix\n" + visit.notes, sequence = -1))
                     }
                     list.addAll(project.blocks.filter { it.visitUuid == singleVisitId }.sortedBy { it.sequence })
                 }
@@ -205,9 +211,11 @@ class PdfLayoutEngine(
                 list.addAll(project.blocks.filter { it.visitUuid == null }.sortedBy { it.sequence })
                 project.visits.sortedBy { it.date }.forEach { v ->
                     val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                    list.add(BlockData(uuid = "temp_title_${v.uuid}", type = BlockType.TITLE.name, content = "VISITA: ${v.title.uppercase(Locale.getDefault())} (${sdf.format(Date(v.date))})", sequence = -1))
+                    val prefix = if (v.category == "DOCUMENTATION") "CONTROL/DOC" else "VISITA"
+                    list.add(BlockData(uuid = "temp_title_${v.uuid}", type = BlockType.TITLE.name, content = "$prefix: ${v.title.uppercase(Locale.getDefault())} (${sdf.format(Date(v.date))})", sequence = -1))
                     if (v.notes.isNotBlank()) {
-                        list.add(BlockData(uuid = "temp_notes_${v.uuid}", type = BlockType.TEXT.name, content = "Notas de reunión o incidencias:\n" + v.notes, sequence = -1))
+                        val notesPrefix = if (v.category == "DOCUMENTATION") "Notas / Observaciones:" else "Notas de reunión o incidencias:"
+                        list.add(BlockData(uuid = "temp_notes_${v.uuid}", type = BlockType.TEXT.name, content = "$notesPrefix\n" + v.notes, sequence = -1))
                     }
                     list.addAll(project.blocks.filter { it.visitUuid == v.uuid }.sortedBy { it.sequence })
                 }
@@ -378,9 +386,18 @@ class PdfLayoutEngine(
                     val originalHeight = size.second
                     if (originalWidth > 0) {
                         val scaleRatio = width / originalWidth
-                        val targetHeight = originalHeight * scaleRatio
-                        currentInstructions.add(DrawInstruction.Image(block.content, x, y, width, targetHeight))
-                        currentInstructions.add(DrawInstruction.Rect(x, y, x + width, y + targetHeight, 0xE5E7EB, isFill = false, strokeWidth = 1f))
+                        val scaledHeight = originalHeight * scaleRatio
+                        // Limitar altura máxima y reescalar ancho proporcionalmente
+                        val targetHeight = minOf(scaledHeight, maxImageHeight)
+                        val targetWidth = if (scaledHeight > maxImageHeight) {
+                            originalWidth * (maxImageHeight / originalHeight)
+                        } else {
+                            width
+                        }
+                        // Centrar horizontalmente si la imagen es más estrecha que la columna
+                        val imageX = x + (width - targetWidth) / 2f
+                        currentInstructions.add(DrawInstruction.Image(block.content, imageX, y, targetWidth, targetHeight))
+                        currentInstructions.add(DrawInstruction.Rect(imageX, y, imageX + targetWidth, y + targetHeight, 0xE5E7EB, isFill = false, strokeWidth = 1f))
                         y += targetHeight + 16f
                     }
                 }

@@ -8,6 +8,9 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.io.File
 import java.io.InputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 enum class PdfExportMode {
@@ -55,8 +58,42 @@ class ProjectRepository(
         }
     }
 
+    /**
+     * Genera un ID de carpeta legible: NombreObra_uuid-corto
+     * Sanitiza el nombre eliminando caracteres no válidos para nombres de carpeta.
+     */
+    private fun generateReadableFolderId(name: String): String {
+        val sanitized = name
+            .replace(Regex("[\\\\/:*?\"<>|]"), "") // Caracteres prohibidos en Windows/Android
+            .replace(Regex("\\s+"), "-")            // Espacios → guiones
+            .trim('-')
+            .take(40)                                // Limitar longitud
+            .ifBlank { "proyecto" }
+        val shortUuid = UUID.randomUUID().toString().take(8)
+        return "${sanitized}_$shortUuid"
+    }
+
+    /**
+     * Genera nombre de archivo de imagen basado en fecha-hora: yyyyMMddHHmmss_seq.jpg
+     */
+    private fun generateImageFileName(): String {
+        val sdf = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault())
+        val timestamp = sdf.format(Date())
+        val seq = (System.nanoTime() % 1000).toString().padStart(3, '0')
+        return "${timestamp}_$seq.jpg"
+    }
+
+    /**
+     * Genera nombre de archivo de firma basado en fecha-hora: sig_yyyyMMddHHmmss.png
+     */
+    private fun generateSignatureFileName(): String {
+        val sdf = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault())
+        val timestamp = sdf.format(Date())
+        return "sig_$timestamp.png"
+    }
+
     suspend fun createProject(name: String, templateType: String = "NONE"): String = withContext(Dispatchers.IO) {
-        val projectId = UUID.randomUUID().toString()
+        val projectId = generateReadableFolderId(name)
         val now = System.currentTimeMillis()
         
         val customTemplate = store.customTemplates.value.find { it.uuid == templateType }
@@ -141,11 +178,12 @@ class ProjectRepository(
         title: String,
         notes: String,
         templateType: String = "NONE",
-        date: Long = System.currentTimeMillis()
+        date: Long = System.currentTimeMillis(),
+        category: String = "VISIT"
     ): String = withContext(Dispatchers.IO) {
         val proj = store.getProject(projectId) ?: return@withContext ""
         val visitId = UUID.randomUUID().toString()
-        val visit = VisitData(uuid = visitId, title = title, notes = notes, date = date)
+        val visit = VisitData(uuid = visitId, title = title, notes = notes, date = date, category = category)
         
         val currentMaxSeq = proj.blocks.maxOfOrNull { it.sequence } ?: -1
         var nextSeq = currentMaxSeq + 1
@@ -225,6 +263,38 @@ class ProjectRepository(
         }
     }
 
+    /**
+     * Reemplaza TODOS los bloques del proyecto en una sola escritura atómica.
+     * Detecta bloques eliminados y limpia sus archivos asociados (imágenes, firmas).
+     * Esto previene pérdida de datos por escrituras parciales concurrentes.
+     */
+    suspend fun saveAllBlocks(projectId: String, newBlocks: List<BlockData>) = withContext(Dispatchers.IO) {
+        store.getProject(projectId)?.let { proj ->
+            // Detectar bloques eliminados para limpiar archivos huérfanos
+            val newBlockIds = newBlocks.map { it.uuid }.toSet()
+            val deletedBlocks = proj.blocks.filter { it.uuid !in newBlockIds }
+            
+            // Verificar si otros bloques siguen referenciando el mismo archivo antes de borrarlo
+            val activeFilePaths = newBlocks
+                .filter { it.type == BlockType.IMAGE.name || it.type == BlockType.SIGNATURE.name }
+                .map { it.content.split("|")[0] }
+                .toSet()
+            
+            for (del in deletedBlocks) {
+                if (del.type == BlockType.IMAGE.name || del.type == BlockType.SIGNATURE.name) {
+                    val relPath = del.content.split("|")[0]
+                    // Solo borrar si ningún otro bloque activo referencia este archivo
+                    if (relPath !in activeFilePaths) {
+                        workspaceManager.getAccessor()?.delete("$projectId/$relPath")
+                    }
+                }
+            }
+            
+            // Escritura atómica: un solo saveProject con todos los bloques actualizados
+            store.saveProject(proj.copy(blocks = newBlocks, updatedAt = System.currentTimeMillis()))
+        }
+    }
+
     suspend fun updateBlock(projectId: String, block: BlockData) = withContext(Dispatchers.IO) {
         store.getProject(projectId)?.let { proj ->
             val updatedBlocks = proj.blocks.map { if (it.uuid == block.uuid) block else it }
@@ -260,25 +330,29 @@ class ProjectRepository(
     }
 
     suspend fun saveImageBlock(projectId: String, visitId: String?, inputStream: InputStream, sequence: Int) = withContext(Dispatchers.IO) {
-        val relPath = "images/img_${UUID.randomUUID()}.jpg"
+        val fileName = generateImageFileName()
+        val relPath = "images/$fileName"
         workspaceManager.getAccessor()?.writeBytes("$projectId/$relPath", inputStream.readBytes())
         insertBlock(projectId, BlockData(UUID.randomUUID().toString(), BlockType.IMAGE.name, relPath, sequence, visitUuid = visitId))
     }
 
     suspend fun copyImageToLocalFile(projectId: String, inputStream: InputStream): String = withContext(Dispatchers.IO) {
-        val relPath = "images/img_${UUID.randomUUID()}.jpg"
+        val fileName = generateImageFileName()
+        val relPath = "images/$fileName"
         workspaceManager.getAccessor()?.writeBytes("$projectId/$relPath", inputStream.readBytes())
         relPath
     }
 
     suspend fun saveSignatureBlock(projectId: String, visitId: String?, signatureBytes: ByteArray, sequence: Int) = withContext(Dispatchers.IO) {
-        val relPath = "signatures/sig_${UUID.randomUUID()}.png"
+        val fileName = generateSignatureFileName()
+        val relPath = "signatures/$fileName"
         workspaceManager.getAccessor()?.writeBytes("$projectId/$relPath", signatureBytes)
         insertBlock(projectId, BlockData(UUID.randomUUID().toString(), BlockType.SIGNATURE.name, relPath, sequence, visitUuid = visitId))
     }
 
     suspend fun saveSignatureToLocalFile(projectId: String, signatureBytes: ByteArray): String = withContext(Dispatchers.IO) {
-        val relPath = "signatures/sig_${UUID.randomUUID()}.png"
+        val fileName = generateSignatureFileName()
+        val relPath = "signatures/$fileName"
         workspaceManager.getAccessor()?.writeBytes("$projectId/$relPath", signatureBytes)
         relPath
     }

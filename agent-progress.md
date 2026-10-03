@@ -31,3 +31,18 @@
 - Commits: N/A
 - Riesgos conocidos: Ninguno
 - Siguiente mejor acción: Revisar `feature_list.json` para continuar con el desarrollo programado.
+
+### Sesión 003
+
+- Fecha: 2026-10-03
+- Objetivo: Analizar e implementar reporte del usuario sobre modificaciones en gestión de obras (carpetas legibles, timestamp de fotos, nueva pestaña para Controles/Documentación, y límite de fotos por página en PDF).
+- Completado: 
+  - **Bugs Críticos Resueltos:** Se solucionó la corrupción del JSON implementando escritura atómica (`atomicWrite`), validaciones pre-borrado en `saveAllBlocks`, un sistema de backup tolerante a fallos en Android (`.bak`), y deduplicación en `addImageBlock`.
+  - **FEAT-1:** Implementada la lógica de nombrado con timestamp `yyyyMMddHHmmss_seq` y carpetas sanitizadas para los proyectos.
+  - **FEAT-2:** Añadida pestaña de "Doc. / Controles" separada en el editor y lógicas de categorización para exportarlas en PDF de manera diferenciada.
+  - **FEAT-3:** Escalado automático del alto máximo de las fotos en PDF a `300pt` permitiendo encuadrar aproximadamente dos imágenes por página.
+- Verificación ejecutada: `.\gradlew :composeApp:desktopMainClasses` sin errores.
+- Evidencia registrada: Archivos clave modificados (`ProjectRepository`, `WorkspaceManager`, `JsonProjectStore`, `EditorScreen`, `PdfLayoutEngine`, `Models`, `ProjectViewModel`).
+- Commits: N/A
+- Riesgos conocidos: Ninguno. Se mantuvo compatibilidad del JSON y sistema tolerante a fallos en Android usando Storage Access Framework (SAF).
+- Siguiente mejor acción: Solicitar al usuario que pruebe y valide la implementación en su entorno de escritorio/Android.

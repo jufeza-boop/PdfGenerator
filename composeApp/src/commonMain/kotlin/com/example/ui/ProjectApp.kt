@@ -233,7 +233,7 @@ fun ProjectApp(
                             onAddTableBlock = { visitId -> viewModel.addTableBlock(visitId) },
                             onAddChecklistBlock = { visitId -> viewModel.addChecklistBlock(visitId) },
                             onAddChecklistTableBlock = { visitId -> viewModel.addChecklistTableBlock(visitId) },
-                            onAddVisit = { title, notes, templateType -> viewModel.createVisit(title, notes, templateType) },
+                            onAddVisit = { title, notes, templateType, category -> viewModel.createVisit(title, notes, templateType, System.currentTimeMillis(), category) },
                             onDeleteVisit = { visit -> viewModel.deleteVisit(visit) },
                             onUpdateVisit = { visit -> viewModel.updateVisit(visit) },
                             onExportSingleVisit = { visitId -> viewModel.exportPdf(exportMode = PdfExportMode.SINGLE_VISIT, singleVisitId = visitId) },

@@ -62,7 +62,8 @@ data class VisitData(
     val uuid: String,
     val title: String,
     val date: Long,
-    val notes: String
+    val notes: String,
+    val category: String = "VISIT" // "VISIT" o "DOCUMENTATION"
 )
 
 @JsonClass(generateAdapter = true)

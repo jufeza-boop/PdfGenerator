@@ -40,10 +40,42 @@ class DesktopWorkspaceAccessor(private val rootDir: File) : WorkspaceAccessor {
         if (file.exists()) file.readText() else null
     }
 
+    /**
+     * Escritura atómica: escribe a archivo .tmp, luego renombra al destino final.
+     * Si el archivo destino ya existe, se guarda una copia .bak antes de sobreescribir.
+     * Esto previene corrupción de datos por escrituras parciales (ej. cierre forzado).
+     */
+    private fun atomicWrite(file: File, writeAction: (File) -> Unit) {
+        file.parentFile?.mkdirs()
+        val tmpFile = File(file.parentFile, "${file.name}.tmp")
+        val bakFile = File(file.parentFile, "${file.name}.bak")
+        try {
+            // 1. Escribir al archivo temporal
+            writeAction(tmpFile)
+            // 2. Si el original existe, moverlo a .bak
+            if (file.exists()) {
+                bakFile.delete() // Borrar backup anterior si existe
+                file.renameTo(bakFile)
+            }
+            // 3. Renombrar .tmp al nombre final
+            if (!tmpFile.renameTo(file)) {
+                // Fallback: si renameTo falla (ej. cross-filesystem), copiar y borrar
+                tmpFile.copyTo(file, overwrite = true)
+                tmpFile.delete()
+            }
+        } catch (e: Exception) {
+            // Si algo falla, intentar restaurar desde backup
+            if (!file.exists() && bakFile.exists()) {
+                bakFile.renameTo(file)
+            }
+            tmpFile.delete()
+            throw e
+        }
+    }
+
     override suspend fun writeText(relativePath: String, content: String) = withContext(Dispatchers.IO) {
         val file = getFile(relativePath)
-        file.parentFile?.mkdirs()
-        file.writeText(content)
+        atomicWrite(file) { tmpFile -> tmpFile.writeText(content) }
     }
 
     override suspend fun delete(relativePath: String) = withContext(Dispatchers.IO) {
@@ -62,8 +94,7 @@ class DesktopWorkspaceAccessor(private val rootDir: File) : WorkspaceAccessor {
 
     override suspend fun writeBytes(relativePath: String, data: ByteArray) = withContext(Dispatchers.IO) {
         val file = getFile(relativePath)
-        file.parentFile?.mkdirs()
-        file.writeBytes(data)
+        atomicWrite(file) { tmpFile -> tmpFile.writeBytes(data) }
     }
 
     override suspend fun readBytes(relativePath: String): ByteArray? = withContext(Dispatchers.IO) {

@@ -168,15 +168,37 @@ class JsonProjectStore(
     suspend fun getProject(uuid: String): ProjectData? = withContext(Dispatchers.IO) {
         val accessor = workspaceManager.getAccessor() ?: return@withContext null
         val dataFile = "$uuid/project_data.json"
+        val bakFile = "$uuid/project_data.json.bak"
+        
+        // Intentar leer archivo principal
         if (accessor.exists(dataFile)) {
             try {
                 accessor.readText(dataFile)?.let { text ->
-                    return@withContext projectAdapter.fromJson(text)
+                    val project = projectAdapter.fromJson(text)
+                    if (project != null) return@withContext project
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                System.err.println("[JsonProjectStore] ERROR: project_data.json corrupto para $uuid: ${e.message}")
             }
         }
+        
+        // Fallback: intentar recuperar desde backup
+        if (accessor.exists(bakFile)) {
+            try {
+                accessor.readText(bakFile)?.let { bakText ->
+                    val project = projectAdapter.fromJson(bakText)
+                    if (project != null) {
+                        System.err.println("[JsonProjectStore] RECUPERADO: proyecto $uuid restaurado desde backup")
+                        // Restaurar el archivo principal desde el backup válido
+                        accessor.writeText(dataFile, bakText)
+                        return@withContext project
+                    }
+                }
+            } catch (e2: Exception) {
+                System.err.println("[JsonProjectStore] ERROR: backup también corrupto para $uuid: ${e2.message}")
+            }
+        }
+        
         return@withContext null
     }
 

@@ -183,8 +183,8 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                                     orientation == android.media.ExifInterface.ORIENTATION_TRANSVERSE
 
                             // 2. Calcular dimensiones
-                            val targetW = (instruction.w * 1.5f).toInt().coerceAtLeast(1)
-                            val targetH = (instruction.h * 1.5f).toInt().coerceAtLeast(1)
+                            val targetW = (instruction.w * 1.2f).toInt().coerceAtLeast(1)
+                            val targetH = (instruction.h * 1.2f).toInt().coerceAtLeast(1)
                             val reqWidth = if (isSwapped) targetH else targetW
                             val reqHeight = if (isSwapped) targetW else targetH
 
@@ -253,6 +253,12 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                                         // 7. Escalar
                                         val scaled = bitmap.scale(targetW, targetH, true)
 
+                                        // Convertir a RGB_565 con fondo blanco para eliminar el canal alfa y reducir peso a la mitad
+                                        val opaqueBitmap = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.RGB_565)
+                                        val c = Canvas(opaqueBitmap)
+                                        c.drawColor(Color.WHITE)
+                                        c.drawBitmap(scaled, 0f, 0f, null)
+
                                         // 8. Dibujar
                                         val destRect = android.graphics.RectF(
                                             instruction.x,
@@ -264,8 +270,9 @@ class AndroidPdfGenerator(private val context: Context) : PdfGenerator {
                                             isFilterBitmap = true
                                             isAntiAlias = true
                                         }
-                                        canvas.drawBitmap(scaled, null, destRect, paint)
+                                        canvas.drawBitmap(opaqueBitmap, null, destRect, paint)
 
+                                        opaqueBitmap.recycle()
                                         if (scaled != bitmap) scaled.recycle()
                                         bitmap.recycle()
                                     }

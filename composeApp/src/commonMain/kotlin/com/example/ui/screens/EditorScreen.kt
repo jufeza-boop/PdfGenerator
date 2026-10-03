@@ -88,7 +88,7 @@ fun ProjectEditorScreen(
     onAddTableBlock: (String?) -> Unit,
     onAddChecklistBlock: (String?) -> Unit,
     onAddChecklistTableBlock: (String?) -> Unit,
-    onAddVisit: (String, String, String) -> Unit,
+    onAddVisit: (String, String, String, String) -> Unit,
     onDeleteVisit: (VisitData) -> Unit,
     onUpdateVisit: (VisitData) -> Unit,
     onExportSingleVisit: (String) -> Unit,
@@ -523,8 +523,14 @@ fun ProjectEditorScreen(
                 Tab(
                     selected = activeTab == 1,
                     onClick = { activeTab = 1 },
-                    text = { Text("Visitas de Obra (${project.visits.size})", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                    text = { Text("Visitas de Obra (${project.visits.count { it.category == "VISIT" }})", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
                     icon = { Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                )
+                Tab(
+                    selected = activeTab == 2,
+                    onClick = { activeTab = 2 },
+                    text = { Text("Doc. / Controles (${project.visits.count { it.category == "DOCUMENTATION" }})", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                    icon = { Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = null, modifier = Modifier.size(18.dp)) }
                 )
             }
 
@@ -1127,7 +1133,13 @@ fun ProjectEditorScreen(
             }
         }
 
-                if (activeTab == 1) {
+                if (activeTab == 1 || activeTab == 2) {
+                    val currentCategory = if (activeTab == 1) "VISIT" else "DOCUMENTATION"
+                    val filteredVisits = project.visits.filter { it.category == currentCategory }
+                    val buttonText = if (activeTab == 1) "Añadir Nueva Visita" else "Añadir Nuevo Control"
+                    val emptyTextTitle = if (activeTab == 1) "Aún no hay visitas registradas" else "Aún no hay controles registrados"
+                    val emptyTextDesc = if (activeTab == 1) "Cada visita guardará sus propios bloques, fotos, firmas e informes." else "Cada control guardará sus propios bloques, fotos y documentación."
+
                     val visitsScrollState = rememberScrollState()
                     Box(modifier = Modifier.fillMaxSize()) {
                         Column(
@@ -1151,10 +1163,10 @@ fun ProjectEditorScreen(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Añadir Nueva Visita")
+                            Text(buttonText)
                         }
 
-                        if (project.visits.isEmpty()) {
+                        if (filteredVisits.isEmpty()) {
                             ElevatedCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1169,20 +1181,20 @@ fun ProjectEditorScreen(
                                     verticalArrangement = Arrangement.Center
                                 ) {
                                     Icon(
-                                        Icons.Default.Event,
+                                        if (activeTab == 1) Icons.Default.Event else Icons.AutoMirrored.Filled.Assignment,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(48.dp)
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Text(
-                                        "Aún no hay visitas registradas",
+                                        emptyTextTitle,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        "Cada visita guardará sus propios bloques, fotos, firmas e informes.",
+                                        emptyTextDesc,
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.outline,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1190,7 +1202,7 @@ fun ProjectEditorScreen(
                                 }
                             }
                         } else {
-                            project.visits.forEach { visit ->
+                            filteredVisits.forEach { visit ->
                                 val visitBlocks = remember(blocks) {
                                     blocks.filter { it.visitUuid == visit.uuid }.sortedBy { it.sequence }
                                 }
@@ -1489,7 +1501,8 @@ fun ProjectEditorScreen(
                         Button(
                             onClick = {
                                 if (visitTitleInput.isNotBlank()) {
-                                    onAddVisit(visitTitleInput.trim(), visitNotesInput.trim(), selectedVisitTemplate)
+                                    val cat = if (activeTab == 1) "VISIT" else "DOCUMENTATION"
+                                    onAddVisit(visitTitleInput.trim(), visitNotesInput.trim(), selectedVisitTemplate, cat)
                                     showCreateVisitDialog = false
                                 }
                             },
